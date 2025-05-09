@@ -1,0 +1,11 @@
+[package]
+name = "test_transpiler"
+version = "0.0.1"
+edition = "2024"
+
+[lib]
+
+[dependencies]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--html-in-header", "./doc_header.html"]
