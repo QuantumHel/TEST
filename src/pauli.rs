@@ -30,7 +30,7 @@ impl PauliMatrix {
 }
 
 /// An collection of [Pauli]s with qubit numbers attached to them.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PauliString {
 	pub letters: BTreeMap<u32, PauliMatrix>,
 }
@@ -51,6 +51,10 @@ impl PauliString {
 
 	pub fn anticommutes_with(&self, other: &Self) -> bool {
 		!self.commutes_with(other)
+	}
+
+	pub fn len(&self) -> usize {
+		self.letters.len()
 	}
 }
 
@@ -84,6 +88,10 @@ pub struct PauliExp {
 }
 
 impl PauliExp {
+	pub fn len(&self) -> usize {
+		self.string.len()
+	}
+
 	/// Pushes $e^{-i\frac{\pi}{4}O}$ trough `self`.
 	///
 	/// More precisely that `self` is converted from $e^{i\theta P}$ to $e^{i\theta H}$ by using the
