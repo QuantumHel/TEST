@@ -27,6 +27,14 @@ impl PauliMatrix {
 	pub fn anticommutes_with(&self, other: &Self) -> bool {
 		self != other
 	}
+
+	pub fn change(self) -> Self {
+		match self {
+			PauliMatrix::X => PauliMatrix::Y,
+			PauliMatrix::Y => PauliMatrix::Z,
+			PauliMatrix::Z => PauliMatrix::X,
+		}
+	}
 }
 
 /// An collection of [Pauli]s with qubit numbers attached to them.
@@ -56,6 +64,10 @@ impl PauliString {
 	pub fn len(&self) -> usize {
 		self.letters.len()
 	}
+
+	pub fn is_empty(&self) -> bool {
+		self.letters.is_empty()
+	}
 }
 
 /// The angle used by [PauliExp].
@@ -80,6 +92,12 @@ impl Neg for PauliAngle {
 	}
 }
 
+impl PauliAngle {
+	pub fn is_clifford(&self) -> bool {
+		!matches!(self, PauliAngle::Free(_))
+	}
+}
+
 /// An Pauli exponential $e^{i\theta P}$ where $\theta$ is a [PauliAngle] and $P$ a [PauliString].
 #[derive(Clone, Debug, PartialEq)]
 pub struct PauliExp {
@@ -90,6 +108,10 @@ pub struct PauliExp {
 impl PauliExp {
 	pub fn len(&self) -> usize {
 		self.string.len()
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.string.is_empty()
 	}
 
 	/// Pushes $e^{-i\frac{\pi}{4}O}$ trough `self`.

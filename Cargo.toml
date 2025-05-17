@@ -7,5 +7,8 @@ edition = "2024"
 
 [dependencies]
 
+[dev-dependencies]
+nanorand = "0.7.0"
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-in-header", "./doc_header.html"]
