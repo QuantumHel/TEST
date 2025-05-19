@@ -149,9 +149,14 @@ pub fn synthesize(
 				push_str
 			}
 		} else {
-			// Else remove as many qubits as possible from the first exponential so that we can
+			// Else remove as many qubits as possible from the shortest exponential so that we can
 			// access some of the cases above. This can take multiple rounds.
-			let exp = exponentials.first().unwrap();
+
+			// Select shortest
+			let exp = exponentials
+				.iter()
+				.reduce(|acc, e| if acc.len() <= e.len() { acc } else { e })
+				.unwrap();
 
 			let mut push_str = PauliString {
 				letters: exp
