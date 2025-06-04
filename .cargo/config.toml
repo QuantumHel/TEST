@@ -1,2 +1,5 @@
 [build]
 rustdocflags = ["--html-in-header", "./doc_header.html"]
+
+[alias]
+docs = "doc --no-deps"

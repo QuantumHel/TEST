@@ -6,6 +6,7 @@ edition = "2024"
 [lib]
 
 [dependencies]
+bitvec = "1.0.1"
 
 [dev-dependencies]
 nanorand = "0.7.0"
