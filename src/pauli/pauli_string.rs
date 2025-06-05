@@ -3,7 +3,7 @@ use bitvec::vec::BitVec;
 use super::PauliLetter;
 
 /// An collection of [PauliLetter]s in qubit order.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct PauliString<const N: usize> {
 	x: BitVec,
 	z: BitVec,
@@ -218,6 +218,19 @@ impl<const N: usize> PauliString<N> {
 
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
+	}
+
+	pub fn as_string(&self) -> String {
+		self.x
+			.iter()
+			.zip(self.z.iter())
+			.map(|(x, z)| match (*x, *z) {
+				(true, false) => 'X',
+				(false, true) => 'Z',
+				(true, true) => 'Y',
+				(false, false) => 'I',
+			})
+			.collect()
 	}
 }
 
