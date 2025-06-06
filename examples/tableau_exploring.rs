@@ -10,11 +10,8 @@ use test_transpiler::{
 };
 
 fn random_string<const N: usize>(rng: &mut WyRand) -> PauliString<N> {
-	let n_letters = rng.generate_range(1_usize..=N);
-	let mut selection: Vec<usize> = (0..N).collect();
-	rng.shuffle(&mut selection);
 	let mut string = PauliString::default();
-	for qubit in selection.into_iter().take(n_letters) {
+	for qubit in 0..N {
 		let pauli = match rng.generate_range(0_usize..3_usize) {
 			0 => PauliLetter::X,
 			1 => PauliLetter::Y,
@@ -28,48 +25,45 @@ fn random_string<const N: usize>(rng: &mut WyRand) -> PauliString<N> {
 
 const QUBITS: usize = 4;
 const N_THREADS: usize = 32;
-const ITERATIONS: usize = 10000000;
 
 fn check(tableau: &CliffordTableau<QUBITS>) -> bool {
-	!(tableau.get_x_row(0).unwrap().0.len() == 1
-		&& tableau.get_z_row(0).unwrap().0.len() == 1
-		&& tableau.get_x_row(1).unwrap().0.len() == 12)
+	!(tableau.get_x_row(0).unwrap().0 == PauliString::x(0)
+		&& tableau.get_z_row(0).unwrap().0 == PauliString::z(0)
+		&& tableau.get_x_row(1).unwrap().0.len() == 2)
 }
 
 fn main() {
+	let mut handles = Vec::new();
 	let lock = Arc::new(Mutex::new(()));
-	let mut threads = Vec::new();
-	for t in 0..N_THREADS {
-		let print_lock = lock.clone();
-		threads.push(thread::spawn(move || {
-			let mut rng = WyRand::new();
-			let mut tableau = CliffordTableau::<QUBITS>::default();
-			println!("Start check for thread {}: {}", t, check(&tableau));
+	for _ in 0..N_THREADS {
+		let lock = lock.clone();
+		handles.push(thread::spawn(move || {
+			loop {
+				let mut rng = WyRand::new();
+				let mut tableau = CliffordTableau::<QUBITS>::default();
 
-			let mut percent = 0;
-			for i in 1..=ITERATIONS {
-				let string = random_string(&mut rng);
-				tableau.merge_pi_over_4_pauli(false, &string);
-				if !check(&tableau) {
-					let lock = print_lock.lock();
-					println!("Check failed on thread {}", t);
-					tableau.info_print(QUBITS);
-					println!();
-					drop(lock);
-					return;
-				}
-
-				let current_percent = i * 100 / ITERATIONS;
-				if current_percent > percent {
-					percent = current_percent;
-					println!("Thread {} is {} percent done", t, percent)
+				let mut strings = Vec::new();
+				for i in 0..4 {
+					let string = random_string(&mut rng);
+					strings.push(string.clone());
+					tableau.merge_pi_over_4_pauli(false, &string);
+					if !check(&tableau) {
+						let lock = lock.lock();
+						println!("Check failed on at round {}", i);
+						for (i, s) in strings.iter().enumerate() {
+							println!("{}: {}", i, s.as_string());
+						}
+						tableau.info_print(QUBITS);
+						println!();
+						drop(lock);
+						return;
+					}
 				}
 			}
 		}));
 	}
 
-	for thread in threads {
-		thread.join().unwrap();
+	for handle in handles.into_iter() {
+		let _ = handle.join();
 	}
-	println!("All {} checks passed", N_THREADS * ITERATIONS);
 }
