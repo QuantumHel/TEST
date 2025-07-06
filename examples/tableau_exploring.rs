@@ -49,7 +49,7 @@ fn main() {
 					tableau.merge_pi_over_4_pauli(false, &string);
 					if !check(&tableau) {
 						let lock = lock.lock();
-						println!("Check failed on at round {}", i);
+						println!("Check failed on at round {i}");
 						for (i, s) in strings.iter().enumerate() {
 							println!("{}: {}", i, s.as_string());
 						}

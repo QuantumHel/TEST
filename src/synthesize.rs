@@ -3,10 +3,10 @@ use crate::{
 	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 };
 
-fn get_all<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAngle>(
-	exponentials: &mut Vec<PauliExp<N, A>>,
+fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAngle>(
+	exponentials: &[PauliExp<N, A>],
 	f: F,
-) -> Vec<PauliExp<N, A>> {
+) -> Vec<usize> {
 	let mut indexes: Vec<usize> = Vec::new();
 
 	let mut i: usize = 0;
@@ -18,38 +18,49 @@ fn get_all<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAngle>(
 		}
 	}
 
-	let mut res = Vec::new();
-	for i in indexes {
-		res.push(exponentials.remove(i));
-	}
-
-	res
+	indexes
 }
+
+#[cfg(not(feature = "return_ordered"))]
+type SynthesizeResult<const N: usize> = (
+	Vec<PauliExp<N, FreePauliAngle>>,
+	Vec<PauliExp<N, CliffordPauliAngle>>,
+);
+
+#[cfg(feature = "return_ordered")]
+type SynthesizeResult<const N: usize> = (
+	Vec<PauliExp<N, FreePauliAngle>>,
+	Vec<PauliExp<N, CliffordPauliAngle>>,
+	Vec<PauliExp<N, FreePauliAngle>>,
+);
 
 pub fn synthesize<const N: usize>(
 	mut exponentials: Vec<PauliExp<N, FreePauliAngle>>,
 	gate_size: NonZeroEvenUsize,
-) -> (
-	Vec<PauliExp<N, FreePauliAngle>>,
-	Vec<PauliExp<N, CliffordPauliAngle>>,
-) {
-	// TODO: merge equal pauli strings
+) -> SynthesizeResult<N> {
+	#[cfg(feature = "return_ordered")]
+	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
+	#[cfg(feature = "return_ordered")]
+	let mut ordered: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+
 	let n = gate_size.as_value();
 	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 	let mut clifford_tableau: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 
 	// move single (an no) qubit gates to circuit
-	let single_qubit = get_all(&mut exponentials, |p| p.len() <= 1);
-	for gate in single_qubit.into_iter() {
-		assert!(gate.len() == 1);
-		circuit.push(gate);
+	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
+	for i in remove_indexes.into_iter() {
+		assert!(exponentials.get(i).unwrap().len() == 1);
+		circuit.push(exponentials.remove(i));
+		#[cfg(feature = "return_ordered")]
+		ordered.push(clone.remove(i));
 	}
 
 	// This is the main synthesize loop.
 	// - Select an exponential to pus.
 	// - push trough exponentials
 	// - add corresponding exponentials to circuit and clifford_tableau
-	// - mode single qubit exponentials to the circuit.
+	// - move single qubit exponentials to the circuit.
 	while !exponentials.is_empty() {
 		// Select the pauli string to push
 		let push_str = if let Some(exp) = exponentials.iter().find(|p| p.len() == n) {
@@ -65,7 +76,7 @@ pub fn synthesize<const N: usize>(
 		{
 			// Turn uneven long exponential that is shorter than 2n into a n long one;
 			if exp.len() < n {
-				// Add some if not enough
+				// We need to make the exponential longer
 				let mut push_str = exp.string.clone();
 				// Because uneven this makes sure that we anticommute and that all letter places
 				// stay.
@@ -74,7 +85,7 @@ pub fn synthesize<const N: usize>(
 				}
 
 				// These will be added on push
-				for i in 0..(n) {
+				for i in 0..n {
 					if push_str.get(i) == PauliLetter::I {
 						push_str.set(i, PauliLetter::X);
 						if push_str.len() == n {
@@ -107,15 +118,20 @@ pub fn synthesize<const N: usize>(
 			// This makes the selected exp compatible with the case above. This means that we need
 			// two steps to get this exp into a single qubit exp.
 			if exp.len() < n {
-				// By adding n-1 qubit letters to the exp we can make it compatible with if let
-				// above the if let that we took.
+				// Because we can add at maximum n-1 letters, we can select any commuting string to be able to select the earlier
+				// option next round.
+
+				// We have one difference in order to anticommute
+				let mut letters = exp.string.letters();
+				letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
 
 				let mut push_str = PauliString::<N>::id();
-				let (i, l) = exp.string.letters().into_iter().next().unwrap();
-				push_str.set(i, l);
+				for (i, l) in letters {
+					push_str.set(i, l);
+				}
 
-				// These will be added on push
-				for i in 0..(2 * n) {
+				// Fill letters to he a n long string
+				for i in 0..n {
 					if push_str.get(i) == PauliLetter::I {
 						push_str.set(i, PauliLetter::X);
 						if push_str.len() == n {
@@ -130,8 +146,7 @@ pub fn synthesize<const N: usize>(
 				// above the if let that we took.
 				let mut letters: Vec<(usize, PauliLetter)> =
 					exp.string.letters().into_iter().take(n).collect();
-				let difference = letters.pop().unwrap();
-				letters.push((difference.0, difference.1.next()));
+				letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
 
 				let mut string = PauliString::<N>::id();
 				for (i, l) in letters {
@@ -140,6 +155,7 @@ pub fn synthesize<const N: usize>(
 				string
 			}
 		} else {
+			// TODO: make a better choice?
 			// Else remove as many qubits as possible from the shortest exponential so that we can
 			// access some of the cases above. This can take multiple rounds.
 
@@ -151,8 +167,7 @@ pub fn synthesize<const N: usize>(
 
 			let mut letters: Vec<(usize, PauliLetter)> =
 				exp.string.letters().into_iter().take(n).collect();
-			let difference = letters.pop().unwrap();
-			letters.push((difference.0, difference.1.next()));
+			letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
 
 			let mut string = PauliString::<N>::id();
 			for (i, l) in letters {
@@ -164,7 +179,7 @@ pub fn synthesize<const N: usize>(
 		assert!(push_str.len() == n);
 
 		for exp in exponentials.iter_mut() {
-			exp.push_pi_over_4(true, &push_str);
+			exp.push_pi_over_4(false, &push_str);
 		}
 		circuit.push(PauliExp {
 			string: push_str.clone(),
@@ -175,13 +190,22 @@ pub fn synthesize<const N: usize>(
 			angle: CliffordPauliAngle::NeqPiOver4,
 		});
 		// move all created single qubit gates to circuit
-		let single_qubit = get_all(&mut exponentials, |p| p.len() == 1);
-		for gate in single_qubit.into_iter() {
-			assert!(gate.len() == 1);
-			circuit.push(gate);
+		let single_qubit_indexes = get_remove_indexes(&exponentials, |p| p.len() == 1);
+		for i in single_qubit_indexes.into_iter() {
+			assert!(exponentials.get(i).unwrap().len() == 1);
+			circuit.push(exponentials.remove(i));
+			#[cfg(feature = "return_ordered")]
+			ordered.push(clone.remove(i));
 		}
 	}
 
+	#[cfg(feature = "return_ordered")]
+	assert!(clone.is_empty());
+
+	#[cfg(feature = "return_ordered")]
+	return (circuit, clifford_tableau, ordered);
+
+	#[cfg(not(feature = "return_ordered"))]
 	(circuit, clifford_tableau)
 }
 
@@ -206,18 +230,22 @@ mod tests {
 
 		PauliExp {
 			string,
-			angle: FreePauliAngle::Free(rng.generate()),
+			angle: FreePauliAngle::MultipleOfPi(rng.generate()),
 		}
 	}
 
 	#[test]
 	fn synthesize_result_has_suitable_operators() {
-		for _ in 0..1 {
+		for _ in 0..10 {
 			let mut rng = WyRand::new();
 			let input: Vec<PauliExp<30, FreePauliAngle>> =
 				(0..30).map(move |_| random_exp::<30>(&mut rng)).collect();
 
+			#[cfg(not(feature = "return_ordered"))]
 			let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(4).unwrap());
+
+			#[cfg(feature = "return_ordered")]
+			let (circuit, clifford, _) = synthesize(input, NonZeroEvenUsize::new(4).unwrap());
 
 			for exp in circuit {
 				assert!(exp.len() == 1 || exp.len() == 4);

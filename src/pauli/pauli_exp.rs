@@ -1,6 +1,12 @@
+use std::{
+	fs::{File, exists},
+	io::Write,
+};
+
 use super::{PauliAngle, PauliString};
 
 /// An Pauli exponential $e^{i\theta P}$ where $\theta$ is a [PauliAngle] and $P$ a [PauliString].
+#[derive(Debug, Clone)]
 pub struct PauliExp<const N: usize, T: PauliAngle> {
 	pub string: PauliString<N>,
 	pub angle: T,
@@ -51,6 +57,19 @@ impl<const N: usize, T: PauliAngle> PauliExp<N, T> {
 	}
 }
 
+pub fn as_exp_file<const N: usize, T: PauliAngle>(path: &str, paulis: &Vec<PauliExp<N, T>>) {
+	if exists(path).unwrap() {
+		panic!("Tried to overwrite a file");
+	}
+
+	let mut file = File::create(path).unwrap();
+	for pauli in paulis {
+		let angle = pauli.angle.multiple_of_pi();
+		let string = pauli.string.as_string();
+		writeln!(&mut file, "{angle};{string}").unwrap();
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::super::{FreePauliAngle, PauliLetter};
@@ -61,7 +80,7 @@ mod tests {
 		let mut letters = PauliString::<2>::z(0);
 		letters.set(1, PauliLetter::Z);
 		let mut zz = PauliExp {
-			angle: FreePauliAngle::Free(-2.0),
+			angle: FreePauliAngle::MultipleOfPi(-2.0),
 			string: letters,
 		};
 
@@ -73,7 +92,7 @@ mod tests {
 		let mut zz_string = PauliString::z(0);
 		zz_string.set(1, PauliLetter::Z);
 
-		assert_eq!(FreePauliAngle::Free(2.0), zz.angle);
+		assert_eq!(FreePauliAngle::MultipleOfPi(2.0), zz.angle);
 		assert_eq!(zz_string, zz.string);
 	}
 }

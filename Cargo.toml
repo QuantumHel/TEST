@@ -9,7 +9,16 @@ edition = "2024"
 bitvec = "1.0.1"
 
 [dev-dependencies]
-nanorand = "0.7.0"
+nanorand = "0.8.0"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-in-header", "./doc_header.html"]
+
+[features]
+default = []
+# Synthesize returns the original exponentials in the order selected during synthesize
+return_ordered = []
+
+[[example]]
+name = "correctness_test"
+required-features = ["return_ordered"]
