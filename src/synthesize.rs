@@ -21,6 +21,25 @@ fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAn
 	indexes
 }
 
+/// Gives the smallest value k for witch the length of exp is smaller or equal to n + k(n-1) where k
+/// is even if len exp is, and uneven if len exp is
+fn get_path_len<const N: usize, A: PauliAngle>(exp: &PauliExp<N, A>, n: usize) -> usize {
+	let len = exp.len();
+	if len < n {
+		return if len % 2 == 0 { 0 } else { 1 };
+	}
+
+	let len_over = (len - n) as f64;
+	let mut k = (len_over / (n - 1) as f64).ceil() as usize;
+
+	// Make sure that k is even if and onfly if len is
+	if k % 2 != len % 2 {
+		k += 1
+	}
+
+	k
+}
+
 #[cfg(not(feature = "return_ordered"))]
 type SynthesizeResult<const N: usize> = (
 	Vec<PauliExp<N, FreePauliAngle>>,
@@ -155,14 +174,19 @@ pub fn synthesize<const N: usize>(
 				string
 			}
 		} else {
-			// TODO: make a better choice?
-			// Else remove as many qubits as possible from the shortest exponential so that we can
-			// access some of the cases above. This can take multiple rounds.
+			// Else remove as many qubits as possible from the exponential that
+			// can be converted to a n one in least amount of steps.
 
-			// Select shortest
+			// Select shortest path one
 			let exp = exponentials
 				.iter()
-				.reduce(|acc, e| if acc.len() <= e.len() { acc } else { e })
+				.reduce(|acc, e| {
+					if get_path_len(acc, n) <= get_path_len(e, n) {
+						acc
+					} else {
+						e
+					}
+				})
 				.unwrap();
 
 			let mut letters: Vec<(usize, PauliLetter)> =

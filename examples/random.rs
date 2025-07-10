@@ -25,12 +25,13 @@ fn random_exp<const N: usize>(rng: &mut WyRand) -> PauliExp<N, FreePauliAngle> {
 	}
 }
 
-const N_EXPS: usize = 30;
-const N_QUBITS: usize = 4;
-const GATE_SIZE: usize = 4;
+const N_EXPS: usize = 175;
+const N_QUBITS: usize = 7;
+const GATE_SIZE: usize = 2;
 const N_ROUNDS: usize = 100;
 
 fn main() {
+	let mut summ = 0;
 	for i in 0..N_ROUNDS {
 		let mut rng = WyRand::new();
 		let input: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = (0..N_EXPS)
@@ -64,6 +65,10 @@ fn main() {
 		println!(
 			"Output circuit has {n_qubit_gates}x {GATE_SIZE}-qubit gates and {n_clifford} cliffords"
 		);
+
+		summ += n_qubit_gates + n_clifford;
 		println!();
 	}
+
+	print!("Average: {}", summ as f64 / N_ROUNDS as f64);
 }
