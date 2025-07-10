@@ -3,16 +3,16 @@ use std::{
 	thread,
 };
 
-use nanorand::{Rng, WyRand};
+use rand::{Rng, seq::IteratorRandom};
 use test_transpiler::{
 	clifford_tableau::CliffordTableau,
 	pauli::{PauliLetter, PauliString},
 };
 
-fn random_string<const N: usize>(rng: &mut WyRand) -> PauliString<N> {
+fn random_string<const N: usize, R: Rng>(rng: &mut R) -> PauliString<N> {
 	let mut string = PauliString::default();
 	for qubit in 0..N {
-		let pauli = match rng.generate_range(0_usize..3_usize) {
+		let pauli = match (0_usize..3_usize).choose(rng).unwrap() {
 			0 => PauliLetter::X,
 			1 => PauliLetter::Y,
 			_ => PauliLetter::Z,
@@ -39,7 +39,7 @@ fn main() {
 		let lock = lock.clone();
 		handles.push(thread::spawn(move || {
 			loop {
-				let mut rng = WyRand::new();
+				let mut rng = rand::rng();
 				let mut tableau = CliffordTableau::<QUBITS>::default();
 
 				let mut strings = Vec::new();

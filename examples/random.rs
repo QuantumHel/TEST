@@ -1,17 +1,19 @@
-use nanorand::{Rng, WyRand};
+use bitvec::vec::BitVec;
+use rand::prelude::*;
+use rand_chacha::ChaCha8Rng;
 use test_transpiler::{
 	misc::NonZeroEvenUsize,
-	pauli::{FreePauliAngle, PauliExp, PauliLetter, PauliString},
+	pauli::{FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 	synthesize::synthesize,
 };
 
-fn random_exp<const N: usize>(rng: &mut WyRand) -> PauliExp<N, FreePauliAngle> {
-	let n_letters = rng.generate_range(1_usize..=N);
+fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle> {
+	let n_letters = (1_usize..=N).choose(rng);
 	let mut selection: Vec<usize> = (0..N).collect();
-	rng.shuffle(&mut selection);
+	selection.shuffle(rng);
 	let mut string = PauliString::default();
-	for qubit in selection.into_iter().take(n_letters) {
-		let pauli = match rng.generate_range(0_usize..3_usize) {
+	for qubit in selection.into_iter().take(n_letters.unwrap()) {
+		let pauli = match (0_usize..3_usize).choose(rng).unwrap() {
 			0 => PauliLetter::X,
 			1 => PauliLetter::Y,
 			_ => PauliLetter::Z,
@@ -21,22 +23,66 @@ fn random_exp<const N: usize>(rng: &mut WyRand) -> PauliExp<N, FreePauliAngle> {
 
 	PauliExp {
 		string,
-		angle: FreePauliAngle::MultipleOfPi(rng.generate()),
+		angle: FreePauliAngle::MultipleOfPi(rng.random()),
 	}
 }
 
-const N_EXPS: usize = 175;
-const N_QUBITS: usize = 7;
+/// How many "layers" we need
+fn gate_dept<const N: usize, P: PauliAngle>(circuit: &[PauliExp<N, P>]) -> usize {
+	let mut layers: Vec<BitVec> = Vec::new();
+
+	for exp in circuit.iter() {
+		if exp.len() < 2 {
+			continue;
+		}
+
+		let mut stop: Option<usize> = None;
+		'layer: for (i, layer) in layers.iter().enumerate().rev() {
+			for (qubit, _) in exp.string.letters() {
+				if layer[qubit] {
+					stop = Some(i);
+					break 'layer;
+				}
+			}
+		}
+
+		let layer: usize = match stop {
+			Some(i) => {
+				if (i + 1) == layers.len() {
+					layers.push(BitVec::repeat(false, N));
+				}
+				i + 1
+			}
+			None => {
+				if layers.is_empty() {
+					layers.push(BitVec::repeat(false, N));
+				}
+				0
+			}
+		};
+
+		for (qubit, _) in exp.string.letters() {
+			layers[layer].set(qubit, true);
+		}
+	}
+
+	layers.len()
+}
+
+const N_EXPS: usize = 5;
+const N_QUBITS: usize = 5;
 const GATE_SIZE: usize = 2;
-const N_ROUNDS: usize = 100;
+const N_ROUNDS: usize = 4;
 
 fn main() {
+	let mut rng = ChaCha8Rng::seed_from_u64(1);
+
 	let mut summ = 0;
 	for i in 0..N_ROUNDS {
-		let mut rng = WyRand::new();
-		let input: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = (0..N_EXPS)
-			.map(move |_| random_exp::<N_QUBITS>(&mut rng))
-			.collect();
+		let mut input: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = Vec::new();
+		for _ in 0..N_EXPS {
+			input.push(random_exp::<N_QUBITS, _>(&mut rng));
+		}
 
 		#[cfg(not(feature = "return_ordered"))]
 		let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(GATE_SIZE).unwrap());
@@ -65,6 +111,7 @@ fn main() {
 		println!(
 			"Output circuit has {n_qubit_gates}x {GATE_SIZE}-qubit gates and {n_clifford} cliffords"
 		);
+		println!("circuit depth {}", gate_dept(&circuit));
 
 		summ += n_qubit_gates + n_clifford;
 		println!();
