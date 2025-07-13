@@ -69,53 +69,71 @@ fn gate_dept<const N: usize, P: PauliAngle>(circuit: &[PauliExp<N, P>]) -> usize
 	layers.len()
 }
 
-const N_EXPS: usize = 5;
-const N_QUBITS: usize = 5;
-const GATE_SIZE: usize = 2;
-const N_ROUNDS: usize = 4;
+const N_EXPS: usize = 100;
+const N_QUBITS: usize = 20;
+const GATE_SIZE: usize = 12;
+const N_ROUNDS: usize = 100;
 
 fn main() {
-	let mut rng = ChaCha8Rng::seed_from_u64(1);
+	let mut rng = ChaCha8Rng::seed_from_u64(2);
 
-	let mut summ = 0;
+	let mut count_sum = 0;
+	let mut depth_sum = 0;
+
+	println!("N_EXPS: {N_EXPS}");
+	println!("N_QUBITS: {N_QUBITS}");
+	println!("GATE_SIZE: {GATE_SIZE}");
+	println!("N_ROUNDS: {N_ROUNDS}");
+
 	for i in 0..N_ROUNDS {
-		let mut input: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = Vec::new();
+		let mut original_exponentials: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = Vec::new();
 		for _ in 0..N_EXPS {
-			input.push(random_exp::<N_QUBITS, _>(&mut rng));
+			original_exponentials.push(random_exp::<N_QUBITS, _>(&mut rng));
 		}
 
 		#[cfg(not(feature = "return_ordered"))]
-		let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(GATE_SIZE).unwrap());
+		let (mut circuit, clifford) = synthesize(
+			original_exponentials,
+			NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
+		);
 
 		#[cfg(feature = "return_ordered")]
-		let (circuit, clifford, _) = synthesize(input, NonZeroEvenUsize::new(GATE_SIZE).unwrap());
+		let (mut circuit, clifford, _) = synthesize(
+			original_exponentials,
+			NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
+		);
+
+		// Currently we only return Cliffords in the wrong order, because we want to handle them using
+		// a clifford tableau later.
+		let mut clifford: Vec<PauliExp<{ N_QUBITS }, FreePauliAngle>> = clifford
+			.into_iter()
+			.map(|p| PauliExp {
+				string: p.string,
+				angle: FreePauliAngle::Clifford(p.angle),
+			})
+			.rev()
+			.collect();
+
+		circuit.append(&mut clifford);
 
 		for exp in circuit.iter() {
 			assert!(exp.len() == 1 || exp.len() == GATE_SIZE);
 		}
 
-		for exp in clifford.iter() {
-			assert!(exp.len() == 1 || exp.len() == GATE_SIZE);
-		}
-
-		println!("Round: {}", i + 1);
-		println!("N qubits: {N_QUBITS}");
-		println!("N start exponentials: {N_EXPS}");
-		let n_qubit_gates = circuit
+		let gate_count = circuit
 			.iter()
 			.filter(|p| p.len() > 1)
 			.collect::<Vec<_>>()
 			.len();
 
-		let n_clifford = clifford.len();
-		println!(
-			"Output circuit has {n_qubit_gates}x {GATE_SIZE}-qubit gates and {n_clifford} cliffords"
-		);
-		println!("circuit depth {}", gate_dept(&circuit));
+		let gate_depth = gate_dept(&circuit);
+		count_sum += gate_count;
+		depth_sum += gate_depth;
 
-		summ += n_qubit_gates + n_clifford;
-		println!();
+		println!("Round: {i}, gate count: {gate_count}, gate_depth: {gate_depth}");
 	}
 
-	print!("Average: {}", summ as f64 / N_ROUNDS as f64);
+	println!();
+	println!("Average count: {}", count_sum as f64 / N_ROUNDS as f64);
+	println!("Average depth: {}", depth_sum as f64 / N_ROUNDS as f64);
 }
