@@ -24,12 +24,17 @@ fn random_string<const N: usize, R: Rng>(rng: &mut R) -> PauliString<N> {
 }
 
 const QUBITS: usize = 4;
-const N_THREADS: usize = 32;
+const N_OUTER_STRINGS: usize = 2;
+const N_INNER_STRINGS: usize = 2;
+
+const N_THREADS: usize = 8;
 
 fn check(tableau: &CliffordTableau<QUBITS>) -> bool {
 	!(tableau.get_x_row(0).unwrap().0 == PauliString::x(0)
 		&& tableau.get_z_row(0).unwrap().0 == PauliString::z(0)
-		&& tableau.get_x_row(1).unwrap().0.len() == 2)
+		&& tableau.get_x_row(1).unwrap().0 == PauliString::x(1)
+		&& tableau.get_z_row(1).unwrap().0.get(1) == PauliLetter::I
+		&& tableau.get_z_row(1).unwrap().0.len() == 2)
 }
 
 fn main() {
@@ -43,10 +48,16 @@ fn main() {
 				let mut tableau = CliffordTableau::<QUBITS>::default();
 
 				let mut strings = Vec::new();
-				for i in 0..4 {
-					let string = random_string(&mut rng);
-					strings.push(string.clone());
-					tableau.merge_pi_over_4_pauli(false, &string);
+				for _ in 0..(N_OUTER_STRINGS + N_INNER_STRINGS) {
+					strings.push(random_string(&mut rng));
+				}
+
+				for i in (0..N_OUTER_STRINGS).rev() {
+					strings.push(strings[i].clone());
+				}
+
+				for (i, string) in strings.iter().enumerate() {
+					tableau.merge_pi_over_4_pauli(false, string);
 					if !check(&tableau) {
 						let lock = lock.lock();
 						println!("Check failed on at round {i}");

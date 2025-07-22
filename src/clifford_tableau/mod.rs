@@ -2,6 +2,7 @@ use bitvec::vec::BitVec;
 
 use crate::pauli::PauliString;
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct CliffordTableau<const N: usize> {
 	x: Vec<PauliString<N>>,
 	z: Vec<PauliString<N>>,
