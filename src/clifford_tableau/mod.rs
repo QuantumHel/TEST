@@ -1,3 +1,5 @@
+mod decompose;
+
 use bitvec::vec::BitVec;
 
 use crate::pauli::PauliString;

@@ -9,6 +9,9 @@ Due to issues with `cargo doc` use `cargo docs` instead.
 - Nice way of handling clifford angles
 ## Synthesize
 - Merge pauli exps with same strings (should only changes 1-qubit gate count).
+- Current code is written while testing things. The code eats performance for fun.
+## Clifford Tableau
+- Add solver for last qubits
 
 # .exp format
 Used to transfer exponentials between libraries. Every line depicts one exponential as

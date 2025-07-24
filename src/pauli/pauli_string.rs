@@ -1,5 +1,7 @@
 use bitvec::vec::BitVec;
 
+use crate::misc::NonZeroEvenUsize;
+
 use super::PauliLetter;
 
 /// An collection of [PauliLetter]s in qubit order.
@@ -232,6 +234,34 @@ impl<const N: usize> PauliString<N> {
 			})
 			.collect()
 	}
+
+	/// Gives the amount of steps needed to convert the self to lenght 1 by
+	/// using gates of a specific size.
+	///
+	/// When len is at least that of the gate size, the return value is k + 1,
+	/// where k is the smallest value for witch the length of exp is smaller or
+	/// equal to n + k(n-1) where k is even if len exp is, and uneven if len exp
+	/// is uneven
+	pub fn steps_to_len_one(&self, gate_size: NonZeroEvenUsize) -> usize {
+		let len = self.len();
+		let n = gate_size.as_value();
+		if len == 1 {
+			return 0;
+		}
+		if len < n {
+			return if len % 2 == 0 { 3 } else { 2 };
+		}
+
+		let len_over = (len - n) as f64;
+		let mut k = (len_over / (n - 1) as f64).ceil() as usize;
+
+		// Make sure that k is even if and onfly if len is
+		if k % 2 != len % 2 {
+			k += 1
+		}
+
+		k + 1
+	}
 }
 
 #[macro_export]
@@ -360,5 +390,15 @@ mod tests {
 		res.set(4, PauliLetter::Z);
 		res.set(5, PauliLetter::Y);
 		assert_eq!(p, res);
+	}
+
+	#[test]
+	fn correct_steps_to_single_qubit() {
+		let n = NonZeroEvenUsize::new(4).unwrap();
+		assert_eq!(pauli_string!("X").steps_to_len_one(n), 0);
+		assert_eq!(pauli_string!("XXXX").steps_to_len_one(n), 1);
+		assert_eq!(pauli_string!("XXX").steps_to_len_one(n), 2);
+		assert_eq!(pauli_string!("XX").steps_to_len_one(n), 3);
+		assert_eq!(pauli_string!("XXXXX").steps_to_len_one(n), 2);
 	}
 }
