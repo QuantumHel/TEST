@@ -13,6 +13,65 @@ enum QubitProtection {
 	None,
 }
 
+enum XZLetter {
+	X,
+	Z,
+}
+
+/// Does not edit rows for solved qubits, but is expensive
+fn delicate_solver<const N: usize>(
+	string: &PauliString<N>,
+	target_qubit: usize,
+	target_letter: XZLetter,
+) -> Vec<PauliString<N>> {
+	let mut pushing: Vec<PauliString<N>> = Vec::new();
+	// TODO: Handle if correct qubit with len 1(maybe wrong letter)
+	// and return
+
+	// use single qubit gate to make sure that target qubit does not have target letter
+
+	// Add outer ones to start
+	if string.len() % 2 == 0 {
+		// All uninvolved qubits have X in first string and Z on second.
+		// The non target qubits always have their letter in the string
+		// Target qubit has target letter
+
+		// middle string
+		// All non involved qubits have Y
+		// All non target involved qubits have original letter
+		// Target qubit has the one that is not target and not the one in string
+	} else {
+		// outer (1)
+		// All non involved qubits have Y
+		// All non target involved qubits get involved.next
+		// target qubit gets target letter
+
+		// inner (1)
+		// All non involved qubits get Y
+		// All non target involved qubits get the one that is not involved and not involved.next
+		// target qubit gets the one in string
+	}
+
+	// Not sure if here or after middle row
+	if string.get(target_qubit) == PauliLetter::I {
+		// This does not protect on target_qubit. On the other hand this is unreachable if we need
+		// to protect it.
+
+		todo!()
+	}
+
+	// add row
+	// All non involved qubits have Y
+
+	// Add the outer ones to end
+	if string.len() % 2 == 0 {
+		pushing.push(pushing[1].clone());
+	}
+	pushing.push(pushing[0].clone());
+
+	pushing
+}
+
 /// Assumes that there are at least gate size many dirty qubits
 fn simple_solver<const N: usize>(
 	string: &PauliString<N>,
@@ -51,7 +110,7 @@ fn simple_solver<const N: usize>(
 		let mut new_string: PauliString<N> = PauliString::id();
 		new_string.set(end_qubit, target_letter.next());
 
-		let mut n_remove = string.len() + 1 - n;
+		let mut n_remove = (string.len() + 1).saturating_sub(n);
 		if n_remove % 2 == 1 {
 			n_remove += 1;
 		}

@@ -1,8 +1,3 @@
-use std::{
-	sync::{Arc, Mutex},
-	thread,
-};
-
 use rand::{Rng, seq::IteratorRandom};
 use test_transpiler::{
 	clifford_tableau::CliffordTableau,
