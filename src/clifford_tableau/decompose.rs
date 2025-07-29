@@ -28,45 +28,53 @@ fn delicate_solver<const N: usize>(
 	// TODO: Handle if correct qubit with len 1(maybe wrong letter)
 	// and return
 
-	// use single qubit gate to make sure that target qubit does not have target letter
+	// if the target qubit is non identity
+	{
+		// use single qubit gate to make sure that target qubit does not have target letter
 
-	// Add outer ones to start
-	if string.len() % 2 == 0 {
-		// All uninvolved qubits have X in first string and Z on second.
-		// The non target qubits always have their letter in the string
-		// Target qubit has target letter
+		if string.len() % 2 == 0 {
+			// All uninvolved qubits have X in first string and Z on second.
+			// The non target qubits always have their letter in the string
+			// Target qubit has target letter
 
-		// middle string
-		// All non involved qubits have Y
-		// All non target involved qubits have original letter
-		// Target qubit has the one that is not target and not the one in string
-	} else {
-		// outer (1)
-		// All non involved qubits have Y
-		// All non target involved qubits get involved.next
-		// target qubit gets target letter
+			// middle string
+			// All non involved qubits have Y
+			// All non target involved qubits have original letter
+			// Target qubit has the one that is not target and not the one in string
+		} else {
+			// outer (1)
+			// All non involved qubits have Y
+			// All non target involved qubits get involved.next
+			// target qubit gets target letter
 
-		// inner (1)
-		// All non involved qubits get Y
-		// All non target involved qubits get the one that is not involved and not involved.next
-		// target qubit gets the one in string
+			// inner (1)
+			// All non involved qubits get Y
+			// All non target involved qubits get the one that is not involved and not involved.next
+			// target qubit gets the one in string
+		}
+	}
+	// else (if target qubit not free) also can not protext target here
+	{
+		// assert that no protection
+
+		if string.len() % 2 == 0 {
+			// 2 outer 2 inner
+			// outer 1: uninvolved Y, target: target, first_inv: inv.next() = A, other: next
+			// outer 2: uninvolved X, target: other, first_inv: A.next(), other: next next
+
+			// inner 1: uninvolved: Z, target: target, first_inv: involved, other: nextnext
+			// inner 2: uninvolved: Y, target: other, first_inv: nextnext, other: involved
+		} else {
+			// 2 outer, 2 inner
+
+			// outer 1: uninvolved X, target: Y, all other involved take involved.next() = A
+			// outer 2: uninvolved Z, target: Y, other involved: A.next()
+
+			// inner 1: uninvolved Y, taget: opposite of target letter (X->Z, Z-> X), other same as outer 2
+			// inner 2: non target involved = outer1, all other (target+uninvolved) Y
+		}
 	}
 
-	// Not sure if here or after middle row
-	if string.get(target_qubit) == PauliLetter::I {
-		// This does not protect on target_qubit. On the other hand this is unreachable if we need
-		// to protect it.
-
-		todo!()
-	}
-
-	// add row
-	// All non involved qubits have Y
-
-	// Add the outer ones to end
-	if string.len() % 2 == 0 {
-		pushing.push(pushing[1].clone());
-	}
 	pushing.push(pushing[0].clone());
 
 	pushing
