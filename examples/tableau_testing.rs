@@ -19,22 +19,25 @@ fn random_string<const N: usize, R: Rng>(rng: &mut R) -> PauliString<N> {
 	string
 }
 
-const QUBITS: usize = 6;
-const GATE_SIZE: usize = 4;
+const QUBITS: usize = 10;
+const GATE_SIZE: usize = 6;
 const N_STRIGNS: usize = 100;
+const N_RUNS: usize = 1; // Used for bughunting. Normal use has value 1
 
 fn main() {
-	let mut tableau: CliffordTableau<QUBITS> = CliffordTableau::id();
-	let mut rng = rand::rng();
-	for _ in 0..N_STRIGNS {
-		tableau.merge_pi_over_4_pauli(false, &random_string(&mut rng));
-	}
+	for _ in 0..N_RUNS {
+		let mut tableau: CliffordTableau<QUBITS> = CliffordTableau::id();
+		let mut rng = rand::rng();
+		for _ in 0..N_STRIGNS {
+			tableau.merge_pi_over_4_pauli(false, &random_string(&mut rng));
+		}
 
-	println!("Unsolved:");
-	tableau.info_print(QUBITS);
-	println!();
-	println!("Solved (at least partially):");
-	let decomposition = tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap());
-	println!();
-	println!("Decomposition len: {}", decomposition.len());
+		println!("Unsolved:");
+		tableau.info_print(QUBITS);
+		println!();
+		println!("Solved (at least partially):");
+		let decomposition = tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap());
+		println!("Decomposition len: {}", decomposition.len());
+		println!()
+	}
 }
