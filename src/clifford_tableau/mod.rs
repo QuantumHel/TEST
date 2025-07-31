@@ -52,6 +52,10 @@ impl<const N: usize> CliffordTableau<N> {
 		true
 	}
 
+	/// # merge pi over 4 pauli
+	///
+	/// Merges a $e^{\pm i\frac{\pi}{4}P}$ Pauli exponential into the tableau (On a
+	/// circuit the Pauli would be originally on the right side of the tableau).
 	pub fn merge_pi_over_4_pauli(&mut self, neg: bool, string: &PauliString<N>) {
 		for (i, x) in self.x.iter_mut().enumerate() {
 			if x.pi_over_4_sandwitch(neg, string) {
@@ -80,6 +84,14 @@ impl<const N: usize> CliffordTableau<N> {
 			return None;
 		}
 		Some((self.z.get(index).unwrap().clone(), self.z_signs[index]))
+	}
+
+	pub fn get_x_signs(&self) -> BitVec {
+		self.x_signs.clone()
+	}
+
+	pub fn get_z_signs(&self) -> BitVec {
+		self.z_signs.clone()
 	}
 
 	/// This print exists for exploratory research.

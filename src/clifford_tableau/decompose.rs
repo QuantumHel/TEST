@@ -625,7 +625,7 @@ fn fastest<const N: usize>(
 }
 
 impl<const N: usize> CliffordTableau<N> {
-	/// # THIS FUNCTION DOES NOT WORK YET
+	/// # Decompose
 	///
 	/// Decomposes the tableau into clifford gates.
 	pub fn decompose(
@@ -635,10 +635,9 @@ impl<const N: usize> CliffordTableau<N> {
 		let mut decomposition: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 		let mut dirty_qubits: Vec<usize> = (0..N).collect();
 
-		print!("Order: ");
 		while dirty_qubits.len() >= gate_size.as_value() {
 			let (qubit, letter) = fastest(&self, &dirty_qubits, gate_size).unwrap();
-			print!("{qubit}");
+
 			match letter {
 				PauliLetter::X => {
 					let x_moves = simple_solver(
@@ -718,7 +717,7 @@ impl<const N: usize> CliffordTableau<N> {
 		// then for remaining use delicate solver
 		while !dirty_qubits.is_empty() {
 			let (qubit, letter) = fastest_delicate(&self, &dirty_qubits).unwrap();
-			print!("{qubit}");
+
 			match letter {
 				PauliLetter::X => {
 					let x_moves = delicate_solver(
@@ -786,22 +785,37 @@ impl<const N: usize> CliffordTableau<N> {
 			// Now the qubit is not dirty anymore
 			dirty_qubits.retain(|q| *q != qubit);
 		}
-		println!();
 
-		// TODO: Turn signs into correct ones
-
-		// Temporary
+		for (i, (x, z)) in self
+			.x_signs
+			.clone()
+			.into_iter()
+			.zip(self.z_signs.clone().into_iter())
+			.enumerate()
 		{
-			self.info_print(N);
+			let string = match (x, z) {
+				(true, true) => PauliString::y(i),
+				(true, false) => PauliString::z(i),
+				(false, true) => PauliString::x(i),
+				_ => {
+					continue;
+				}
+			};
 
-			for i in 0..N {
-				assert_eq!(self.get_x_row(i).unwrap().0, PauliString::x(i));
-				assert_eq!(self.get_z_row(i).unwrap().0, PauliString::z(i));
-			}
-
-			println!("X signs: {:?}", self.x_signs);
-			println!("Y signs: {:?}", self.x_signs);
+			self.merge_pi_over_4_pauli(true, &string);
+			self.merge_pi_over_4_pauli(true, &string);
+			decomposition.push(PauliExp {
+				string: string.clone(),
+				angle: CliffordPauliAngle::PiOver4,
+			});
+			decomposition.push(PauliExp {
+				string,
+				angle: CliffordPauliAngle::PiOver4,
+			});
 		}
-		decomposition
+
+		assert_eq!(self, CliffordTableau::id());
+
+		decomposition.into_iter().rev().collect()
 	}
 }

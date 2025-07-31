@@ -62,3 +62,9 @@ impl PauliAngle for FreePauliAngle {
 		}
 	}
 }
+
+impl From<CliffordPauliAngle> for FreePauliAngle {
+	fn from(value: CliffordPauliAngle) -> Self {
+		Self::Clifford(value)
+	}
+}

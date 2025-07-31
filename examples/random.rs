@@ -2,8 +2,9 @@ use bitvec::vec::BitVec;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use test_transpiler::{
+	clifford_tableau::CliffordTableau,
 	misc::NonZeroEvenUsize,
-	pauli::{FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
+	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 	synthesize::synthesize,
 };
 
@@ -69,10 +70,19 @@ fn gate_dept<const N: usize, P: PauliAngle>(circuit: &[PauliExp<N, P>]) -> usize
 	layers.len()
 }
 
-const N_EXPS: usize = 100;
-const N_QUBITS: usize = 20;
-const GATE_SIZE: usize = 12;
+fn multi_gate_count<const N: usize, A: PauliAngle>(gates: &[PauliExp<N, A>]) -> usize {
+	gates
+		.iter()
+		.filter(|p| p.len() > 1)
+		.collect::<Vec<_>>()
+		.len()
+}
+
+const N_EXPS: usize = 700;
+const N_QUBITS: usize = 27;
+const GATE_SIZE: usize = 2;
 const N_ROUNDS: usize = 100;
+const USE_TABLEAU: bool = true;
 
 fn main() {
 	let mut rng = ChaCha8Rng::seed_from_u64(2);
@@ -103,16 +113,27 @@ fn main() {
 			NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
 		);
 
-		// Currently we only return Cliffords in the wrong order, because we want to handle them using
-		// a clifford tableau later.
-		let mut clifford: Vec<PauliExp<{ N_QUBITS }, FreePauliAngle>> = clifford
-			.into_iter()
-			.map(|p| PauliExp {
-				string: p.string,
-				angle: FreePauliAngle::Clifford(p.angle),
-			})
-			.rev()
-			.collect();
+		let mut clifford: Vec<PauliExp<{ N_QUBITS }, FreePauliAngle>> = if USE_TABLEAU {
+			let mut tableau = CliffordTableau::id();
+
+			for op in clifford.iter() {
+				let neg = match op.angle {
+					CliffordPauliAngle::PiOver4 => false,
+					CliffordPauliAngle::NeqPiOver4 => true,
+				};
+				tableau.merge_pi_over_4_pauli(neg, &op.string);
+			}
+
+			let decomposition = tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap());
+
+			if multi_gate_count(&decomposition) < multi_gate_count(&clifford) {
+				decomposition.into_iter().map(PauliExp::from).collect()
+			} else {
+				clifford.into_iter().map(PauliExp::from).collect()
+			}
+		} else {
+			clifford.into_iter().map(PauliExp::from).collect()
+		};
 
 		circuit.append(&mut clifford);
 
@@ -120,11 +141,7 @@ fn main() {
 			assert!(exp.len() == 1 || exp.len() == GATE_SIZE);
 		}
 
-		let gate_count = circuit
-			.iter()
-			.filter(|p| p.len() > 1)
-			.collect::<Vec<_>>()
-			.len();
+		let gate_count = multi_gate_count(&circuit);
 
 		let gate_depth = gate_dept(&circuit);
 		count_sum += gate_count;

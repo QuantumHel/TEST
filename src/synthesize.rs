@@ -226,11 +226,14 @@ pub fn synthesize<const N: usize>(
 	#[cfg(feature = "return_ordered")]
 	assert!(clone.is_empty());
 
+	let clifford_circuit: Vec<PauliExp<N, CliffordPauliAngle>> =
+		clifford_tableau.into_iter().rev().collect();
+
 	#[cfg(feature = "return_ordered")]
-	return (circuit, clifford_tableau, ordered);
+	return (circuit, clifford_circuit, ordered);
 
 	#[cfg(not(feature = "return_ordered"))]
-	(circuit, clifford_tableau)
+	(circuit, clifford_circuit)
 }
 
 #[cfg(test)]

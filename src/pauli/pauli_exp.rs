@@ -3,6 +3,8 @@ use std::{
 	io::Write,
 };
 
+use crate::pauli::{CliffordPauliAngle, FreePauliAngle};
+
 use super::{PauliAngle, PauliString};
 
 /// An Pauli exponential $e^{i\theta P}$ where $\theta$ is a [PauliAngle] and $P$ a [PauliString].
@@ -67,6 +69,15 @@ pub fn as_exp_file<const N: usize, T: PauliAngle>(path: &str, paulis: &Vec<Pauli
 		let angle = pauli.angle.multiple_of_pi();
 		let string = pauli.string.as_string();
 		writeln!(&mut file, "{angle};{string}").unwrap();
+	}
+}
+
+impl<const N: usize> From<PauliExp<N, CliffordPauliAngle>> for PauliExp<N, FreePauliAngle> {
+	fn from(value: PauliExp<N, CliffordPauliAngle>) -> Self {
+		PauliExp::<N, FreePauliAngle> {
+			angle: value.angle.into(),
+			string: value.string,
+		}
 	}
 }
 

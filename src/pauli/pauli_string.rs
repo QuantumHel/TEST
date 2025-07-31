@@ -128,7 +128,7 @@ impl<const N: usize> PauliString<N> {
 	///
 	/// and returs true if the sign changes.
 	///
-	/// In practice this means that we update `self` to $siPO$ when $P$ and $O$ anticommute.
+	/// In practice this means that we update `self` to $siOP$ when $P$ and $O$ anticommute.
 	///
 	/// # Proof:
 	/// As shown in for example in
