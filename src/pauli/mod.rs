@@ -4,6 +4,8 @@ mod pauli_angle;
 mod pauli_exp;
 mod pauli_string;
 
+use std::fmt;
+
 pub use pauli_angle::{CliffordPauliAngle, FreePauliAngle, PauliAngle};
 pub use pauli_exp::{PauliExp, as_exp_file};
 pub use pauli_string::PauliString;
@@ -38,5 +40,18 @@ impl PauliLetter {
 			PauliLetter::Y => PauliLetter::Z,
 			PauliLetter::Z => PauliLetter::X,
 		}
+	}
+}
+
+impl fmt::Display for PauliLetter {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let letter = match self {
+			PauliLetter::I => 'I',
+			PauliLetter::X => 'X',
+			PauliLetter::Y => 'Y',
+			PauliLetter::Z => 'Z',
+		};
+
+		write!(f, "{letter}")
 	}
 }
