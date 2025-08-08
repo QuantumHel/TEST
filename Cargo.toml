@@ -7,6 +7,7 @@ edition = "2024"
 
 [dependencies]
 bitvec = "1.0.1"
+petgraph = "0.8.2"
 
 [dev-dependencies]
 rand = "0.9.1"
@@ -19,6 +20,9 @@ rustdoc-args = ["--html-in-header", "./doc_header.html"]
 default = []
 # Synthesize returns the original exponentials in the order selected during synthesize
 return_ordered = []
+
+[lints.clippy]
+tabs_in_doc_comments = "allow"
 
 [[example]]
 name = "correctness_test"

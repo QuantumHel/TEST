@@ -109,7 +109,7 @@ impl<const N: usize> PauliString<N> {
 		let non_i_self = self.x.clone() | self.z.clone();
 		let non_i_other = other.x.clone() | other.z.clone();
 		let anti_comm = non_i_self & non_i_other & (x_diff | z_diff);
-		anti_comm.count_ones() % 2 == 0
+		anti_comm.count_ones().is_multiple_of(2)
 	}
 
 	pub fn anticommutes_with(&self, other: &Self) -> bool {
@@ -189,7 +189,7 @@ impl<const N: usize> PauliString<N> {
 		let n_anti_comm = anti_comm.count_ones();
 
 		// Commutes
-		if n_anti_comm % 2 == 0 {
+		if n_anti_comm.is_multiple_of(2) {
 			return false;
 		}
 
@@ -249,7 +249,7 @@ impl<const N: usize> PauliString<N> {
 			return 0;
 		}
 		if len < n {
-			return if len % 2 == 0 { 3 } else { 2 };
+			return if len.is_multiple_of(2) { 3 } else { 2 };
 		}
 
 		let len_over = (len - n) as f64;

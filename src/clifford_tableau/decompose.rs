@@ -23,7 +23,7 @@ fn fastest_delicate<const N: usize>(
 				if string.len() == 1 {
 					return Some((*qubit, PauliLetter::X));
 				}
-				if string.len() % 2 == 0 { 5 } else { 3 }
+				if string.len().is_multiple_of(2) { 5 } else { 3 }
 			} else {
 				6
 			}
@@ -34,7 +34,7 @@ fn fastest_delicate<const N: usize>(
 				if string.len() == 1 {
 					return Some((*qubit, PauliLetter::Z));
 				}
-				if string.len() % 2 == 0 { 5 } else { 3 }
+				if string.len().is_multiple_of(2) { 5 } else { 3 }
 			} else {
 				6
 			}
@@ -120,7 +120,7 @@ fn delicate_solver<const N: usize>(
 			.filter(|(q, _)| *q != target_qubit)
 			.collect();
 
-		if string.len() % 2 == 0 {
+		if string.len().is_multiple_of(2) {
 			// All uninvolved qubits have X in first string and Z on second.
 			// The non target involved qubits always have their letter in the string
 			// Target qubit has target letter
@@ -206,7 +206,7 @@ fn delicate_solver<const N: usize>(
 
 		let other: Vec<(usize, PauliLetter)> = string.letters();
 
-		if string.len() % 2 == 0 {
+		if string.len().is_multiple_of(2) {
 			// 2 outer 2 inner
 			// outer 1: uninvolved Y, target: target, first_inv: inv.next() = A, other: next
 			let mut outer1: PauliString<N> = PauliString::id();
@@ -401,7 +401,7 @@ fn simple_solver<const N: usize>(
 	}
 
 	// if even and not 4, make it so that we are uneven and under 4
-	if string.len() % 2 == 0 && string.len() != n {
+	if string.len().is_multiple_of(2) && string.len() != n {
 		let mut new_string: PauliString<N> = PauliString::id();
 
 		// anticummute on target to keep it
@@ -579,7 +579,7 @@ fn fastest<const N: usize>(
 			let basic_steps = string.steps_to_len_one(gate_size);
 			if string.get(*qubit) == PauliLetter::I
 				&& string.len() >= gate_size.as_value()
-				&& (string.len() - gate_size.as_value()) % (gate_size.as_value() - 1) == 0
+				&& (string.len() - gate_size.as_value()).is_multiple_of(gate_size.as_value() - 1)
 			{
 				// These steps are needed to move to the correct qubit
 				basic_steps + 2
@@ -593,7 +593,7 @@ fn fastest<const N: usize>(
 			let basic_steps = string.steps_to_len_one(gate_size);
 			if string.get(*qubit) == PauliLetter::I
 				&& string.len() >= gate_size.as_value()
-				&& (string.len() - gate_size.as_value()) % (gate_size.as_value() - 1) == 0
+				&& (string.len() - gate_size.as_value()).is_multiple_of(gate_size.as_value() - 1)
 			{
 				// These steps are needed to move to the correct qubit
 				basic_steps + 2

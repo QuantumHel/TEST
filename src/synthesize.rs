@@ -26,7 +26,7 @@ fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAn
 fn get_path_len<const N: usize, A: PauliAngle>(exp: &PauliExp<N, A>, n: usize) -> usize {
 	let len = exp.len();
 	if len < n {
-		return if len % 2 == 0 { 0 } else { 1 };
+		return if len.is_multiple_of(2) { 0 } else { 1 };
 	}
 
 	let len_over = (len - n) as f64;
