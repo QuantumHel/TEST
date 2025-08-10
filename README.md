@@ -20,6 +20,9 @@ rustup override set nightly
 ## Pauli
 - Nice way of handling clifford angles
 ## Connectivity
+- See how fast can find path
+- Calculate step count for routing instruction
+- Edit the synthesize to accept connectivity
 ## Synthesize
 - Merge pauli exps with same strings (should only changes 1-qubit gate count).
 - Current code is written while testing things. The code eats performance for fun.

@@ -4,23 +4,23 @@ use petgraph::{Undirected, graph::UnGraph, prelude::StableGraph};
 
 use crate::connectivity::hypergraph::{HyperEdgeIndex, HyperGraph, HyperNodeIndex};
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub(super) struct ExplosionNode {
-	hyper_edges: Vec<HyperEdgeIndex>,
-	hyper_nodes: Vec<HyperNodeIndex>,
+	pub(super) hyper_edges: Vec<HyperEdgeIndex>,
+	pub(super) hyper_nodes: Vec<HyperNodeIndex>,
 }
 
-impl<T> HyperGraph<T> {
+impl HyperGraph {
 	/// Creates a graph where every [HyperEdge] is a node, and these nodes have
 	/// edges between them to nodes corresponding to the [HyperNode]s that are shared
 	/// between the [HyperEdge]s.
-	pub(super) fn explode(&self) -> UnGraph<ExplosionNode, ()> {
-		let mut graph: UnGraph<ExplosionNode, ()> = UnGraph::new_undirected();
+	pub(super) fn explode(&self) -> UnGraph<ExplosionNode, usize> {
+		let mut graph: UnGraph<ExplosionNode, usize> = UnGraph::new_undirected();
 		let mut edge_nodes = Vec::new();
 
 		let mut node_edge_map: BTreeMap<HyperNodeIndex, Vec<HyperEdgeIndex>> = BTreeMap::new();
 		for i in 0..self.nodes.len() {
-			node_edge_map.insert(HyperNodeIndex(i), Vec::new());
+			node_edge_map.insert(i, Vec::new());
 		}
 		for (i, edge) in self.edges.iter().enumerate() {
 			for node in edge.nodes.iter() {
@@ -56,7 +56,7 @@ impl<T> HyperGraph<T> {
 				// Connect node to all normal edges
 				for edge in edges.iter() {
 					let edge_node = edge_nodes.get(edge.0).unwrap();
-					graph.add_edge(node, *edge_node, ());
+					graph.add_edge(node, *edge_node, 1);
 				}
 
 				// add edge to node
@@ -73,7 +73,7 @@ impl<T> HyperGraph<T> {
 }
 
 pub(super) fn as_instructions(
-	mut steiner_tree: StableGraph<ExplosionNode, (), Undirected>,
+	mut steiner_tree: StableGraph<ExplosionNode, usize, Undirected>,
 ) -> Vec<(HyperEdgeIndex, Option<Vec<HyperNodeIndex>>)> {
 	let mut result: Vec<(HyperEdgeIndex, Option<Vec<HyperNodeIndex>>)> = Vec::new();
 
@@ -122,14 +122,14 @@ mod tests {
 	#[test]
 	fn test_explosion() {
 		let mut hypergraph = HyperGraph::new();
-		let node_0 = hypergraph.add_node(0);
-		let node_1 = hypergraph.add_node(1);
-		let node_2 = hypergraph.add_node(2);
-		let node_3 = hypergraph.add_node(3);
-		let node_4 = hypergraph.add_node(4);
-		let node_5 = hypergraph.add_node(5);
-		let node_6 = hypergraph.add_node(6);
-		let node_7 = hypergraph.add_node(7);
+		let node_0 = hypergraph.add_node();
+		let node_1 = hypergraph.add_node();
+		let node_2 = hypergraph.add_node();
+		let node_3 = hypergraph.add_node();
+		let node_4 = hypergraph.add_node();
+		let node_5 = hypergraph.add_node();
+		let node_6 = hypergraph.add_node();
+		let node_7 = hypergraph.add_node();
 
 		let edge_a = hypergraph
 			.add_edge([node_0, node_1, node_2, node_3])
