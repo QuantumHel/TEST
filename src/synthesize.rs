@@ -1,4 +1,5 @@
 use crate::{
+	connectivity::Connectivity,
 	misc::NonZeroEvenUsize,
 	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 };
@@ -56,6 +57,7 @@ type SynthesizeResult<const N: usize> = (
 pub fn synthesize<const N: usize>(
 	mut exponentials: Vec<PauliExp<N, FreePauliAngle>>,
 	gate_size: NonZeroEvenUsize,
+	connectivity: Option<&Connectivity>,
 ) -> SynthesizeResult<N> {
 	#[cfg(feature = "return_ordered")]
 	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
@@ -64,7 +66,7 @@ pub fn synthesize<const N: usize>(
 
 	let n = gate_size.as_value();
 	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
-	let mut clifford_tableau: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
+	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
@@ -75,165 +77,146 @@ pub fn synthesize<const N: usize>(
 		ordered.push(clone.remove(i));
 	}
 
-	// This is the main synthesize loop.
-	// - Select an exponential to pus.
-	// - push trough exponentials
-	// - add corresponding exponentials to circuit and clifford_tableau
-	// - move single qubit exponentials to the circuit.
+	// new loop
 	while !exponentials.is_empty() {
-		// Select the pauli string to push
-		let push_str = if let Some(exp) = exponentials.iter().find(|p| p.len() == n) {
-			// Turn n long exponential to 1 long.
-			let mut push_str = exp.string.clone();
-			let (i, l) = push_str.letters().into_iter().next().unwrap();
-			push_str.set(i, l.next());
+		// The fastest one to solve
+		let index = {
+			let mut iter = exponentials.iter();
+			// (steps, index)
+			let mut shortest = (iter.next().unwrap().string.steps_to_len_one(gate_size), 0);
+			for (i, exp) in iter.enumerate() {
+				let steps = exp.string.steps_to_len_one(gate_size);
+				if steps < shortest.0 {
+					shortest = (steps, i + 1)
+				}
+			}
 
-			push_str
-		} else if let Some(exp) = exponentials
-			.iter()
-			.find(|p| (p.string.len() % 2 == 1) && (p.string.len() < (2 * n)))
-		{
-			// Turn uneven long exponential that is shorter than 2n into a n long one;
-			if exp.len() < n {
-				// We need to make the exponential longer
+			shortest.1
+		};
+
+		let mut exp = exponentials.remove(index);
+		while exp.len() != 1 {
+			let push_str = if exp.len() == n {
+				// One commutes, the rest cancel each other out
 				let mut push_str = exp.string.clone();
-				// Because uneven this makes sure that we anticommute and that all letter places
-				// stay.
-				for (i, m) in push_str.letters() {
-					push_str.set(i, m.next());
-				}
-
-				// These will be added on push
-				for i in 0..n {
-					if push_str.get(i) == PauliLetter::I {
-						push_str.set(i, PauliLetter::X);
-						if push_str.len() == n {
-							break;
-						}
-					}
-				}
+				let (i, l) = push_str.letters().into_iter().next().unwrap();
+				push_str.set(i, l.next());
 
 				push_str
+			} else if exp.len() % 2 == 1 && exp.len() < (2 * n) {
+				// Change the string into a n long one
+				if exp.len() < n {
+					// We need to increase the amount of letters
+					// Because the exp has an uneven len, we can commute on all
+					let mut push_str = exp.string.clone();
+					for (i, m) in push_str.letters() {
+						push_str.set(i, m.next());
+					}
+
+					// Then we just add letters to make it n long
+					for i in 0..n {
+						if push_str.get(i) == PauliLetter::I {
+							push_str.set(i, PauliLetter::X);
+							if push_str.len() == n {
+								break;
+							}
+						}
+					}
+
+					push_str
+				} else {
+					// We need to decrease the amount of letters
+					// Select n many letters
+					let mut letters: Vec<(usize, PauliLetter)> =
+						exp.string.letters().into_iter().take(n).collect();
+
+					// We need to to end up with n letters. This means that we
+					// need to remove exp.len() - n letters. This means that
+					// from the n many letters, we only want to keep
+					// n - (exp.len() -n ) = 2n - exp.len() many.
+					// As these are the ones we keep, we make them anticommute
+					// (the amount is always uneven because exp.len() is)
+					for (_, l) in letters.iter_mut().take(2 * n - exp.len()) {
+						*l = l.next();
+					}
+
+					// Then we just collect the letters to a string
+					let mut push_str = PauliString::<N>::id();
+					for (i, l) in letters {
+						push_str.set(i, l);
+					}
+					push_str
+				}
 			} else {
-				// remove some if too many
+				// Now either exp.len() is at least len 2n or even.
+				// To reach a uneven len under 2n, we remove as much as possible
+				// and if needed add some letters, because operations have to be
+				// len n.
+
+				// select at least n many letters
 				let mut letters: Vec<(usize, PauliLetter)> =
 					exp.string.letters().into_iter().take(n).collect();
 
-				// These are the ones we keep (we make them anticommute)
-				for (_, l) in letters.iter_mut().take(2 * n - exp.len()) {
-					*l = l.next();
-				}
-
-				let mut string = PauliString::<N>::id();
-				for (i, l) in letters {
-					string.set(i, l);
-				}
-				string
-			}
-		} else if let Some(exp) = exponentials
-			.iter()
-			.find(|p| (p.string.len() % 2 == 0) && (p.string.len() < (3 * n - 1)))
-		{
-			// This makes the selected exp compatible with the case above. This means that we need
-			// two steps to get this exp into a single qubit exp.
-			if exp.len() < n {
-				// Because we can add at maximum n-1 letters, we can select any commuting string to be able to select the earlier
-				// option next round.
-
-				// We have one difference in order to anticommute
-				let mut letters = exp.string.letters();
+				// edit first one in order to anticommute (and delete on others)
 				letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
 
+				// collect as string
 				let mut push_str = PauliString::<N>::id();
 				for (i, l) in letters {
 					push_str.set(i, l);
 				}
+				// add letters if needed to make operation n long
 
-				// Fill letters to he a n long string
-				for i in 0..n {
-					if push_str.get(i) == PauliLetter::I {
-						push_str.set(i, PauliLetter::X);
-						if push_str.len() == n {
-							break;
+				if push_str.len() < n {
+					for i in 0..n {
+						if push_str.get(i) == PauliLetter::I {
+							push_str.set(i, PauliLetter::X);
+							if push_str.len() == n {
+								break;
+							}
 						}
 					}
 				}
 
 				push_str
-			} else {
-				// By removing n-1 qubit letters from the exp we can make it compatible with if let
-				// above the if let that we took.
-				let mut letters: Vec<(usize, PauliLetter)> =
-					exp.string.letters().into_iter().take(n).collect();
-				letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
+			};
 
-				let mut string = PauliString::<N>::id();
-				for (i, l) in letters {
-					string.set(i, l);
-				}
-				string
-			}
-		} else {
-			// Else remove as many qubits as possible from the exponential that
-			// can be converted to a n one in least amount of steps.
+			assert_eq!(push_str.len(), n);
 
-			// Select shortest path one
-			let exp = exponentials
-				.iter()
-				.reduce(|acc, e| {
-					if get_path_len(acc, n) <= get_path_len(e, n) {
-						acc
-					} else {
-						e
-					}
-				})
-				.unwrap();
+			// push string trough/into things
 
-			let mut letters: Vec<(usize, PauliLetter)> =
-				exp.string.letters().into_iter().take(n).collect();
-			letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
-
-			let mut string = PauliString::<N>::id();
-			for (i, l) in letters {
-				string.set(i, l);
-			}
-			string
-		};
-
-		assert!(push_str.len() == n);
-
-		for exp in exponentials.iter_mut() {
 			exp.push_pi_over_4(false, &push_str);
+			for exp in exponentials.iter_mut() {
+				exp.push_pi_over_4(false, &push_str);
+			}
+			circuit.push(PauliExp {
+				string: push_str.clone(),
+				angle: FreePauliAngle::Clifford(CliffordPauliAngle::PiOver4),
+			});
+			clifford_part.push(PauliExp {
+				string: push_str,
+				angle: CliffordPauliAngle::NeqPiOver4,
+			});
 		}
-		circuit.push(PauliExp {
-			string: push_str.clone(),
-			angle: FreePauliAngle::Clifford(CliffordPauliAngle::PiOver4),
-		});
-		clifford_tableau.push(PauliExp {
-			string: push_str,
-			angle: CliffordPauliAngle::NeqPiOver4,
-		});
-		// move all created single qubit gates to circuit
-		let single_qubit_indexes = get_remove_indexes(&exponentials, |p| p.len() == 1);
-		for i in single_qubit_indexes.into_iter() {
-			assert!(exponentials.get(i).unwrap().len() == 1);
-			circuit.push(exponentials.remove(i));
-			#[cfg(feature = "return_ordered")]
-			ordered.push(clone.remove(i));
-		}
+
+		assert_eq!(exp.len(), 1);
+		// add exp to circuit
+		circuit.push(exp);
+		#[cfg(feature = "return_ordered")]
+		ordered.push(clone.remove(index));
 	}
 
 	#[cfg(feature = "return_ordered")]
 	assert!(clone.is_empty());
 
-	let clifford_circuit: Vec<PauliExp<N, CliffordPauliAngle>> =
-		clifford_tableau.into_iter().rev().collect();
+	let clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> =
+		clifford_part.into_iter().rev().collect();
 
 	#[cfg(feature = "return_ordered")]
-	return (circuit, clifford_circuit, ordered);
+	return (circuit, clifford_part, ordered);
 
 	#[cfg(not(feature = "return_ordered"))]
-	(circuit, clifford_circuit)
+	(circuit, clifford_part)
 }
 
 #[cfg(test)]
@@ -270,7 +253,7 @@ mod tests {
 				.collect();
 
 			#[cfg(not(feature = "return_ordered"))]
-			let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(4).unwrap());
+			let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(4).unwrap(), None);
 
 			#[cfg(feature = "return_ordered")]
 			let (circuit, clifford, _) = synthesize(input, NonZeroEvenUsize::new(4).unwrap());

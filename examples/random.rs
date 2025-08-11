@@ -105,6 +105,7 @@ fn main() {
 		let (mut circuit, clifford) = synthesize(
 			original_exponentials,
 			NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
+			None,
 		);
 
 		#[cfg(feature = "return_ordered")]

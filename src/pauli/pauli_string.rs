@@ -1,6 +1,9 @@
 use bitvec::vec::BitVec;
 
-use crate::misc::NonZeroEvenUsize;
+use crate::{
+	connectivity::{RoutingInstruction, RoutingInstructionTarget},
+	misc::NonZeroEvenUsize,
+};
 
 use super::PauliLetter;
 
@@ -235,16 +238,8 @@ impl<const N: usize> PauliString<N> {
 			.collect()
 	}
 
-	/// Gives the amount of steps needed to convert the self to lenght 1 by
-	/// using gates of a specific size.
-	///
-	/// When len is at least that of the gate size, the return value is k + 1,
-	/// where k is the smallest value for witch the length of exp is smaller or
-	/// equal to n + k(n-1) where k is even if len exp is, and uneven if len exp
-	/// is uneven
-	pub fn steps_to_len_one(&self, gate_size: NonZeroEvenUsize) -> usize {
-		let len = self.len();
-		let n = gate_size.as_value();
+	/// Private function ised for other len calculations
+	fn inner_steps_to_len_one(len: usize, n: usize) -> usize {
 		if len == 1 {
 			return 0;
 		}
@@ -255,12 +250,90 @@ impl<const N: usize> PauliString<N> {
 		let len_over = (len - n) as f64;
 		let mut k = (len_over / (n - 1) as f64).ceil() as usize;
 
-		// Make sure that k is even if and onfly if len is
+		// Make sure that k is even if and only if len is
 		if k % 2 != len % 2 {
 			k += 1
 		}
 
 		k + 1
+	}
+
+	/// Gives the amount of steps needed to convert the self to lenght 1 by
+	/// using gates of a specific size.
+	///
+	/// When len is at least that of the gate size, the return value is k + 1,
+	/// where k is the smallest value for witch the length of exp is smaller or
+	/// equal to n + k(n-1) where k is even if len exp is, and uneven if len exp
+	/// is uneven
+	pub fn steps_to_len_one(&self, gate_size: NonZeroEvenUsize) -> usize {
+		let len = self.len();
+		let n = gate_size.as_value();
+		Self::inner_steps_to_len_one(len, n)
+	}
+
+	pub fn steps_to_solve_instruction(
+		&self,
+		gate_size: NonZeroEvenUsize,
+		instruction: &RoutingInstruction,
+	) -> usize {
+		let len = {
+			let mut len = 0;
+			for qubit in instruction.qubits.iter() {
+				if self.get(*qubit) != PauliLetter::I {
+					len += 1;
+				}
+			}
+			len
+		};
+		let n = gate_size.as_value();
+
+		let basic_steps = Self::inner_steps_to_len_one(len, n);
+
+		// We may need extra steps to populate an empty target qubit
+		let adjustment = match &instruction.target {
+			RoutingInstructionTarget::Any => 0,
+			RoutingInstructionTarget::Single(target) => {
+				if self.get(*target) == PauliLetter::I
+					&& self.len() >= n
+					&& (self.len() - n).is_multiple_of(n - 1)
+				{
+					2
+				} else {
+					0
+				}
+			}
+			RoutingInstructionTarget::Multiple(targets) => {
+				let mut occupied = false;
+
+				for target in targets.iter() {
+					if self.get(*target) != PauliLetter::I {
+						occupied = true;
+						break;
+					}
+				}
+
+				if !occupied && self.len() >= n && (self.len() - n).is_multiple_of(n - 1) {
+					2
+				} else {
+					0
+				}
+			}
+		};
+
+		basic_steps + adjustment
+	}
+
+	pub fn steps_to_solve_instructions(
+		&self,
+		gate_size: NonZeroEvenUsize,
+		instructions: &[RoutingInstruction],
+	) -> usize {
+		let mut total = 0;
+		for instruction in instructions.iter() {
+			total += self.steps_to_solve_instruction(gate_size, instruction);
+		}
+
+		total
 	}
 }
 
