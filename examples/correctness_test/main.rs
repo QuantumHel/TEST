@@ -40,7 +40,7 @@ fn main() {
 			.collect();
 
 		let (mut circuit, clifford, order) =
-			synthesize(input, NonZeroEvenUsize::new(GATE_SIZE).unwrap());
+			synthesize(input, NonZeroEvenUsize::new(GATE_SIZE).unwrap(), None);
 
 		let clifford: Vec<PauliExp<{ N_QUBITS }, CliffordPauliAngle>> = if USE_TABLEAU {
 			let mut tableau: CliffordTableau<{ N_QUBITS }> = CliffordTableau::id();

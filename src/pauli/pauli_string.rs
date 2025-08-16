@@ -88,6 +88,10 @@ impl<const N: usize> PauliString<N> {
 		}
 	}
 
+	pub fn targets(&self) -> Vec<usize> {
+		(self.x.clone() | &self.z).iter_ones().collect()
+	}
+
 	pub fn letters(&self) -> Vec<(usize, PauliLetter)> {
 		self.x
 			.iter()
@@ -289,35 +293,27 @@ impl<const N: usize> PauliString<N> {
 
 		let basic_steps = Self::inner_steps_to_len_one(len, n);
 
-		// We may need extra steps to populate an empty target qubit
-		let adjustment = match &instruction.target {
-			RoutingInstructionTarget::Any => 0,
-			RoutingInstructionTarget::Single(target) => {
-				if self.get(*target) == PauliLetter::I
-					&& self.len() >= n
-					&& (self.len() - n).is_multiple_of(n - 1)
-				{
-					2
-				} else {
-					0
-				}
-			}
+		let target_is_empty = match &instruction.target {
+			RoutingInstructionTarget::Any => false,
+			RoutingInstructionTarget::Single(target) => self.get(*target) == PauliLetter::I,
 			RoutingInstructionTarget::Multiple(targets) => {
-				let mut occupied = false;
-
-				for target in targets.iter() {
+				let mut res = true;
+				for target in targets {
 					if self.get(*target) != PauliLetter::I {
-						occupied = true;
+						res = false;
 						break;
 					}
 				}
-
-				if !occupied && self.len() >= n && (self.len() - n).is_multiple_of(n - 1) {
-					2
-				} else {
-					0
-				}
+				res
 			}
+		};
+
+		let adjustment = if target_is_empty
+			&& (len == 1 || self.len() >= n && (self.len() - n).is_multiple_of(n - 1))
+		{
+			2
+		} else {
+			0
 		};
 
 		basic_steps + adjustment
@@ -357,6 +353,49 @@ macro_rules! pauli_string {
 #[cfg(test)]
 mod tests {
 	use super::*;
+
+	#[test]
+	fn test_steps_to_solve_instruction() {
+		let qubits = [0, 1, 2, 3, 4, 5];
+		let instruction = RoutingInstruction {
+			target: RoutingInstructionTarget::Single(0),
+			qubits: &qubits,
+		};
+		let n = NonZeroEvenUsize::new(4).unwrap();
+
+		assert_eq!(
+			pauli_string!("IXIIII").steps_to_solve_instruction(n, &instruction),
+			2
+		);
+		assert_eq!(
+			pauli_string!("IXXIII").steps_to_solve_instruction(n, &instruction),
+			3
+		);
+		assert_eq!(
+			pauli_string!("IXXXXI").steps_to_solve_instruction(n, &instruction),
+			3
+		);
+		assert_eq!(
+			pauli_string!("IXXXXX").steps_to_solve_instruction(n, &instruction),
+			2
+		);
+		assert_eq!(
+			pauli_string!("XIIIII").steps_to_solve_instruction(n, &instruction),
+			0
+		);
+		assert_eq!(
+			pauli_string!("XXIIII").steps_to_solve_instruction(n, &instruction),
+			3
+		);
+		assert_eq!(
+			pauli_string!("XXXXII").steps_to_solve_instruction(n, &instruction),
+			1
+		);
+		assert_eq!(
+			pauli_string!("XIXXXX").steps_to_solve_instruction(n, &instruction),
+			2
+		);
+	}
 
 	#[test]
 	fn singe_qubit_sandwitch() {
