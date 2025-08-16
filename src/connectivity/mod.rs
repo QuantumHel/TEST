@@ -1,6 +1,8 @@
 mod explosion;
 mod hypergraph;
 
+use std::collections::BTreeSet;
+
 use crate::connectivity::{explosion::ExplosionNode, hypergraph::HyperGraph};
 use petgraph::{algo::steiner_tree, graph::UnGraph};
 
@@ -29,10 +31,11 @@ pub struct Connectivity {
 pub enum ConnectivityCreationError {
 	IndexOutOfRange(usize),
 	NotFullyConnected,
+	DublicateInGroup,
 }
 
 impl Connectivity {
-	/// Can give error for IndexOutOfRange and NotFullyConnected
+	/// Can give error for IndexOutOfRange, NotFullyConnected, and when there is a DublicateInGroup
 	pub fn new(
 		qubit_count: usize,
 		operator_groups: Vec<Vec<usize>>,
@@ -44,9 +47,15 @@ impl Connectivity {
 			nodes.push(hypergraph.add_node());
 		}
 
-		for operation_group in operator_groups {
-			let mut targets = Vec::with_capacity(operation_group.len());
-			for target in operation_group {
+		for mut operation_group in operator_groups {
+			let n = operation_group.len();
+			let operation_set: BTreeSet<_> = operation_group.drain(..).collect();
+			if n != operation_set.len() {
+				return Err(ConnectivityCreationError::DublicateInGroup);
+			}
+
+			let mut targets = Vec::with_capacity(operation_set.len());
+			for target in operation_set {
 				if target >= qubit_count {
 					return Err(ConnectivityCreationError::IndexOutOfRange(target));
 				}
