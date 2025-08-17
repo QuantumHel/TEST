@@ -336,13 +336,13 @@ impl<const N: usize> PauliString<N> {
 #[macro_export]
 macro_rules! pauli_string {
 	($x:literal) => {{
-		let mut string = PauliString::<{ $x.len() }>::id();
+		let mut string = test_transpiler::pauli::PauliString::<{ $x.len() }>::id();
 		for (i, c) in $x.chars().enumerate() {
 			match c {
-				'I' | 'i' => string.set(i, PauliLetter::I),
-				'X' | 'x' => string.set(i, PauliLetter::X),
-				'Z' | 'z' => string.set(i, PauliLetter::Z),
-				'Y' | 'y' => string.set(i, PauliLetter::Y),
+				'I' | 'i' => string.set(i, test_transpiler::pauli::PauliLetter::I),
+				'X' | 'x' => string.set(i, test_transpiler::pauli::PauliLetter::X),
+				'Z' | 'z' => string.set(i, test_transpiler::pauli::PauliLetter::Z),
+				'Y' | 'y' => string.set(i, test_transpiler::pauli::PauliLetter::Y),
 				_ => panic!("{} is not a pauli letter (IXZYixzy)", c),
 			}
 		}
