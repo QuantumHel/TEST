@@ -125,7 +125,7 @@ fn synthesize_with_connectivity<const N: usize>(
 			}
 
 			// make shorter than 2n
-			while removable.len() > 2 * n - 1 {
+			while removable.len() > 2 * n - 2 {
 				let mut push_str = PauliString::id();
 
 				// anticommute on one
@@ -254,23 +254,21 @@ fn synthesize_with_connectivity<const N: usize>(
 					push_strs.push(push_str);
 				} else {
 					// We need to remove qubits
-					let mut letters: Vec<(usize, PauliLetter)> = exp
-						.string
-						.letters()
-						.into_iter()
-						.filter(|(i, _)| removable.contains(i))
-						.take(n)
+					let mut letters: Vec<(usize, PauliLetter)> = removable
+						.drain(0..n)
+						.map(|i| (i, exp.string.get(i)))
 						.collect();
 
 					// These are the ones we keep (we make them anticommute)
-					for (_, l) in letters.iter_mut().take(2 * n - len) {
+					for (i, l) in letters.iter_mut().take(2 * n - len) {
+						// We need to add these back to the removable ones
+						removable.push(*i);
 						*l = l.next();
 					}
 
 					// The rest of the qubits are removed
 					let mut push_str = PauliString::<N>::id();
 					for (i, l) in letters {
-						removable.remove(removable.iter().position(|v| *v == i).unwrap());
 						push_str.set(i, l);
 					}
 
@@ -279,7 +277,6 @@ fn synthesize_with_connectivity<const N: usize>(
 				}
 			}
 
-			println!("{removable:?}, {}", exp.string.as_string());
 			assert!(removable.is_empty() || removable.len() == n - 1);
 
 			// convert to single qubit if len == n
@@ -298,7 +295,6 @@ fn synthesize_with_connectivity<const N: usize>(
 			}
 
 			for push_str in push_strs {
-				println!("Push: {}", push_str.as_string());
 				for exp in exponentials.iter_mut() {
 					exp.push_pi_over_4(false, &push_str);
 				}
