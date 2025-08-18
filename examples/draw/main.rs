@@ -3,7 +3,7 @@ use std::io::Write;
 
 use test_transpiler::{
 	draw::ImageSize,
-	pauli::{FreePauliAngle, PauliExp, PauliLetter, PauliString},
+	pauli::{FreePauliAngle, PauliExp},
 	pauli_string,
 };
 

@@ -1,5 +1,5 @@
 use crate::{
-	connectivity::{Connectivity, RoutingInstructionTarget},
+	connectivity::{Connectivity, RoutingInstruction, RoutingInstructionTarget},
 	misc::NonZeroEvenUsize,
 	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 };
@@ -56,7 +56,6 @@ fn synthesize_with_connectivity<const N: usize>(
 	#[cfg(feature = "return_ordered")]
 	let mut ordered: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 
-	let n = gate_size.as_value();
 	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 
@@ -98,201 +97,7 @@ fn synthesize_with_connectivity<const N: usize>(
 
 		let mut exp = exponentials.remove(index);
 		for instruction in instructions {
-			let mut push_strs: Vec<PauliString<N>> = Vec::new();
-
-			// Target qubit
-			let target = match instruction.target {
-				RoutingInstructionTarget::Single(target) => target,
-				RoutingInstructionTarget::Multiple(targets) => {
-					let mut target = *targets.first().unwrap();
-					for option in targets {
-						if exp.string.get(option) != PauliLetter::I {
-							target = option;
-							break;
-						}
-					}
-
-					target
-				}
-				RoutingInstructionTarget::Any => *instruction.qubits.first().unwrap(),
-			};
-
-			let mut removable = Vec::new();
-			for qubit in instruction.qubits {
-				if exp.string.get(*qubit) != PauliLetter::I && *qubit != target {
-					removable.push(*qubit);
-				}
-			}
-
-			// make shorter than 2n
-			while removable.len() > 2 * n - 2 {
-				let mut push_str = PauliString::id();
-
-				// anticommute on one
-				let anticommute_on = *removable.first().unwrap();
-				push_str.set(anticommute_on, exp.string.get(anticommute_on).next());
-
-				// remove on rest
-				for _ in 0..(n - 1) {
-					let i = removable.pop().unwrap();
-					push_str.set(i, exp.string.get(i));
-				}
-
-				exp.string.pi_over_4_sandwitch(false, &push_str);
-				push_strs.push(push_str);
-			}
-
-			// make sure we have target
-			if exp.string.get(target) == PauliLetter::I {
-				let mut push_str: PauliString<N> = PauliString::id();
-
-				// Adding the target qubit
-				push_str.set(target, PauliLetter::X);
-
-				// We add one, and then want to have n left
-				let mut n_remove = (exp.string.len() + 1).saturating_sub(n);
-				// Because we need to add one qubit and anticommute on one, we can only remove an
-				// even amount.
-				if n_remove % 2 == 1 {
-					n_remove += 1;
-				}
-				// The amount of removals is limited by the gate size
-				let n_remove = n_remove.min(n - 2);
-
-				for _ in 0..n_remove {
-					let i = removable.pop().unwrap();
-					push_str.set(i, exp.string.get(i));
-				}
-
-				// We anticommute on as many as possible (keeping the amount uneven)
-				for qubit in removable.iter().take(if removable.len() % 2 == 0 {
-					removable.len() - 1
-				} else {
-					removable.len()
-				}) {
-					push_str.set(*qubit, exp.string.get(*qubit).next());
-
-					if push_str.len() == n {
-						break;
-					}
-				}
-
-				// If we do not have the option to anticommute on more, we need to add letters
-				for qubit in instruction.qubits.iter().take(n) {
-					if push_str.len() == n {
-						break;
-					}
-					if push_str.get(*qubit) != PauliLetter::I {
-						continue;
-					}
-
-					removable.push(*qubit);
-					push_str.set(*qubit, PauliLetter::X);
-				}
-
-				exp.string.pi_over_4_sandwitch(false, &push_str);
-				push_strs.push(push_str);
-			}
-
-			// if even and not 4 make so that we are at uneven
-			if removable.len() != n - 1 && (removable.len() + 1).is_multiple_of(2) {
-				let mut push_str: PauliString<N> = PauliString::id();
-
-				// delete as many as can
-				let n_remove = removable.len().min(n - 1);
-				for qubit in removable.drain(0..n_remove) {
-					push_str.set(qubit, exp.string.get(qubit));
-				}
-
-				// anticommute on target
-				push_str.set(target, exp.string.get(target).next());
-
-				// Fill in if needed
-				for qubit in instruction.qubits.iter().take(n) {
-					if push_str.len() == n {
-						break;
-					}
-					if push_str.get(*qubit) != PauliLetter::I || *qubit == target {
-						continue;
-					}
-
-					removable.push(*qubit);
-					push_str.set(*qubit, PauliLetter::X);
-				}
-
-				exp.string.pi_over_4_sandwitch(false, &push_str);
-				push_strs.push(push_str);
-			}
-
-			// if uneven make so that len n
-			if !removable.is_empty() && removable.len() % 2 == 0 {
-				let len = removable.len() + 1;
-				if len < n {
-					// We need to add qubits
-					let mut push_str = PauliString::id();
-
-					// Commute on current letters
-					for i in removable.iter() {
-						push_str.set(*i, exp.string.get(*i).next())
-					}
-
-					// Commute on target
-					push_str.set(target, exp.string.get(target).next());
-
-					// these are added
-					for qubit in instruction.qubits.iter() {
-						if push_str.get(*qubit) == PauliLetter::I {
-							push_str.set(*qubit, PauliLetter::X);
-							removable.push(*qubit);
-							if push_str.len() == n {
-								break;
-							}
-						}
-					}
-
-					exp.string.pi_over_4_sandwitch(false, &push_str);
-					push_strs.push(push_str);
-				} else {
-					// We need to remove qubits
-					let mut letters: Vec<(usize, PauliLetter)> = removable
-						.drain(0..n)
-						.map(|i| (i, exp.string.get(i)))
-						.collect();
-
-					// These are the ones we keep (we make them anticommute)
-					for (i, l) in letters.iter_mut().take(2 * n - len) {
-						// We need to add these back to the removable ones
-						removable.push(*i);
-						*l = l.next();
-					}
-
-					// The rest of the qubits are removed
-					let mut push_str = PauliString::<N>::id();
-					for (i, l) in letters {
-						push_str.set(i, l);
-					}
-
-					exp.string.pi_over_4_sandwitch(false, &push_str);
-					push_strs.push(push_str);
-				}
-			}
-
-			assert!(removable.is_empty() || removable.len() == n - 1);
-
-			// convert to single qubit if len == n
-			if removable.len() == n - 1 {
-				let mut push_str: PauliString<N> = PauliString::id();
-				// commute on target
-				push_str.set(target, exp.string.get(target).next());
-
-				// remove the rest
-				for qubit in removable.iter() {
-					push_str.set(*qubit, exp.string.get(*qubit));
-				}
-
-				exp.string.pi_over_4_sandwitch(false, &push_str);
-				push_strs.push(push_str);
-			}
+			let push_strs = handle_instruction(&mut exp, gate_size, instruction);
 
 			for push_str in push_strs {
 				for exp in exponentials.iter_mut() {
@@ -492,6 +297,211 @@ fn synthesize_full_connectivity<const N: usize>(
 
 	#[cfg(not(feature = "return_ordered"))]
 	(circuit, clifford_part)
+}
+
+pub(crate) fn handle_instruction<const N: usize, A: PauliAngle>(
+	exp: &mut PauliExp<N, A>,
+	gate_size: NonZeroEvenUsize,
+	instruction: RoutingInstruction,
+) -> Vec<PauliString<N>> {
+	let n = gate_size.as_value();
+	let mut push_strs: Vec<PauliString<N>> = Vec::new();
+
+	// Target qubit
+	let target = match instruction.target {
+		RoutingInstructionTarget::Single(target) => target,
+		RoutingInstructionTarget::Multiple(targets) => {
+			let mut target = *targets.first().unwrap();
+			for option in targets {
+				if exp.string.get(option) != PauliLetter::I {
+					target = option;
+					break;
+				}
+			}
+
+			target
+		}
+		RoutingInstructionTarget::Any => *instruction.qubits.first().unwrap(),
+	};
+
+	let mut removable = Vec::new();
+	for qubit in instruction.qubits {
+		if exp.string.get(*qubit) != PauliLetter::I && *qubit != target {
+			removable.push(*qubit);
+		}
+	}
+
+	// make shorter than 2n
+	while removable.len() > 2 * n - 2 {
+		let mut push_str = PauliString::id();
+
+		// anticommute on one
+		let anticommute_on = *removable.first().unwrap();
+		push_str.set(anticommute_on, exp.string.get(anticommute_on).next());
+
+		// remove on rest
+		for _ in 0..(n - 1) {
+			let i = removable.pop().unwrap();
+			push_str.set(i, exp.string.get(i));
+		}
+
+		exp.string.pi_over_4_sandwitch(false, &push_str);
+		push_strs.push(push_str);
+	}
+
+	// make sure we have target
+	if exp.string.get(target) == PauliLetter::I {
+		let mut push_str: PauliString<N> = PauliString::id();
+
+		// Adding the target qubit
+		push_str.set(target, PauliLetter::X);
+
+		// We add one, and then want to have n left
+		let mut n_remove = (exp.string.len() + 1).saturating_sub(n);
+		// Because we need to add one qubit and anticommute on one, we can only remove an
+		// even amount.
+		if n_remove % 2 == 1 {
+			n_remove += 1;
+		}
+		// The amount of removals is limited by the gate size
+		let n_remove = n_remove.min(n - 2);
+
+		for _ in 0..n_remove {
+			let i = removable.pop().unwrap();
+			push_str.set(i, exp.string.get(i));
+		}
+
+		// We anticommute on as many as possible (keeping the amount uneven)
+		for qubit in removable.iter().take(if removable.len() % 2 == 0 {
+			removable.len() - 1
+		} else {
+			removable.len()
+		}) {
+			push_str.set(*qubit, exp.string.get(*qubit).next());
+
+			if push_str.len() == n {
+				break;
+			}
+		}
+
+		// If we do not have the option to anticommute on more, we need to add letters
+		for qubit in instruction.qubits.iter().take(n) {
+			if push_str.len() == n {
+				break;
+			}
+			if push_str.get(*qubit) != PauliLetter::I {
+				continue;
+			}
+
+			removable.push(*qubit);
+			push_str.set(*qubit, PauliLetter::X);
+		}
+
+		exp.string.pi_over_4_sandwitch(false, &push_str);
+		push_strs.push(push_str);
+	}
+
+	// if even and not 4 make so that we are at uneven
+	if removable.len() != n - 1 && (removable.len() + 1).is_multiple_of(2) {
+		let mut push_str: PauliString<N> = PauliString::id();
+
+		// delete as many as can
+		let n_remove = removable.len().min(n - 1);
+		for qubit in removable.drain(0..n_remove) {
+			push_str.set(qubit, exp.string.get(qubit));
+		}
+
+		// anticommute on target
+		push_str.set(target, exp.string.get(target).next());
+
+		// Fill in if needed
+		for qubit in instruction.qubits.iter().take(n) {
+			if push_str.len() == n {
+				break;
+			}
+			if push_str.get(*qubit) != PauliLetter::I || *qubit == target {
+				continue;
+			}
+
+			removable.push(*qubit);
+			push_str.set(*qubit, PauliLetter::X);
+		}
+
+		exp.string.pi_over_4_sandwitch(false, &push_str);
+		push_strs.push(push_str);
+	}
+
+	// if uneven make so that len n
+	if !removable.is_empty() && removable.len() % 2 == 0 {
+		let len = removable.len() + 1;
+		if len < n {
+			// We need to add qubits
+			let mut push_str = PauliString::id();
+
+			// Commute on current letters
+			for i in removable.iter() {
+				push_str.set(*i, exp.string.get(*i).next())
+			}
+
+			// Commute on target
+			push_str.set(target, exp.string.get(target).next());
+
+			// these are added
+			for qubit in instruction.qubits.iter() {
+				if push_str.get(*qubit) == PauliLetter::I {
+					push_str.set(*qubit, PauliLetter::X);
+					removable.push(*qubit);
+					if push_str.len() == n {
+						break;
+					}
+				}
+			}
+
+			exp.string.pi_over_4_sandwitch(false, &push_str);
+			push_strs.push(push_str);
+		} else {
+			// We need to remove qubits
+			let mut letters: Vec<(usize, PauliLetter)> = removable
+				.drain(0..n)
+				.map(|i| (i, exp.string.get(i)))
+				.collect();
+
+			// These are the ones we keep (we make them anticommute)
+			for (i, l) in letters.iter_mut().take(2 * n - len) {
+				// We need to add these back to the removable ones
+				removable.push(*i);
+				*l = l.next();
+			}
+
+			// The rest of the qubits are removed
+			let mut push_str = PauliString::<N>::id();
+			for (i, l) in letters {
+				push_str.set(i, l);
+			}
+
+			exp.string.pi_over_4_sandwitch(false, &push_str);
+			push_strs.push(push_str);
+		}
+	}
+
+	assert!(removable.is_empty() || removable.len() == n - 1);
+
+	// convert to single qubit if len == n
+	if removable.len() == n - 1 {
+		let mut push_str: PauliString<N> = PauliString::id();
+		// commute on target
+		push_str.set(target, exp.string.get(target).next());
+
+		// remove the rest
+		for qubit in removable.iter() {
+			push_str.set(*qubit, exp.string.get(*qubit));
+		}
+
+		exp.string.pi_over_4_sandwitch(false, &push_str);
+		push_strs.push(push_str);
+	}
+
+	push_strs
 }
 
 #[cfg(test)]
