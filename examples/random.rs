@@ -125,7 +125,7 @@ fn main() {
 				tableau.merge_pi_over_4_pauli(neg, &op.string);
 			}
 
-			let decomposition = tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap());
+			let decomposition = tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap(), None);
 
 			if multi_gate_count(&decomposition) < multi_gate_count(&clifford) {
 				decomposition.into_iter().map(PauliExp::from).collect()
