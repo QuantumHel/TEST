@@ -1,9 +1,9 @@
 mod explosion;
-mod hypergraph;
+pub(crate) mod hypergraph;
 
 use std::collections::BTreeSet;
 
-use crate::connectivity::{explosion::ExplosionNode, hypergraph::HyperGraph};
+pub(crate) use crate::connectivity::{explosion::ExplosionNode, hypergraph::HyperGraph};
 use petgraph::{algo::steiner_tree, graph::UnGraph};
 
 #[derive(Debug)]
@@ -21,8 +21,8 @@ pub struct RoutingInstruction<'a> {
 
 #[derive(Debug)]
 pub struct Connectivity {
-	hypergraph: HyperGraph,
-	explosion: UnGraph<ExplosionNode, usize>,
+	pub(crate) hypergraph: HyperGraph,
+	pub(crate) explosion: UnGraph<ExplosionNode, usize>,
 	max_operator_size: usize,
 	qubit_count: usize,
 }

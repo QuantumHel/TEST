@@ -5,9 +5,9 @@ use petgraph::{Undirected, graph::UnGraph, prelude::StableGraph};
 use crate::connectivity::hypergraph::{HyperEdgeIndex, HyperGraph, HyperNodeIndex};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-pub(super) struct ExplosionNode {
-	pub(super) hyper_edges: Vec<HyperEdgeIndex>,
-	pub(super) hyper_nodes: Vec<HyperNodeIndex>,
+pub(crate) struct ExplosionNode {
+	pub(crate) hyper_edges: Vec<HyperEdgeIndex>,
+	pub(crate) hyper_nodes: Vec<HyperNodeIndex>,
 }
 
 impl HyperGraph {

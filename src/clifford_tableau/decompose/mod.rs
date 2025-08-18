@@ -3,11 +3,12 @@ mod simple_solver;
 
 use crate::{
 	clifford_tableau::CliffordTableau,
-	connectivity::Connectivity,
+	connectivity::{Connectivity, ExplosionNode, hypergraph::HyperEdgeIndex},
 	misc::NonZeroEvenUsize,
 	pauli::{CliffordPauliAngle, PauliExp, PauliLetter, PauliString},
 };
 use delicate_solver::{delicate_solver, fastest_delicate};
+use petgraph::{Undirected, prelude::StableGraph};
 use simple_solver::{fastest, simple_solver};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -27,7 +28,59 @@ impl<const N: usize> CliffordTableau<N> {
 		connectivity: Option<&Connectivity>,
 	) -> Vec<PauliExp<N, CliffordPauliAngle>> {
 		match connectivity {
-			Some(connectivity) => todo!(),
+			Some(connectivity) => {
+				let mut graph: StableGraph<ExplosionNode, usize, Undirected, u32> =
+					connectivity.explosion.clone().into();
+				let mut handled_edges: Vec<HyperEdgeIndex> = Vec::new();
+
+				while graph.node_count() != 0 {
+					let indices: Vec<_> = graph.node_indices().collect();
+					for index in indices {
+						let neighbors: Vec<_> = graph.neighbors(index).collect();
+						if neighbors.len() == 1 {
+							let mut node = graph.remove_node(index).unwrap();
+							if node.hyper_edges.len() == 1 {
+								// maps to the hyperedge that we are working on.
+								let edge_index = node.hyper_edges.pop().unwrap();
+								let edge = connectivity.hypergraph.get_edge(edge_index).unwrap();
+								for node_inxdex in edge.nodes {
+									let node = connectivity.hypergraph.get_node(node_inxdex);
+									// HERE
+								}
+								connectivity.hypergraph.get_node(index)
+								// Check what qubits we have 
+
+								let neighbor_node = steiner_tree
+									.node_weight(*neighbors.first().unwrap())
+									.unwrap();
+								let targets = neighbor_node.hyper_nodes.clone();
+
+								result.push((edge, Some(targets)));
+							}
+						} else if neighbors.is_empty() {
+							let weight = graph.node_weight(index).unwrap();
+							if weight.hyper_edges.len() == 1 {
+								assert_eq!(graph.node_count(), 1);
+								let mut node = graph.remove_node(index).unwrap();
+								let edge = node.hyper_edges.pop().unwrap();
+								// TODO: handle last edge
+							} else {
+								graph.remove_node(index).unwrap();
+							}
+						}
+					}
+				}
+				// Find tree for everything
+
+				// for hyperedges
+				//     for qubits that are not in other reamining hyperedges
+				//         make instructions so that row (x or z) only has qubits in hyperedge
+				//		   use solver (simple or delicate) to solve row
+				//         do same for other row (z or x)
+				//     remove hyperedge
+
+				todo!()
+			}
 			_ => self.decompose_full_connectivity(gate_size),
 		}
 	}
