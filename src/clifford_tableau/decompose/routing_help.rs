@@ -125,7 +125,7 @@ pub(super) fn handle_target<const N: usize>(
 	let push_strings = if dirty_qubits.len() >= gate_size.as_value() {
 		simple_solver(&row, gate_size, target, letter, dirty_qubits, protection)
 	} else {
-		delicate_solver(&row, gate_size, target, letter)
+		delicate_solver(&row, gate_size, target, letter, Some(&edge.nodes))
 	};
 
 	for string in push_strings {

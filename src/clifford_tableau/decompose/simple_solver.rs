@@ -38,6 +38,7 @@ pub fn simple_solver<const N: usize>(
 
 	// Make sure that the end_qubit has a letter
 	if string.get(end_qubit) == PauliLetter::I {
+		// check here?
 		assert_eq!(protection, QubitProtection::None);
 		let mut new_string: PauliString<N> = PauliString::id();
 		new_string.set(end_qubit, target_letter.next());
@@ -54,7 +55,14 @@ pub fn simple_solver<const N: usize>(
 			new_string.set(*index, *letter);
 		}
 
-		for (index, letter) in iter {
+		let mut rest: Vec<_> = iter.collect();
+		let additional = if !rest.is_empty() && rest.len() % 2 == 0 {
+			Some(rest.pop().unwrap())
+		} else {
+			None
+		};
+
+		for (index, letter) in rest {
 			if new_string.len() == n {
 				break;
 			}
@@ -73,6 +81,15 @@ pub fn simple_solver<const N: usize>(
 			new_string.set(*qubit, PauliLetter::X);
 		}
 
+		// We may need to remove one more. This is because we need to anticommute on uneven amount
+		if new_string.len() < n {
+			assert_eq!(new_string.len(), n - 1);
+			assert!(additional.is_some());
+			let (index, letter) = additional.unwrap();
+			new_string.set(*index, *letter);
+		}
+
+		assert_eq!(new_string.len(), n);
 		string.pi_over_4_sandwitch(false, &new_string);
 		pushing.push(new_string);
 	}
@@ -299,4 +316,39 @@ pub fn fastest<const N: usize>(
 	}
 
 	res.map(|(_, qubit, letter)| (qubit, letter))
+}
+
+#[cfg(test)]
+mod test {
+	use crate::{
+		clifford_tableau::decompose::{QubitProtection, simple_solver::simple_solver},
+		misc::NonZeroEvenUsize,
+		pauli::{PauliLetter, PauliString},
+		pauli_string,
+	};
+
+	#[test]
+	fn asd() {
+		let mut string = pauli_string!("IXXI");
+		let gate_size = NonZeroEvenUsize::new(4).unwrap();
+		let end_qubit = 0;
+		let target_letter = PauliLetter::X;
+		let dirty_qubits = vec![0, 1, 2, 3];
+		let protection = QubitProtection::None;
+
+		let strings = simple_solver(
+			&string,
+			gate_size,
+			end_qubit,
+			target_letter,
+			&dirty_qubits,
+			protection,
+		);
+
+		for push in strings {
+			string.pi_over_4_sandwitch(false, &push);
+		}
+
+		assert_eq!(string, PauliString::x(0));
+	}
 }

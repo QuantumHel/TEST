@@ -340,6 +340,7 @@ impl<const N: usize> CliffordTableau<N> {
 						gate_size,
 						qubit,
 						PauliLetter::X,
+						None,
 					);
 					for string in x_moves {
 						self.merge_pi_over_4_pauli(false, &string);
@@ -354,6 +355,7 @@ impl<const N: usize> CliffordTableau<N> {
 						gate_size,
 						qubit,
 						PauliLetter::Z,
+						None,
 					);
 					for string in z_moves {
 						self.merge_pi_over_4_pauli(false, &string);
@@ -370,6 +372,7 @@ impl<const N: usize> CliffordTableau<N> {
 						gate_size,
 						qubit,
 						PauliLetter::Z,
+						None,
 					);
 					for string in z_moves {
 						self.merge_pi_over_4_pauli(false, &string);
@@ -384,6 +387,7 @@ impl<const N: usize> CliffordTableau<N> {
 						gate_size,
 						qubit,
 						PauliLetter::X,
+						None,
 					);
 					for string in x_moves {
 						self.merge_pi_over_4_pauli(false, &string);

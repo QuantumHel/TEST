@@ -17,7 +17,6 @@ rustup override set nightly
 ```
 
 # TODO
-# Simple solver target qubit adding is likely broken
 ## Pauli
 - Nice way of handling clifford angles
 ## Connectivity

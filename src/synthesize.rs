@@ -379,11 +379,10 @@ pub(crate) fn handle_instruction<const N: usize>(
 		} else {
 			removable.len()
 		}) {
-			push_str.set(*qubit, string.get(*qubit).next());
-
 			if push_str.len() == n {
 				break;
 			}
+			push_str.set(*qubit, string.get(*qubit).next());
 		}
 
 		// If we do not have the option to anticommute on more, we need to add letters

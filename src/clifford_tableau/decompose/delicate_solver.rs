@@ -64,6 +64,7 @@ pub fn delicate_solver<const N: usize>(
 	gate_size: NonZeroEvenUsize,
 	target_qubit: usize,
 	target_letter: PauliLetter,
+	usable_qubits: Option<&[usize]>,
 ) -> Vec<PauliString<N>> {
 	if !(target_letter == PauliLetter::X || target_letter == PauliLetter::Z) {
 		panic!("delicate solver only solves for X and Z");
@@ -74,6 +75,12 @@ pub fn delicate_solver<const N: usize>(
 	}
 
 	let n = gate_size.as_value();
+	let range: Vec<_> = (0..n).collect();
+	let usable_qubits = match usable_qubits {
+		Some(usable_qubits) => usable_qubits,
+		_ => &range,
+	};
+
 	let mut pushing: Vec<PauliString<N>> = Vec::new();
 
 	if string.len() == 1 && string.get(target_qubit) != PauliLetter::I {
@@ -141,15 +148,15 @@ pub fn delicate_solver<const N: usize>(
 				inner.set(target_qubit, old_target.next().next());
 			}
 
-			for i in 0..n {
+			for i in usable_qubits.iter() {
 				if outer1.len() == n {
 					break;
 				}
 
-				if outer1.get(i) == PauliLetter::I {
-					outer1.set(i, PauliLetter::X);
-					outer2.set(i, PauliLetter::Z);
-					inner.set(i, PauliLetter::Y);
+				if outer1.get(*i) == PauliLetter::I {
+					outer1.set(*i, PauliLetter::X);
+					outer2.set(*i, PauliLetter::Z);
+					inner.set(*i, PauliLetter::Y);
 				}
 			}
 
@@ -179,14 +186,14 @@ pub fn delicate_solver<const N: usize>(
 			outer.set(target_qubit, target_letter);
 			inner.set(target_qubit, old_target);
 
-			for i in 0..n {
+			for i in usable_qubits.iter() {
 				if outer.len() == n {
 					break;
 				}
 
-				if outer.get(i) == PauliLetter::I {
-					outer.set(i, PauliLetter::Y);
-					inner.set(i, PauliLetter::Y);
+				if outer.get(*i) == PauliLetter::I {
+					outer.set(*i, PauliLetter::Y);
+					inner.set(*i, PauliLetter::Y);
 				}
 			}
 
@@ -238,16 +245,16 @@ pub fn delicate_solver<const N: usize>(
 				unreachable!()
 			}
 
-			for i in 0..n {
+			for i in usable_qubits.iter() {
 				if outer1.len() == n {
 					break;
 				}
 
-				if outer1.get(i) == PauliLetter::I {
-					outer1.set(i, PauliLetter::Y);
-					outer2.set(i, PauliLetter::X);
-					inner1.set(i, PauliLetter::Z);
-					inner2.set(i, PauliLetter::Y);
+				if outer1.get(*i) == PauliLetter::I {
+					outer1.set(*i, PauliLetter::Y);
+					outer2.set(*i, PauliLetter::X);
+					inner1.set(*i, PauliLetter::Z);
+					inner2.set(*i, PauliLetter::Y);
 				}
 			}
 
@@ -286,16 +293,16 @@ pub fn delicate_solver<const N: usize>(
 			}
 			inner2.set(target_qubit, PauliLetter::Y);
 
-			for i in 0..n {
+			for i in usable_qubits.iter() {
 				if outer1.len() == n {
 					break;
 				}
 
-				if outer1.get(i) == PauliLetter::I {
-					outer1.set(i, PauliLetter::X);
-					outer2.set(i, PauliLetter::Z);
-					inner1.set(i, PauliLetter::Y);
-					inner2.set(i, PauliLetter::Y);
+				if outer1.get(*i) == PauliLetter::I {
+					outer1.set(*i, PauliLetter::X);
+					outer2.set(*i, PauliLetter::Z);
+					inner1.set(*i, PauliLetter::Y);
+					inner2.set(*i, PauliLetter::Y);
 				}
 			}
 
