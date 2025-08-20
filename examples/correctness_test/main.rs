@@ -52,7 +52,7 @@ fn main() {
 				tableau.merge_pi_over_4_pauli(sign, &op.string);
 			}
 
-			tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap())
+			tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap(), None)
 		} else {
 			clifford
 		};
