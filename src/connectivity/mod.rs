@@ -78,6 +78,33 @@ impl Connectivity {
 		})
 	}
 
+	/// # Create Line
+	///
+	/// Creates a line connectivity.
+	///
+	/// ## Panics
+	/// if group size is smaller than 2.
+	pub fn create_line(group_size: usize, length: usize) -> Self {
+		if group_size < 2 {
+			panic!("Can not create line connectivity with group_size smalle than 2!");
+		}
+
+		if length == 0 {
+			return Self::new(0, vec![]).unwrap();
+		}
+
+		let qubit_count = 1 + length * (group_size - 1);
+
+		let mut operator_groups: Vec<Vec<usize>> = Vec::new();
+		for i in 0..length {
+			let start = i * (group_size - 1);
+			let group: Vec<usize> = (start..(start + group_size)).collect();
+			operator_groups.push(group);
+		}
+
+		Self::new(qubit_count, operator_groups).unwrap()
+	}
+
 	pub fn supports_operation_on(&self, targets: &[usize]) -> bool {
 		if targets.is_empty() {
 			return true;

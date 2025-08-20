@@ -59,6 +59,9 @@ impl HyperGraph {
 	}
 
 	pub fn fully_connected(&self) -> bool {
+		if self.nodes.is_empty() {
+			return true;
+		}
 		let mut visited: BTreeSet<usize> = BTreeSet::new();
 		let mut to_visit: Vec<usize> = vec![0];
 		while !to_visit.is_empty() {
