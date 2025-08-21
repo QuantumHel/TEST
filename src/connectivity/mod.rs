@@ -182,3 +182,30 @@ impl Connectivity {
 		self.qubit_count
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use crate::connectivity::Connectivity;
+
+	#[test]
+	fn test_supports_operation_on() {
+		let connectivity = Connectivity::new(
+			12,
+			vec![
+				vec![1, 2, 3],
+				vec![1, 4, 5, 6],
+				vec![2, 4],
+				vec![6, 4, 7],
+				vec![6, 8, 9, 10],
+				vec![1, 11, 0],
+			],
+		)
+		.unwrap();
+
+		assert!(connectivity.supports_operation_on(&[1, 2, 3]));
+		assert!(!connectivity.supports_operation_on(&[1, 2, 4]));
+		assert!(!connectivity.supports_operation_on(&[12]));
+		assert!(connectivity.supports_operation_on(&[1, 5, 4, 6]));
+		assert!(connectivity.supports_operation_on(&[]))
+	}
+}
