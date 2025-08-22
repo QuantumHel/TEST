@@ -56,7 +56,10 @@ impl<const N: usize> CliffordTableau<N> {
 					let node = graph.node_weight(index).unwrap();
 					// This means that the node does not correspond to a hyperedge
 					if node.hyper_edges.len() != 1 {
-						graph.remove_node(index);
+						// need to set back qubits or we cant reach them anymore
+						let mut removed = graph.remove_node(index).unwrap();
+						let neighbor = graph.node_weight_mut(*neighbors.first().unwrap()).unwrap();
+						neighbor.hyper_nodes.append(&mut removed.hyper_nodes);
 						continue;
 					}
 					// maps to the hyperedge that we are working on.
