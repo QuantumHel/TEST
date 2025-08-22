@@ -24,13 +24,16 @@ pub(super) fn as_instructions(
 		for index in indices {
 			let neighbors: Vec<_> = steiner_tree.neighbors(index).collect();
 			if neighbors.len() == 1 {
+				// need to check before remove
+				let node = steiner_tree.node_weight(index).unwrap();
+				if node.hyper_edges.len() == 1 && *node.hyper_edges.first().unwrap() == target {
+					continue;
+				}
+
 				let mut node = steiner_tree.remove_node(index).unwrap();
 				if node.hyper_edges.len() == 1 {
 					// represents and edge
 					let edge = node.hyper_edges.pop().unwrap();
-					if edge == target {
-						continue;
-					}
 
 					let neighbor_node = steiner_tree
 						.node_weight(*neighbors.first().unwrap())
@@ -80,8 +83,16 @@ pub(super) fn handle_target<const N: usize>(
 		let mut associated: Vec<usize> = row.targets();
 
 		// make sure that associated contains something from targets
-		if row.get(target) == PauliLetter::I {
-			associated.push(target);
+		for qubit in connectivity
+			.hypergraph
+			.get_edge(edge_index)
+			.unwrap()
+			.nodes
+			.iter()
+		{
+			if row.get(*qubit) == PauliLetter::I {
+				associated.push(*qubit);
+			}
 		}
 
 		let mut terminals = Vec::new();

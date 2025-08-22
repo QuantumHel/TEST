@@ -11,7 +11,7 @@ const N_EXPS: usize = 30;
 const N_QUBITS: usize = 13;
 const GATE_SIZE: usize = 4;
 const N_ROUNDS: usize = 10;
-const USE_TABLEAU: bool = false;
+const USE_TABLEAU: bool = true;
 
 fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle> {
 	let n_letters = (1_usize..=N).choose(rng).unwrap();
@@ -78,6 +78,7 @@ fn main() {
 			}
 		}
 
+		/*
 		as_exp_file(
 			&format!("./examples/correctness_test/circuit{i}.exp"),
 			&circuit,
@@ -86,5 +87,6 @@ fn main() {
 			&format!("./examples/correctness_test/circuit{i}.exp.order"),
 			&order,
 		);
+		*/
 	}
 }
