@@ -65,16 +65,12 @@ impl<const N: usize> CliffordTableau<N> {
 
 					// Tese are the qubits that we solve now
 					let mut targets: Vec<usize> = Vec::new();
-					for node_inxdex in edge.nodes.iter() {
-						if edge.nodes.contains(node_inxdex) {
-							targets.push(*node_inxdex);
-							continue;
-						}
+					'node_index: for node_inxdex in edge.nodes.iter() {
 						let node = connectivity.hypergraph.get_node(*node_inxdex).unwrap();
 						for edge in node.edges.iter() {
 							if *edge != edge_index && !handled_edges.contains(edge) {
 								// The node contributes to a hyperedge that we handle later
-								continue;
+								continue 'node_index;
 							}
 						}
 						targets.push(*node_inxdex);
