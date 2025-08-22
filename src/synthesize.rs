@@ -97,9 +97,10 @@ fn synthesize_with_connectivity<const N: usize>(
 
 		let mut exp = exponentials.remove(index);
 		for instruction in instructions {
-			let push_strs = handle_instruction(&mut exp.string, gate_size, instruction);
+			let push_strs = handle_instruction(exp.string.clone(), gate_size, instruction);
 
 			for push_str in push_strs {
+				exp.push_pi_over_4(false, &push_str);
 				for exp in exponentials.iter_mut() {
 					exp.push_pi_over_4(false, &push_str);
 				}
@@ -300,7 +301,7 @@ fn synthesize_full_connectivity<const N: usize>(
 }
 
 pub(crate) fn handle_instruction<const N: usize>(
-	string: &mut PauliString<N>,
+	mut string: PauliString<N>,
 	gate_size: NonZeroEvenUsize,
 	instruction: RoutingInstruction,
 ) -> Vec<PauliString<N>> {
@@ -359,7 +360,7 @@ pub(crate) fn handle_instruction<const N: usize>(
 		push_str.set(target, PauliLetter::X);
 
 		// We add one, and then want to have n left
-		let mut n_remove = (string.len() + 1).saturating_sub(n);
+		let mut n_remove = (removable.len() + 2).saturating_sub(n);
 		// Because we need to add one qubit and anticommute on one, we can only remove an
 		// even amount.
 		if n_remove % 2 == 1 {

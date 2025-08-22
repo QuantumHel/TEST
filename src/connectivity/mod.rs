@@ -145,15 +145,27 @@ impl Connectivity {
 			for node in weight.hyper_nodes.iter() {
 				if targets.contains(node) {
 					terminals.push(index);
-					continue;
+					break;
 				}
 			}
 		}
 
-		let tree = steiner_tree(&self.explosion, &terminals);
-		let primitive_groups = explosion::as_instructions(tree);
-		let mut instructions = Vec::new();
+		// With terminals len 1 the steiner tree algorithm fails for some reason
+		// (wrong answer as in giving empty tree)
+		let primitive_groups = if terminals.len() == 1 {
+			let node_things = self
+				.explosion
+				.node_weight(*terminals.first().unwrap())
+				.unwrap();
+			let edge = *node_things.hyper_edges.first().unwrap();
 
+			vec![(edge, None)]
+		} else {
+			let tree = steiner_tree(&self.explosion, &terminals);
+			explosion::as_instructions(tree)
+		};
+
+		let mut instructions = Vec::new();
 		for (edge, nodes) in primitive_groups {
 			#[allow(clippy::unnecessary_unwrap)]
 			let target = if nodes.is_none() {

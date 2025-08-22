@@ -113,7 +113,10 @@ pub(super) fn handle_target<const N: usize>(
 			});
 
 	for instruction in instructions {
-		let mut push_strings = handle_instruction(&mut row, gate_size, instruction);
+		let mut push_strings = handle_instruction(row.clone(), gate_size, instruction);
+		for string in push_strings.iter() {
+			row.pi_over_4_sandwitch(false, string);
+		}
 		result.append(&mut push_strings);
 	}
 

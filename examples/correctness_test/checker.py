@@ -49,6 +49,7 @@ files = glob.glob("./*.exp")
 for file in files:
 	circuit = read_exp(file)
 	order = read_order(file)
+	# print()
 	# print(Statevector.from_instruction(circuit))
 	# print(Statevector.from_instruction(order))
 	print(check_equal(circuit, order))
