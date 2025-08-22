@@ -240,7 +240,7 @@ impl<const N: usize> CliffordTableau<N> {
 
 		assert_eq!(self, CliffordTableau::id());
 
-		decomposition
+		decomposition.into_iter().rev().collect()
 	}
 
 	fn decompose_full_connectivity(

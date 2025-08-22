@@ -1,5 +1,5 @@
 # %% Initialization
-import glob;
+import glob
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit.library import PauliEvolutionGate
 from qiskit.quantum_info import SparsePauliOp

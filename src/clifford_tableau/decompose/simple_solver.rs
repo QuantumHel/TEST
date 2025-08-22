@@ -38,7 +38,6 @@ pub fn simple_solver<const N: usize>(
 
 	// Make sure that the end_qubit has a letter
 	if string.get(end_qubit) == PauliLetter::I {
-		// check here?
 		assert_eq!(protection, QubitProtection::None);
 		let mut new_string: PauliString<N> = PauliString::id();
 		new_string.set(end_qubit, target_letter.next());
@@ -78,6 +77,12 @@ pub fn simple_solver<const N: usize>(
 				continue;
 			}
 
+			if let Some((additional, _)) = additional
+				&& qubit == additional
+			{
+				continue;
+			}
+
 			new_string.set(*qubit, PauliLetter::X);
 		}
 
@@ -93,6 +98,8 @@ pub fn simple_solver<const N: usize>(
 		string.pi_over_4_sandwitch(false, &new_string);
 		pushing.push(new_string);
 	}
+
+	assert_ne!(string.get(end_qubit), PauliLetter::I);
 
 	// if even and not 4, make it so that we are uneven and under 4
 	if string.len().is_multiple_of(2) && string.len() != n {

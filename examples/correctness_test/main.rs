@@ -78,7 +78,6 @@ fn main() {
 			}
 		}
 
-		/*
 		as_exp_file(
 			&format!("./examples/correctness_test/circuit{i}.exp"),
 			&circuit,
@@ -87,6 +86,5 @@ fn main() {
 			&format!("./examples/correctness_test/circuit{i}.exp.order"),
 			&order,
 		);
-		*/
 	}
 }
