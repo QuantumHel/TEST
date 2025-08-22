@@ -4,12 +4,12 @@ mod simple_solver;
 
 use crate::{
 	clifford_tableau::{CliffordTableau, decompose::routing_help::handle_target},
-	connectivity::{Connectivity, ExplosionNode, hypergraph::HyperEdgeIndex},
+	connectivity::{Connectivity, hypergraph::HyperEdgeIndex},
 	misc::NonZeroEvenUsize,
 	pauli::{CliffordPauliAngle, PauliExp, PauliLetter, PauliString},
 };
 use delicate_solver::{delicate_solver, fastest_delicate};
-use petgraph::{Undirected, prelude::StableGraph};
+use petgraph::algo::steiner_tree;
 use simple_solver::{fastest, simple_solver};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -41,8 +41,8 @@ impl<const N: usize> CliffordTableau<N> {
 	) -> Vec<PauliExp<N, CliffordPauliAngle>> {
 		let mut decomposition: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 
-		let mut graph: StableGraph<ExplosionNode, usize, Undirected, u32> =
-			connectivity.explosion.clone().into();
+		let terminals: Vec<_> = connectivity.explosion.node_indices().collect();
+		let mut graph = steiner_tree(&connectivity.explosion, &terminals);
 		let mut handled_edges: Vec<HyperEdgeIndex> = Vec::new();
 
 		while graph.node_count() != 0 {
@@ -56,6 +56,7 @@ impl<const N: usize> CliffordTableau<N> {
 					let node = graph.node_weight(index).unwrap();
 					// This means that the node does not correspond to a hyperedge
 					if node.hyper_edges.len() != 1 {
+						graph.remove_node(index);
 						continue;
 					}
 					// maps to the hyperedge that we are working on.
