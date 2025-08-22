@@ -3,6 +3,7 @@ use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use test_transpiler::{
 	clifford_tableau::CliffordTableau,
+	connectivity::Connectivity,
 	misc::NonZeroEvenUsize,
 	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 	synthesize::synthesize,
@@ -85,6 +86,8 @@ const N_ROUNDS: usize = 100;
 const USE_TABLEAU: bool = true;
 
 fn main() {
+	let connectivity: Option<Connectivity> = None;
+
 	let mut rng = ChaCha8Rng::seed_from_u64(2);
 
 	let mut count_sum = 0;
@@ -105,7 +108,7 @@ fn main() {
 		let (mut circuit, clifford) = synthesize(
 			original_exponentials,
 			NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
-			None,
+			connectivity.as_ref(),
 		);
 
 		#[cfg(feature = "return_ordered")]
@@ -125,7 +128,10 @@ fn main() {
 				tableau.merge_pi_over_4_pauli(neg, &op.string);
 			}
 
-			let decomposition = tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap(), None);
+			let decomposition = tableau.decompose(
+				NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
+				connectivity.as_ref(),
+			);
 
 			if multi_gate_count(&decomposition) < multi_gate_count(&clifford) {
 				decomposition.into_iter().map(PauliExp::from).collect()

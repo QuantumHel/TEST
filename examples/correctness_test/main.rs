@@ -34,8 +34,7 @@ fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle
 }
 
 fn main() {
-	let line = Connectivity::create_line(4, 4);
-	let connectivity = Some(&line);
+	let connectivity = Some(Connectivity::create_line(4, 4));
 
 	for i in 0..N_ROUNDS {
 		let mut rng = rand::rng();
@@ -46,7 +45,7 @@ fn main() {
 		let (mut circuit, clifford, order) = synthesize(
 			input,
 			NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
-			connectivity,
+			connectivity.as_ref(),
 		);
 
 		let clifford: Vec<PauliExp<{ N_QUBITS }, CliffordPauliAngle>> = if USE_TABLEAU {
@@ -59,7 +58,10 @@ fn main() {
 				tableau.merge_pi_over_4_pauli(sign, &op.string);
 			}
 
-			tableau.decompose(NonZeroEvenUsize::new(GATE_SIZE).unwrap(), connectivity)
+			tableau.decompose(
+				NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
+				connectivity.as_ref(),
+			)
 		} else {
 			clifford
 		};
@@ -73,7 +75,7 @@ fn main() {
 
 		for exp in circuit.iter() {
 			assert!(exp.len() == 1 || exp.len() == GATE_SIZE);
-			if let Some(connectivity) = connectivity {
+			if let Some(ref connectivity) = connectivity {
 				assert!(connectivity.supports_operation_on(&exp.string.targets()))
 			}
 		}
