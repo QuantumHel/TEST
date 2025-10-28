@@ -27,10 +27,19 @@ fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle
 		string.set(qubit, pauli);
 	}
 
-	PauliExp {
-		string,
-		angle: FreePauliAngle::MultipleOfPi(rng.random()),
-	}
+	let angle = if rng.random::<bool>() {
+		match rng.random_range(0..4) {
+			0 => FreePauliAngle::Clifford(CliffordPauliAngle::NegPiOver2),
+			1 => FreePauliAngle::Clifford(CliffordPauliAngle::PiOver2),
+			2 => FreePauliAngle::Clifford(CliffordPauliAngle::NegPiOver4),
+			3 => FreePauliAngle::Clifford(CliffordPauliAngle::PiOver4),
+			_ => unreachable!(),
+		}
+	} else {
+		FreePauliAngle::MultipleOfPi(rng.random())
+	};
+
+	PauliExp { string, angle }
 }
 
 fn main() {
@@ -51,11 +60,7 @@ fn main() {
 		let clifford: Vec<PauliExp<{ N_QUBITS }, CliffordPauliAngle>> = if USE_TABLEAU {
 			let mut tableau: CliffordTableau<{ N_QUBITS }> = CliffordTableau::id();
 			for op in clifford.into_iter() {
-				let sign = match op.angle {
-					CliffordPauliAngle::NeqPiOver4 => true,
-					CliffordPauliAngle::PiOver4 => false,
-				};
-				tableau.merge_pi_over_4_pauli(sign, &op.string);
+				tableau.merge_clifford(op);
 			}
 
 			tableau.decompose(

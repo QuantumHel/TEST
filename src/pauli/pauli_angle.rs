@@ -8,12 +8,13 @@ pub trait PauliAngle: Neg<Output = Self> + Debug + Clone + Copy + PartialEq {
 }
 
 /// An angle for [PauliExp] that is always Clifford
-///
-/// TODO: Support all Clifford angles.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CliffordPauliAngle {
+	NegPiOver2,
+	NegPiOver4,
+	Zero,
 	PiOver4,
-	NeqPiOver4,
+	PiOver2,
 }
 
 impl Neg for CliffordPauliAngle {
@@ -21,8 +22,11 @@ impl Neg for CliffordPauliAngle {
 
 	fn neg(self) -> Self::Output {
 		match self {
-			CliffordPauliAngle::PiOver4 => CliffordPauliAngle::NeqPiOver4,
-			CliffordPauliAngle::NeqPiOver4 => CliffordPauliAngle::PiOver4,
+			CliffordPauliAngle::NegPiOver2 => CliffordPauliAngle::PiOver2,
+			CliffordPauliAngle::NegPiOver4 => CliffordPauliAngle::PiOver4,
+			CliffordPauliAngle::Zero => CliffordPauliAngle::Zero,
+			CliffordPauliAngle::PiOver4 => CliffordPauliAngle::NegPiOver4,
+			CliffordPauliAngle::PiOver2 => CliffordPauliAngle::NegPiOver2,
 		}
 	}
 }
@@ -30,8 +34,11 @@ impl Neg for CliffordPauliAngle {
 impl PauliAngle for CliffordPauliAngle {
 	fn multiple_of_pi(&self) -> f64 {
 		match self {
+			CliffordPauliAngle::NegPiOver2 => -0.5,
+			CliffordPauliAngle::NegPiOver4 => -0.25,
+			CliffordPauliAngle::Zero => 0.0,
 			CliffordPauliAngle::PiOver4 => 0.25,
-			CliffordPauliAngle::NeqPiOver4 => -0.25,
+			CliffordPauliAngle::PiOver2 => 0.5,
 		}
 	}
 }
@@ -41,6 +48,12 @@ impl PauliAngle for CliffordPauliAngle {
 pub enum FreePauliAngle {
 	MultipleOfPi(f64),
 	Clifford(CliffordPauliAngle),
+}
+
+impl FreePauliAngle {
+	pub fn is_clifford(&self) -> bool {
+		matches!(self, FreePauliAngle::Clifford(_))
+	}
 }
 
 impl Neg for FreePauliAngle {

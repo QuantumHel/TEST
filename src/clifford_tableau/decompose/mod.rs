@@ -103,7 +103,7 @@ impl<const N: usize> CliffordTableau<N> {
 							// the decomposition has the reverse operation
 							decomposition.push(PauliExp {
 								string,
-								angle: CliffordPauliAngle::NeqPiOver4,
+								angle: CliffordPauliAngle::NegPiOver4,
 							});
 						}
 
@@ -127,7 +127,7 @@ impl<const N: usize> CliffordTableau<N> {
 							// the decomposition has the reverse operation
 							decomposition.push(PauliExp {
 								string,
-								angle: CliffordPauliAngle::NeqPiOver4,
+								angle: CliffordPauliAngle::NegPiOver4,
 							});
 						}
 
@@ -169,7 +169,7 @@ impl<const N: usize> CliffordTableau<N> {
 								// the decomposition has the reverse operation
 								decomposition.push(PauliExp {
 									string,
-									angle: CliffordPauliAngle::NeqPiOver4,
+									angle: CliffordPauliAngle::NegPiOver4,
 								});
 							}
 
@@ -193,7 +193,7 @@ impl<const N: usize> CliffordTableau<N> {
 								// the decomposition has the reverse operation
 								decomposition.push(PauliExp {
 									string,
-									angle: CliffordPauliAngle::NeqPiOver4,
+									angle: CliffordPauliAngle::NegPiOver4,
 								});
 							}
 
@@ -268,7 +268,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 					let z_moves = simple_solver(
@@ -284,7 +284,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 				}
@@ -302,7 +302,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 					let x_moves = simple_solver(
@@ -318,7 +318,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 				}
@@ -347,7 +347,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 					let z_moves = delicate_solver(
@@ -362,7 +362,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 				}
@@ -379,7 +379,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 					let x_moves = delicate_solver(
@@ -394,7 +394,7 @@ impl<const N: usize> CliffordTableau<N> {
 						// the decomposition has the reverse operation
 						decomposition.push(PauliExp {
 							string,
-							angle: CliffordPauliAngle::NeqPiOver4,
+							angle: CliffordPauliAngle::NegPiOver4,
 						});
 					}
 				}

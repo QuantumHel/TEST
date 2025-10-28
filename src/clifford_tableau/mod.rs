@@ -2,7 +2,7 @@ mod decompose;
 
 use bitvec::vec::BitVec;
 
-use crate::pauli::PauliString;
+use crate::pauli::{CliffordPauliAngle, PauliExp, PauliString};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CliffordTableau<const N: usize> {
@@ -69,6 +69,41 @@ impl<const N: usize> CliffordTableau<N> {
 				let sign = self.z_signs[i];
 				self.z_signs.set(i, !sign);
 			}
+		}
+	}
+
+	/// # Merge Clifford
+	///
+	/// Merges a Clifford Pauli exponential into the tableau (On a
+	/// circuit the Pauli would be originally on the right side of the tableau).
+	pub fn merge_clifford(&mut self, clifford: PauliExp<N, CliffordPauliAngle>) {
+		match clifford.angle {
+			CliffordPauliAngle::NegPiOver4 => {
+				self.merge_pi_over_4_pauli(true, &clifford.string);
+			}
+			CliffordPauliAngle::PiOver4 => {
+				self.merge_pi_over_4_pauli(false, &clifford.string);
+			}
+			// Firstly $e^{\pm i\pi O/2} = \cos(\pi/2)I\pm\sin(\pi/2)O=\pm O$
+			// Then we get $e^{\pm i\pi O/2}Pe^{\mp i\pi O/2} = \pm OP(\mp O)=OPO
+			// If $O$ and $P$ commute then $OPO=0^2P=P$
+			// If $O$ and $P$ anticommute then $OPO=-O^2P=-P$
+			CliffordPauliAngle::NegPiOver2 | CliffordPauliAngle::PiOver2 => {
+				for (i, string) in self.x.iter().enumerate() {
+					if string.anticommutes_with(&clifford.string) {
+						let old = self.x_signs[i];
+						self.x_signs.set(i, !old);
+					}
+				}
+
+				for (i, string) in self.z.iter().enumerate() {
+					if string.anticommutes_with(&clifford.string) {
+						let old = self.z_signs[i];
+						self.z_signs.set(i, !old);
+					}
+				}
+			}
+			CliffordPauliAngle::Zero => {}
 		}
 	}
 

@@ -127,7 +127,14 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 				.push(random_exp::<N_QUBITS, _>(parameters.max_exp_size, &mut rng));
 		}
 
+		#[cfg(not(feature = "return_ordered"))]
 		let (mut circuit, clifford) = synthesize(
+			original_exponentials,
+			NonZeroEvenUsize::new(parameters.gate_size).unwrap(),
+			connectivity.as_ref().as_ref(),
+		);
+		#[cfg(feature = "return_ordered")]
+		let (mut circuit, clifford, _) = synthesize(
 			original_exponentials,
 			NonZeroEvenUsize::new(parameters.gate_size).unwrap(),
 			connectivity.as_ref().as_ref(),
@@ -139,7 +146,8 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 			for op in clifford.iter() {
 				let neg = match op.angle {
 					CliffordPauliAngle::PiOver4 => false,
-					CliffordPauliAngle::NeqPiOver4 => true,
+					CliffordPauliAngle::NegPiOver4 => true,
+					_ => unreachable!(),
 				};
 				tableau.merge_pi_over_4_pauli(neg, &op.string);
 			}

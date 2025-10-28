@@ -52,12 +52,29 @@ fn synthesize_with_connectivity<const N: usize>(
 	connectivity: &Connectivity,
 ) -> SynthesizeResult<N> {
 	#[cfg(feature = "return_ordered")]
-	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
-	#[cfg(feature = "return_ordered")]
 	let mut ordered: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	#[cfg(feature = "return_ordered")]
+	let mut ordered_clifford: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 
 	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
+
+	// move clifford gates to clifford part
+	for clifford in exponentials.extract_if(.., |v| v.angle.is_clifford()) {
+		if let FreePauliAngle::Clifford(angle) = clifford.angle {
+			clifford_part.push(PauliExp {
+				string: clifford.string.clone(),
+				angle,
+			});
+			#[cfg(feature = "return_ordered")]
+			ordered_clifford.push(clifford); // nope
+		} else {
+			unreachable!()
+		}
+	}
+
+	#[cfg(feature = "return_ordered")]
+	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
@@ -111,7 +128,7 @@ fn synthesize_with_connectivity<const N: usize>(
 				});
 				clifford_part.push(PauliExp {
 					string: push_str,
-					angle: CliffordPauliAngle::NeqPiOver4,
+					angle: CliffordPauliAngle::NegPiOver4,
 				});
 			}
 		}
@@ -130,6 +147,12 @@ fn synthesize_with_connectivity<const N: usize>(
 		clifford_part.into_iter().rev().collect();
 
 	#[cfg(feature = "return_ordered")]
+	{
+		ordered_clifford.reverse();
+		ordered.append(&mut ordered_clifford);
+	}
+
+	#[cfg(feature = "return_ordered")]
 	return (circuit, clifford_part, ordered);
 
 	#[cfg(not(feature = "return_ordered"))]
@@ -141,13 +164,30 @@ fn synthesize_full_connectivity<const N: usize>(
 	gate_size: NonZeroEvenUsize,
 ) -> SynthesizeResult<N> {
 	#[cfg(feature = "return_ordered")]
-	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
-	#[cfg(feature = "return_ordered")]
 	let mut ordered: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	#[cfg(feature = "return_ordered")]
+	let mut ordered_clifford: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 
 	let n = gate_size.as_value();
 	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
 	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
+
+	// move clifford gates to clifford part
+	for clifford in exponentials.extract_if(.., |v| v.angle.is_clifford()) {
+		if let FreePauliAngle::Clifford(angle) = clifford.angle {
+			clifford_part.push(PauliExp {
+				string: clifford.string.clone(),
+				angle,
+			});
+			#[cfg(feature = "return_ordered")]
+			ordered_clifford.push(clifford); // nope
+		} else {
+			unreachable!()
+		}
+	}
+
+	#[cfg(feature = "return_ordered")]
+	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
@@ -276,7 +316,7 @@ fn synthesize_full_connectivity<const N: usize>(
 			});
 			clifford_part.push(PauliExp {
 				string: push_str,
-				angle: CliffordPauliAngle::NeqPiOver4,
+				angle: CliffordPauliAngle::NegPiOver4,
 			});
 		}
 
@@ -292,6 +332,12 @@ fn synthesize_full_connectivity<const N: usize>(
 
 	let clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> =
 		clifford_part.into_iter().rev().collect();
+
+	#[cfg(feature = "return_ordered")]
+	{
+		ordered_clifford.reverse();
+		ordered.append(&mut ordered_clifford);
+	}
 
 	#[cfg(feature = "return_ordered")]
 	return (circuit, clifford_part, ordered);
@@ -560,7 +606,7 @@ mod tests {
 			let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(4).unwrap(), None);
 
 			#[cfg(feature = "return_ordered")]
-			let (circuit, clifford, _) = synthesize(input, NonZeroEvenUsize::new(4).unwrap());
+			let (circuit, clifford, _) = synthesize(input, NonZeroEvenUsize::new(4).unwrap(), None);
 
 			for exp in circuit {
 				assert!(exp.len() == 1 || exp.len() == 4);
