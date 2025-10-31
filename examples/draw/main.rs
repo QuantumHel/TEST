@@ -3,13 +3,13 @@ use std::io::Write;
 
 use test_transpiler::{
 	draw::ImageSize,
-	pauli::{FreePauliAngle, PauliExp},
+	pauli::{PauliAngle, PauliExp},
 	pauli_string,
 };
 
 fn main() {
-	let p: PauliExp<7, FreePauliAngle> = PauliExp {
-		angle: FreePauliAngle::MultipleOfPi(1.4),
+	let p: PauliExp<7, PauliAngle> = PauliExp {
+		angle: PauliAngle::MultipleOfPi(1.4),
 		string: pauli_string!("XYZIXXY"),
 	};
 

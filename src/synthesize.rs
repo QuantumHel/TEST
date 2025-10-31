@@ -1,10 +1,10 @@
 use crate::{
 	connectivity::{Connectivity, RoutingInstruction, RoutingInstructionTarget},
 	misc::NonZeroEvenUsize,
-	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
+	pauli::{CliffordPauliAngle, Negate, PauliAngle, PauliExp, PauliLetter, PauliString},
 };
 
-fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAngle>(
+fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: Negate>(
 	exponentials: &[PauliExp<N, A>],
 	f: F,
 ) -> Vec<usize> {
@@ -24,19 +24,19 @@ fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: PauliAn
 
 #[cfg(not(feature = "return_ordered"))]
 type SynthesizeResult<const N: usize> = (
-	Vec<PauliExp<N, FreePauliAngle>>,
+	Vec<PauliExp<N, PauliAngle>>,
 	Vec<PauliExp<N, CliffordPauliAngle>>,
 );
 
 #[cfg(feature = "return_ordered")]
 type SynthesizeResult<const N: usize> = (
-	Vec<PauliExp<N, FreePauliAngle>>,
+	Vec<PauliExp<N, PauliAngle>>,
 	Vec<PauliExp<N, CliffordPauliAngle>>,
-	Vec<PauliExp<N, FreePauliAngle>>,
+	Vec<PauliExp<N, PauliAngle>>,
 );
 
 pub fn synthesize<const N: usize>(
-	exponentials: Vec<PauliExp<N, FreePauliAngle>>,
+	exponentials: Vec<PauliExp<N, PauliAngle>>,
 	gate_size: NonZeroEvenUsize,
 	connectivity: Option<&Connectivity>,
 ) -> SynthesizeResult<N> {
@@ -47,21 +47,21 @@ pub fn synthesize<const N: usize>(
 }
 
 fn synthesize_with_connectivity<const N: usize>(
-	mut exponentials: Vec<PauliExp<N, FreePauliAngle>>,
+	mut exponentials: Vec<PauliExp<N, PauliAngle>>,
 	gate_size: NonZeroEvenUsize,
 	connectivity: &Connectivity,
 ) -> SynthesizeResult<N> {
 	#[cfg(feature = "return_ordered")]
-	let mut ordered: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	let mut ordered: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 	#[cfg(feature = "return_ordered")]
-	let mut ordered_clifford: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	let mut ordered_clifford: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 
-	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	let mut circuit: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 
 	// move clifford gates to clifford part
 	for clifford in exponentials.extract_if(.., |v| v.angle.is_clifford()) {
-		if let FreePauliAngle::Clifford(angle) = clifford.angle {
+		if let PauliAngle::Clifford(angle) = clifford.angle {
 			clifford_part.push(PauliExp {
 				string: clifford.string.clone(),
 				angle,
@@ -74,7 +74,7 @@ fn synthesize_with_connectivity<const N: usize>(
 	}
 
 	#[cfg(feature = "return_ordered")]
-	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
+	let mut clone: Vec<PauliExp<N, PauliAngle>> = exponentials.clone();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
@@ -124,7 +124,7 @@ fn synthesize_with_connectivity<const N: usize>(
 
 				circuit.push(PauliExp {
 					string: push_str.clone(),
-					angle: FreePauliAngle::Clifford(CliffordPauliAngle::PiOver4),
+					angle: PauliAngle::Clifford(CliffordPauliAngle::PiOver4),
 				});
 				clifford_part.push(PauliExp {
 					string: push_str,
@@ -160,21 +160,21 @@ fn synthesize_with_connectivity<const N: usize>(
 }
 
 fn synthesize_full_connectivity<const N: usize>(
-	mut exponentials: Vec<PauliExp<N, FreePauliAngle>>,
+	mut exponentials: Vec<PauliExp<N, PauliAngle>>,
 	gate_size: NonZeroEvenUsize,
 ) -> SynthesizeResult<N> {
 	#[cfg(feature = "return_ordered")]
-	let mut ordered: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	let mut ordered: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 	#[cfg(feature = "return_ordered")]
-	let mut ordered_clifford: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	let mut ordered_clifford: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 
 	let n = gate_size.as_value();
-	let mut circuit: Vec<PauliExp<N, FreePauliAngle>> = Vec::new();
+	let mut circuit: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
 
 	// move clifford gates to clifford part
 	for clifford in exponentials.extract_if(.., |v| v.angle.is_clifford()) {
-		if let FreePauliAngle::Clifford(angle) = clifford.angle {
+		if let PauliAngle::Clifford(angle) = clifford.angle {
 			clifford_part.push(PauliExp {
 				string: clifford.string.clone(),
 				angle,
@@ -187,7 +187,7 @@ fn synthesize_full_connectivity<const N: usize>(
 	}
 
 	#[cfg(feature = "return_ordered")]
-	let mut clone: Vec<PauliExp<N, FreePauliAngle>> = exponentials.clone();
+	let mut clone: Vec<PauliExp<N, PauliAngle>> = exponentials.clone();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
@@ -312,7 +312,7 @@ fn synthesize_full_connectivity<const N: usize>(
 			}
 			circuit.push(PauliExp {
 				string: push_str.clone(),
-				angle: FreePauliAngle::Clifford(CliffordPauliAngle::PiOver4),
+				angle: PauliAngle::Clifford(CliffordPauliAngle::PiOver4),
 			});
 			clifford_part.push(PauliExp {
 				string: push_str,
@@ -574,7 +574,7 @@ mod tests {
 	use super::*;
 	use rand::prelude::*;
 
-	fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle> {
+	fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, PauliAngle> {
 		let n_letters = (1_usize..=N).choose(rng);
 		let mut selection: Vec<usize> = (0..N).collect();
 		selection.shuffle(rng);
@@ -590,7 +590,7 @@ mod tests {
 
 		PauliExp {
 			string,
-			angle: FreePauliAngle::MultipleOfPi(rng.random()),
+			angle: PauliAngle::MultipleOfPi(rng.random()),
 		}
 	}
 
@@ -598,7 +598,7 @@ mod tests {
 	fn synthesize_result_has_suitable_operators() {
 		for _ in 0..10 {
 			let mut rng = rand::rng();
-			let input: Vec<PauliExp<30, FreePauliAngle>> = (0..30)
+			let input: Vec<PauliExp<30, PauliAngle>> = (0..30)
 				.map(move |_| random_exp::<30, _>(&mut rng))
 				.collect();
 

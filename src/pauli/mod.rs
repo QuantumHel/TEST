@@ -6,8 +6,8 @@ mod pauli_string;
 
 use std::fmt;
 
-pub use pauli_angle::{CliffordPauliAngle, FreePauliAngle, PauliAngle};
-pub use pauli_exp::{PauliExp, as_exp_file};
+pub use pauli_angle::{CliffordPauliAngle, Negate, PauliAngle};
+pub use pauli_exp::PauliExp;
 pub use pauli_string::PauliString;
 
 /// An enum with variants that correspond to the $X$, $Y$, and $Z$ Pauli matrices and $I$.

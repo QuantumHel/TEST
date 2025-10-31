@@ -1,20 +1,20 @@
 use std::{
 	fs::{File, exists},
-	io::Write,
+	io::{self, BufRead, Write},
 };
 
-use crate::pauli::{CliffordPauliAngle, FreePauliAngle};
+use crate::pauli::{CliffordPauliAngle, PauliAngle, PauliLetter, pauli_angle::Negate};
 
-use super::{PauliAngle, PauliString};
+use super::PauliString;
 
 /// An Pauli exponential $e^{i\theta P}$ where $\theta$ is a [PauliAngle] and $P$ a [PauliString].
 #[derive(Debug, Clone)]
-pub struct PauliExp<const N: usize, T: PauliAngle> {
+pub struct PauliExp<const N: usize, T: Negate> {
 	pub string: PauliString<N>,
 	pub angle: T,
 }
 
-impl<const N: usize, T: PauliAngle> PauliExp<N, T> {
+impl<const N: usize, T: Negate> PauliExp<N, T> {
 	pub fn len(&self) -> usize {
 		self.string.len()
 	}
@@ -54,27 +54,85 @@ impl<const N: usize, T: PauliAngle> PauliExp<N, T> {
 	///
 	pub fn push_pi_over_4(&mut self, neg: bool, #[allow(non_snake_case)] O: &PauliString<N>) {
 		if self.string.pi_over_4_sandwitch(neg, O) {
-			self.angle = -self.angle;
+			self.angle.negate();
 		}
 	}
 }
 
-pub fn as_exp_file<const N: usize, T: PauliAngle>(path: &str, paulis: &Vec<PauliExp<N, T>>) {
-	if exists(path).unwrap() {
-		panic!("Tried to overwrite a file");
+impl<const N: usize> PauliExp<N, PauliAngle> {
+	pub fn write_exp_file(exps: &Vec<Self>, path: &str) {
+		if exists(path).unwrap() {
+			panic!("Tried to overwrite a file");
+		}
+
+		let mut file = File::create(path).unwrap();
+		for pauli in exps {
+			let angle = match &pauli.angle {
+				PauliAngle::MultipleOfPi(v) => format!("{v}"),
+				PauliAngle::Parameter { neg: false, name } => name.clone(),
+				PauliAngle::Parameter { neg: true, name } => format!("-{name}"),
+				PauliAngle::Clifford(CliffordPauliAngle::PiOver2) => String::from("0.5"),
+				PauliAngle::Clifford(CliffordPauliAngle::PiOver4) => String::from("0.25"),
+				PauliAngle::Clifford(CliffordPauliAngle::Zero) => String::from("0.0"),
+				PauliAngle::Clifford(CliffordPauliAngle::NegPiOver4) => String::from("-0.25"),
+				PauliAngle::Clifford(CliffordPauliAngle::NegPiOver2) => String::from("-0.5"),
+			};
+			let string = pauli.string.as_string();
+			writeln!(&mut file, "{angle};{string}").unwrap();
+		}
+		file.flush().expect("Failed to write to file");
 	}
 
-	let mut file = File::create(path).unwrap();
-	for pauli in paulis {
-		let angle = pauli.angle.multiple_of_pi();
-		let string = pauli.string.as_string();
-		writeln!(&mut file, "{angle};{string}").unwrap();
+	pub fn read_exp_file(path: &str) -> Vec<Self> {
+		let file = File::open(path).expect("Failed to open file");
+		io::BufReader::new(file)
+			.lines()
+			.map(|line| {
+				let line = line.expect("Failed to read file");
+				let (angle, letters) = line.split_once(';').expect("File format is wrong");
+				let angle = match angle.parse::<f64>() {
+					Ok(0.5) => PauliAngle::Clifford(CliffordPauliAngle::PiOver2),
+					Ok(0.25) => PauliAngle::Clifford(CliffordPauliAngle::PiOver4),
+					Ok(0.0) => PauliAngle::Clifford(CliffordPauliAngle::Zero),
+					Ok(-0.25) => PauliAngle::Clifford(CliffordPauliAngle::NegPiOver4),
+					Ok(-0.5) => PauliAngle::Clifford(CliffordPauliAngle::NegPiOver2),
+					Ok(v) => PauliAngle::MultipleOfPi(v),
+					Err(_) => match angle.strip_prefix('-') {
+						Some(angle) => PauliAngle::Parameter {
+							neg: true,
+							name: String::from(angle),
+						},
+						_ => PauliAngle::Parameter {
+							neg: false,
+							name: String::from(angle),
+						},
+					},
+				};
+
+				if letters.len() != N {
+					panic!("File contains an exp that is not of desired length.")
+				}
+
+				let mut string = PauliString::id();
+				for (i, letter) in letters.chars().enumerate() {
+					match letter {
+						'X' => string.set(i, PauliLetter::X),
+						'Y' => string.set(i, PauliLetter::Y),
+						'Z' => string.set(i, PauliLetter::Z),
+						'I' => {}
+						_ => panic!("File format error, PauliString contains non-valid letters"),
+					}
+				}
+
+				PauliExp { string, angle }
+			})
+			.collect()
 	}
 }
 
-impl<const N: usize> From<PauliExp<N, CliffordPauliAngle>> for PauliExp<N, FreePauliAngle> {
+impl<const N: usize> From<PauliExp<N, CliffordPauliAngle>> for PauliExp<N, PauliAngle> {
 	fn from(value: PauliExp<N, CliffordPauliAngle>) -> Self {
-		PauliExp::<N, FreePauliAngle> {
+		PauliExp::<N, PauliAngle> {
 			angle: value.angle.into(),
 			string: value.string,
 		}
@@ -83,7 +141,7 @@ impl<const N: usize> From<PauliExp<N, CliffordPauliAngle>> for PauliExp<N, FreeP
 
 #[cfg(test)]
 mod tests {
-	use super::super::{FreePauliAngle, PauliLetter};
+	use super::super::PauliLetter;
 	use super::*;
 
 	#[test]
@@ -91,7 +149,7 @@ mod tests {
 		let mut letters = PauliString::<2>::z(0);
 		letters.set(1, PauliLetter::Z);
 		let mut zz = PauliExp {
-			angle: FreePauliAngle::MultipleOfPi(-2.0),
+			angle: PauliAngle::MultipleOfPi(-2.0),
 			string: letters,
 		};
 
@@ -103,7 +161,7 @@ mod tests {
 		let mut zz_string = PauliString::z(0);
 		zz_string.set(1, PauliLetter::Z);
 
-		assert_eq!(FreePauliAngle::MultipleOfPi(2.0), zz.angle);
+		assert_eq!(PauliAngle::MultipleOfPi(2.0), zz.angle);
 		assert_eq!(zz_string, zz.string);
 	}
 }

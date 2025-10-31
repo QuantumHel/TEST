@@ -4,18 +4,16 @@ use rand_chacha::ChaCha8Rng;
 use std::io::Write;
 use std::thread;
 use std::{fs::File, sync::Arc};
+use test_transpiler::pauli::Negate;
 use test_transpiler::{
 	clifford_tableau::CliffordTableau,
 	connectivity::Connectivity,
 	misc::NonZeroEvenUsize,
-	pauli::{CliffordPauliAngle, FreePauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
+	pauli::{CliffordPauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 	synthesize::synthesize,
 };
 
-fn random_exp<const N: usize, R: Rng>(
-	max_exp_size: usize,
-	rng: &mut R,
-) -> PauliExp<N, FreePauliAngle> {
+fn random_exp<const N: usize, R: Rng>(max_exp_size: usize, rng: &mut R) -> PauliExp<N, PauliAngle> {
 	let n_letters = (1_usize..=max_exp_size).choose(rng);
 	let mut selection: Vec<usize> = (0..max_exp_size).collect();
 	selection.shuffle(rng);
@@ -31,12 +29,12 @@ fn random_exp<const N: usize, R: Rng>(
 
 	PauliExp {
 		string,
-		angle: FreePauliAngle::MultipleOfPi(rng.random()),
+		angle: PauliAngle::MultipleOfPi(rng.random()),
 	}
 }
 
 /// How many "layers" we need
-fn gate_dept<const N: usize, P: PauliAngle>(circuit: &[PauliExp<N, P>]) -> usize {
+fn gate_dept<const N: usize, P: Negate>(circuit: &[PauliExp<N, P>]) -> usize {
 	let mut layers: Vec<BitVec> = Vec::new();
 
 	for exp in circuit.iter() {
@@ -77,7 +75,7 @@ fn gate_dept<const N: usize, P: PauliAngle>(circuit: &[PauliExp<N, P>]) -> usize
 	layers.len()
 }
 
-fn multi_gate_count<const N: usize, A: PauliAngle>(gates: &[PauliExp<N, A>]) -> usize {
+fn multi_gate_count<const N: usize, A: Negate>(gates: &[PauliExp<N, A>]) -> usize {
 	gates
 		.iter()
 		.filter(|p| p.len() > 1)
@@ -121,7 +119,7 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 	let mut depth_sum = 0;
 
 	for i in 0..parameters.n_rounds {
-		let mut original_exponentials: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = Vec::new();
+		let mut original_exponentials: Vec<PauliExp<N_QUBITS, PauliAngle>> = Vec::new();
 		for _ in 0..parameters.n_exps {
 			original_exponentials
 				.push(random_exp::<N_QUBITS, _>(parameters.max_exp_size, &mut rng));
@@ -140,7 +138,7 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 			connectivity.as_ref().as_ref(),
 		);
 
-		let mut clifford: Vec<PauliExp<{ N_QUBITS }, FreePauliAngle>> = if parameters.use_tableau {
+		let mut clifford: Vec<PauliExp<{ N_QUBITS }, PauliAngle>> = if parameters.use_tableau {
 			let mut tableau = CliffordTableau::id();
 
 			for op in clifford.iter() {

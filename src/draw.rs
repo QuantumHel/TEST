@@ -1,4 +1,4 @@
-use crate::pauli::{PauliAngle, PauliExp, PauliLetter, PauliString};
+use crate::pauli::{Negate, PauliExp, PauliLetter, PauliString};
 
 type SVGImage = String;
 
@@ -14,7 +14,7 @@ const PURPLE: &str = "magenta";
 const RED: &str = "red";
 const GREEN: &str = "lightgreen";
 
-impl<const N: usize, T: PauliAngle> PauliExp<N, T> {
+impl<const N: usize, T: Negate + Clone> PauliExp<N, T> {
 	/// # Draw pi over 4 evolution
 	///
 	/// Draws an image that shows how the Pauli string evolves in the
