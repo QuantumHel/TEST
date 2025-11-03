@@ -17,8 +17,6 @@ rustup override set nightly
 ```
 
 # TODO
-## Pauli
-- Nice way of handling clifford angles
 ## Connectivity
 - See how fast can find path
 - Calculate step count for routing instruction
@@ -36,7 +34,10 @@ where angle is a multiple of pi (needs to be multiplied by pi).
 
 For example
 ```
-0.25;IIXI
--0.25;XYIZ
-1.23;IYII
+0.25;XIIX
+a;IIXI
+-a;XIII
+0.36;IIIZ
+-0.5;IIXI
+
 ```

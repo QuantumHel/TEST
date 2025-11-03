@@ -324,9 +324,24 @@ impl<const N: usize> PauliString<N> {
 		gate_size: NonZeroEvenUsize,
 		instructions: &[RoutingInstruction],
 	) -> usize {
+		let mut clone = self.clone();
 		let mut total = 0;
 		for instruction in instructions.iter() {
-			total += self.steps_to_solve_instruction(gate_size, instruction);
+			total += clone.steps_to_solve_instruction(gate_size, instruction);
+			for qubit in instruction.qubits {
+				clone.set(*qubit, PauliLetter::I);
+			}
+			match &instruction.target {
+				RoutingInstructionTarget::Single(target) => {
+					clone.set(*target, PauliLetter::X);
+				}
+				RoutingInstructionTarget::Multiple(targets) => {
+					clone.set(*targets.first().unwrap(), PauliLetter::X);
+				}
+				RoutingInstructionTarget::Any => {
+					clone.set(*instruction.qubits.first().unwrap(), PauliLetter::X);
+				}
+			}
 		}
 
 		total

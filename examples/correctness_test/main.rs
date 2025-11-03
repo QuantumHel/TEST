@@ -3,7 +3,7 @@ use test_transpiler::{
 	clifford_tableau::CliffordTableau,
 	connectivity::Connectivity,
 	misc::NonZeroEvenUsize,
-	pauli::{CliffordPauliAngle, FreePauliAngle, PauliExp, PauliLetter, PauliString, as_exp_file},
+	pauli::{CliffordPauliAngle, PauliAngle, PauliExp, PauliLetter, PauliString},
 	synthesize::synthesize,
 };
 
@@ -13,7 +13,7 @@ const GATE_SIZE: usize = 4;
 const N_ROUNDS: usize = 10;
 const USE_TABLEAU: bool = true;
 
-fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle> {
+fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, PauliAngle> {
 	let n_letters = (1_usize..=N).choose(rng).unwrap();
 	let mut selection: Vec<usize> = (0..N).collect();
 	selection.shuffle(rng);
@@ -29,14 +29,14 @@ fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, FreePauliAngle
 
 	let angle = if rng.random::<bool>() {
 		match rng.random_range(0..4) {
-			0 => FreePauliAngle::Clifford(CliffordPauliAngle::NegPiOver2),
-			1 => FreePauliAngle::Clifford(CliffordPauliAngle::PiOver2),
-			2 => FreePauliAngle::Clifford(CliffordPauliAngle::NegPiOver4),
-			3 => FreePauliAngle::Clifford(CliffordPauliAngle::PiOver4),
+			0 => PauliAngle::Clifford(CliffordPauliAngle::NegPiOver2),
+			1 => PauliAngle::Clifford(CliffordPauliAngle::PiOver2),
+			2 => PauliAngle::Clifford(CliffordPauliAngle::NegPiOver4),
+			3 => PauliAngle::Clifford(CliffordPauliAngle::PiOver4),
 			_ => unreachable!(),
 		}
 	} else {
-		FreePauliAngle::MultipleOfPi(rng.random())
+		PauliAngle::MultipleOfPi(rng.random())
 	};
 
 	PauliExp { string, angle }
@@ -47,7 +47,7 @@ fn main() {
 
 	for i in 0..N_ROUNDS {
 		let mut rng = rand::rng();
-		let input: Vec<PauliExp<N_QUBITS, FreePauliAngle>> = (0..N_EXPS)
+		let input: Vec<PauliExp<N_QUBITS, PauliAngle>> = (0..N_EXPS)
 			.map(move |_| random_exp::<N_QUBITS, _>(&mut rng))
 			.collect();
 
@@ -73,7 +73,7 @@ fn main() {
 
 		let mut clifford = clifford
 			.into_iter()
-			.map(PauliExp::<{ N_QUBITS }, FreePauliAngle>::from)
+			.map(PauliExp::<{ N_QUBITS }, PauliAngle>::from)
 			.collect();
 
 		circuit.append(&mut clifford);
@@ -85,13 +85,13 @@ fn main() {
 			}
 		}
 
-		as_exp_file(
-			&format!("./examples/correctness_test/circuit{i}.exp"),
+		PauliExp::write_exp_file(
 			&circuit,
+			&format!("./examples/correctness_test/circuit{i}.exp"),
 		);
-		as_exp_file(
-			&format!("./examples/correctness_test/circuit{i}.exp.order"),
+		PauliExp::write_exp_file(
 			&order,
+			&format!("./examples/correctness_test/circuit{i}.exp.order"),
 		);
 	}
 }
