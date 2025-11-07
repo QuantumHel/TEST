@@ -12,5 +12,11 @@ fn main() {
 
 	println!("{bits1:b}");
 	println!("{bits2:b}");
-	println!("{:b}", bits1 ^ bits2);
+	println!("{:b}", &bits1 ^ &bits2);
+	println!("{:?}", bits1.last_one());
+	println!("{:?}", Bits::new().last_one());
+
+	for one in bits2.iter_ones() {
+		println!("Got one at {one}");
+	}
 }

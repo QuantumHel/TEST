@@ -1,10 +1,38 @@
+//! This crate contains [Bits], a collection of bits that behaves as an "infinite" vector of bits.
+
 use std::fmt::Binary;
 
 mod bit_and;
 mod bit_or;
 mod bit_xor;
 
-/// A collection of bits that behaves as an "infinite" amounf of bits.
+pub struct IterOnes<'a> {
+	bits: &'a Bits,
+	group: usize,
+	// We keep editing the group. The edited state lives here
+	variation: usize,
+}
+
+impl Iterator for IterOnes<'_> {
+	type Item = usize;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		let index = self.variation.trailing_zeros() as usize;
+		if index >= BITS_PER {
+			self.group += 1;
+			if self.group >= self.bits.bits.len() {
+				return None;
+			}
+
+			self.variation = self.bits.bits.get(self.group).cloned().unwrap();
+			return self.next();
+		}
+		self.variation &= !2_usize.pow(index as u32);
+		Some(index + self.group * BITS_PER)
+	}
+}
+
+/// A collection of bits that behaves as an "infinite" vector of bits.
 #[derive(Default, Clone)]
 pub struct Bits {
 	bits: Vec<usize>,
@@ -20,6 +48,24 @@ impl Bits {
 	pub fn with_capacity(capacity: usize) -> Self {
 		let len = capacity.div_ceil(BITS_PER);
 		Bits { bits: vec![0, len] }
+	}
+
+	pub fn last_one(&self) -> Option<usize> {
+		for (index, bits) in self.bits.iter().enumerate().rev() {
+			let pos = BITS_PER - bits.leading_zeros() as usize;
+			if pos > 0 {
+				return Some(pos - 1 + index * BITS_PER);
+			}
+		}
+		None
+	}
+
+	pub fn iter_ones(&self) -> IterOnes<'_> {
+		IterOnes {
+			bits: self,
+			group: 0,
+			variation: self.bits.first().cloned().unwrap_or_default(),
+		}
 	}
 
 	pub fn is_all_zero(&self) -> bool {
@@ -38,7 +84,6 @@ impl Bits {
 	pub fn set(&mut self, index: usize, value: bool) {
 		let group_index = index / BITS_PER;
 		let bit_index = index % BITS_PER;
-		println!("Group {group_index} with index {bit_index}");
 
 		let group = match self.bits.get_mut(group_index) {
 			Some(group) => group,
