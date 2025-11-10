@@ -4,8 +4,8 @@ use crate::{
 	pauli::{CliffordPauliAngle, Negate, PauliAngle, PauliExp, PauliLetter, PauliString},
 };
 
-fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: Negate>(
-	exponentials: &[PauliExp<N, A>],
+fn get_remove_indexes<F: Fn(&PauliExp<A>) -> bool, A: Negate>(
+	exponentials: &[PauliExp<A>],
 	f: F,
 ) -> Vec<usize> {
 	let mut indexes: Vec<usize> = Vec::new();
@@ -23,41 +23,38 @@ fn get_remove_indexes<F: Fn(&PauliExp<N, A>) -> bool, const N: usize, A: Negate>
 }
 
 #[cfg(not(feature = "return_ordered"))]
-type SynthesizeResult<const N: usize> = (
-	Vec<PauliExp<N, PauliAngle>>,
-	Vec<PauliExp<N, CliffordPauliAngle>>,
-);
+type SynthesizeResult = (Vec<PauliExp<PauliAngle>>, Vec<PauliExp<CliffordPauliAngle>>);
 
 #[cfg(feature = "return_ordered")]
-type SynthesizeResult<const N: usize> = (
-	Vec<PauliExp<N, PauliAngle>>,
-	Vec<PauliExp<N, CliffordPauliAngle>>,
-	Vec<PauliExp<N, PauliAngle>>,
+type SynthesizeResult = (
+	Vec<PauliExp<PauliAngle>>,
+	Vec<PauliExp<CliffordPauliAngle>>,
+	Vec<PauliExp<PauliAngle>>,
 );
 
-pub fn synthesize<const N: usize>(
-	exponentials: Vec<PauliExp<N, PauliAngle>>,
+pub fn synthesize(
+	exponentials: Vec<PauliExp<PauliAngle>>,
 	gate_size: NonZeroEvenUsize,
 	connectivity: Option<&Connectivity>,
-) -> SynthesizeResult<N> {
+) -> SynthesizeResult {
 	match connectivity {
 		Some(connectivity) => synthesize_with_connectivity(exponentials, gate_size, connectivity),
 		_ => synthesize_full_connectivity(exponentials, gate_size),
 	}
 }
 
-fn synthesize_with_connectivity<const N: usize>(
-	mut exponentials: Vec<PauliExp<N, PauliAngle>>,
+fn synthesize_with_connectivity(
+	mut exponentials: Vec<PauliExp<PauliAngle>>,
 	gate_size: NonZeroEvenUsize,
 	connectivity: &Connectivity,
-) -> SynthesizeResult<N> {
+) -> SynthesizeResult {
 	#[cfg(feature = "return_ordered")]
 	let mut ordered: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 	#[cfg(feature = "return_ordered")]
 	let mut ordered_clifford: Vec<PauliExp<N, PauliAngle>> = Vec::new();
 
-	let mut circuit: Vec<PauliExp<N, PauliAngle>> = Vec::new();
-	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
+	let mut circuit: Vec<PauliExp<PauliAngle>> = Vec::new();
+	let mut clifford_part: Vec<PauliExp<CliffordPauliAngle>> = Vec::new();
 
 	// move clifford gates to clifford part
 	for clifford in exponentials.extract_if(.., |v| v.angle.is_clifford()) {
@@ -143,7 +140,7 @@ fn synthesize_with_connectivity<const N: usize>(
 	#[cfg(feature = "return_ordered")]
 	assert!(clone.is_empty());
 
-	let clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> =
+	let clifford_part: Vec<PauliExp<CliffordPauliAngle>> =
 		clifford_part.into_iter().rev().collect();
 
 	#[cfg(feature = "return_ordered")]
@@ -159,18 +156,18 @@ fn synthesize_with_connectivity<const N: usize>(
 	(circuit, clifford_part)
 }
 
-fn synthesize_full_connectivity<const N: usize>(
-	mut exponentials: Vec<PauliExp<N, PauliAngle>>,
+fn synthesize_full_connectivity(
+	mut exponentials: Vec<PauliExp<PauliAngle>>,
 	gate_size: NonZeroEvenUsize,
-) -> SynthesizeResult<N> {
+) -> SynthesizeResult {
 	#[cfg(feature = "return_ordered")]
-	let mut ordered: Vec<PauliExp<N, PauliAngle>> = Vec::new();
+	let mut ordered: Vec<PauliExp<PauliAngle>> = Vec::new();
 	#[cfg(feature = "return_ordered")]
-	let mut ordered_clifford: Vec<PauliExp<N, PauliAngle>> = Vec::new();
+	let mut ordered_clifford: Vec<PauliExp<PauliAngle>> = Vec::new();
 
 	let n = gate_size.as_value();
-	let mut circuit: Vec<PauliExp<N, PauliAngle>> = Vec::new();
-	let mut clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
+	let mut circuit: Vec<PauliExp<PauliAngle>> = Vec::new();
+	let mut clifford_part: Vec<PauliExp<CliffordPauliAngle>> = Vec::new();
 
 	// move clifford gates to clifford part
 	for clifford in exponentials.extract_if(.., |v| v.angle.is_clifford()) {
@@ -220,7 +217,7 @@ fn synthesize_full_connectivity<const N: usize>(
 			let push_str = if exp.len() == n {
 				// One commutes, the rest cancel each other out
 				let mut push_str = exp.string.clone();
-				let (i, l) = push_str.letters().into_iter().next().unwrap();
+				let (i, l) = push_str.letters().next().unwrap();
 				push_str.set(i, l.next());
 
 				push_str
@@ -230,7 +227,7 @@ fn synthesize_full_connectivity<const N: usize>(
 					// We need to increase the amount of letters
 					// Because the exp has an uneven len, we can commute on all
 					let mut push_str = exp.string.clone();
-					for (i, m) in push_str.letters() {
+					for (i, m) in push_str.letters().collect::<Vec<(usize, PauliLetter)>>() {
 						push_str.set(i, m.next());
 					}
 
@@ -249,7 +246,7 @@ fn synthesize_full_connectivity<const N: usize>(
 					// We need to decrease the amount of letters
 					// Select n many letters
 					let mut letters: Vec<(usize, PauliLetter)> =
-						exp.string.letters().into_iter().take(n).collect();
+						exp.string.letters().take(n).collect();
 
 					// We need to to end up with n letters. This means that we
 					// need to remove exp.len() - n letters. This means that
@@ -262,7 +259,7 @@ fn synthesize_full_connectivity<const N: usize>(
 					}
 
 					// Then we just collect the letters to a string
-					let mut push_str = PauliString::<N>::id();
+					let mut push_str = PauliString::id();
 					for (i, l) in letters {
 						push_str.set(i, l);
 					}
@@ -275,14 +272,13 @@ fn synthesize_full_connectivity<const N: usize>(
 				// len n.
 
 				// select at least n many letters
-				let mut letters: Vec<(usize, PauliLetter)> =
-					exp.string.letters().into_iter().take(n).collect();
+				let mut letters: Vec<(usize, PauliLetter)> = exp.string.letters().take(n).collect();
 
 				// edit first one in order to anticommute (and delete on others)
 				letters.first_mut().unwrap().1 = letters.first_mut().unwrap().1.next();
 
 				// collect as string
-				let mut push_str = PauliString::<N>::id();
+				let mut push_str = PauliString::id();
 				for (i, l) in letters {
 					push_str.set(i, l);
 				}
@@ -330,7 +326,7 @@ fn synthesize_full_connectivity<const N: usize>(
 	#[cfg(feature = "return_ordered")]
 	assert!(clone.is_empty());
 
-	let clifford_part: Vec<PauliExp<N, CliffordPauliAngle>> =
+	let clifford_part: Vec<PauliExp<CliffordPauliAngle>> =
 		clifford_part.into_iter().rev().collect();
 
 	#[cfg(feature = "return_ordered")]
@@ -346,13 +342,13 @@ fn synthesize_full_connectivity<const N: usize>(
 	(circuit, clifford_part)
 }
 
-pub(crate) fn handle_instruction<const N: usize>(
-	mut string: PauliString<N>,
+pub(crate) fn handle_instruction(
+	mut string: PauliString,
 	gate_size: NonZeroEvenUsize,
 	instruction: RoutingInstruction,
-) -> Vec<PauliString<N>> {
+) -> Vec<PauliString> {
 	let n = gate_size.as_value();
-	let mut push_strs: Vec<PauliString<N>> = Vec::new();
+	let mut push_strs: Vec<PauliString> = Vec::new();
 
 	// Target qubit
 	let target = match instruction.target {
@@ -400,7 +396,7 @@ pub(crate) fn handle_instruction<const N: usize>(
 
 	// make sure we have target
 	if string.get(target) == PauliLetter::I {
-		let mut push_str: PauliString<N> = PauliString::id();
+		let mut push_str = PauliString::id();
 
 		// Adding the target qubit
 		push_str.set(target, PauliLetter::X);
@@ -462,7 +458,7 @@ pub(crate) fn handle_instruction<const N: usize>(
 
 	// if even and not 4 make so that we are at uneven
 	if removable.len() != n - 1 && (removable.len() + 1).is_multiple_of(2) {
-		let mut push_str: PauliString<N> = PauliString::id();
+		let mut push_str = PauliString::id();
 
 		// delete as many as can
 		let n_remove = removable.len().min(n - 1);
@@ -533,7 +529,7 @@ pub(crate) fn handle_instruction<const N: usize>(
 			}
 
 			// The rest of the qubits are removed
-			let mut push_str = PauliString::<N>::id();
+			let mut push_str = PauliString::id();
 			for (i, l) in letters {
 				push_str.set(i, l);
 			}
@@ -548,7 +544,7 @@ pub(crate) fn handle_instruction<const N: usize>(
 
 	// convert to single qubit if len == n
 	if removable.len() == n - 1 {
-		let mut push_str: PauliString<N> = PauliString::id();
+		let mut push_str = PauliString::id();
 		// commute on target
 		push_str.set(target, string.get(target).next());
 
@@ -574,9 +570,9 @@ mod tests {
 	use super::*;
 	use rand::prelude::*;
 
-	fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, PauliAngle> {
-		let n_letters = (1_usize..=N).choose(rng);
-		let mut selection: Vec<usize> = (0..N).collect();
+	fn random_exp<R: Rng>(max_len: usize, rng: &mut R) -> PauliExp<PauliAngle> {
+		let n_letters = (1_usize..=max_len).choose(rng);
+		let mut selection: Vec<usize> = (0..max_len).collect();
 		selection.shuffle(rng);
 		let mut string = PauliString::default();
 		for qubit in selection.into_iter().take(n_letters.unwrap()) {
@@ -598,9 +594,8 @@ mod tests {
 	fn synthesize_result_has_suitable_operators() {
 		for _ in 0..10 {
 			let mut rng = rand::rng();
-			let input: Vec<PauliExp<30, PauliAngle>> = (0..30)
-				.map(move |_| random_exp::<30, _>(&mut rng))
-				.collect();
+			let input: Vec<PauliExp<PauliAngle>> =
+				(0..30).map(move |_| random_exp(30, &mut rng)).collect();
 
 			#[cfg(not(feature = "return_ordered"))]
 			let (circuit, clifford) = synthesize(input, NonZeroEvenUsize::new(4).unwrap(), None);

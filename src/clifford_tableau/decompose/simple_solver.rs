@@ -5,20 +5,20 @@ use crate::{
 };
 
 /// Assumes that there are at least gate size many dirty qubits
-pub fn simple_solver<const N: usize>(
-	string: &PauliString<N>,
+pub fn simple_solver(
+	string: &PauliString,
 	gate_size: NonZeroEvenUsize,
 	end_qubit: usize,
 	target_letter: PauliLetter,
 	dirty_qubits: &[usize],
 	protection: QubitProtection,
-) -> Vec<PauliString<N>> {
-	let mut pushing: Vec<PauliString<N>> = Vec::new();
+) -> Vec<PauliString> {
+	let mut pushing: Vec<PauliString> = Vec::new();
 	let n = gate_size.as_value();
 	let mut string = string.clone();
 
 	while string.len() > 2 * n - 2 {
-		let mut new_string: PauliString<N> = PauliString::id();
+		let mut new_string = PauliString::id();
 		for (i, letter) in string.letters() {
 			if i != end_qubit {
 				new_string.set(i, letter);
@@ -29,7 +29,7 @@ pub fn simple_solver<const N: usize>(
 		}
 
 		// makes it so that we anticommute
-		let a = new_string.letters();
+		let a = new_string.letters().collect::<Vec<_>>();
 		let (index, letter) = a.first().unwrap();
 		new_string.set(*index, letter.next());
 		string.pi_over_4_sandwitch(false, &new_string);
@@ -39,7 +39,7 @@ pub fn simple_solver<const N: usize>(
 	// Make sure that the end_qubit has a letter
 	if string.get(end_qubit) == PauliLetter::I {
 		assert_eq!(protection, QubitProtection::None);
-		let mut new_string: PauliString<N> = PauliString::id();
+		let mut new_string = PauliString::id();
 		new_string.set(end_qubit, target_letter.next());
 
 		let mut n_remove = (string.len() + 1).saturating_sub(n);
@@ -47,11 +47,10 @@ pub fn simple_solver<const N: usize>(
 			n_remove += 1;
 		}
 		let n_remove = n_remove.min(n - 2);
-		let letters = string.letters();
-		let mut iter = letters.iter();
+		let mut iter = string.letters();
 		for _ in 0..n_remove {
 			let (index, letter) = iter.next().unwrap();
-			new_string.set(*index, *letter);
+			new_string.set(index, letter);
 		}
 
 		let mut rest: Vec<_> = iter.collect();
@@ -65,7 +64,7 @@ pub fn simple_solver<const N: usize>(
 			if new_string.len() == n {
 				break;
 			}
-			new_string.set(*index, letter.next());
+			new_string.set(index, letter.next());
 		}
 
 		for qubit in dirty_qubits {
@@ -78,7 +77,7 @@ pub fn simple_solver<const N: usize>(
 			}
 
 			if let Some((additional, _)) = additional
-				&& qubit == additional
+				&& qubit == &additional
 			{
 				continue;
 			}
@@ -91,7 +90,7 @@ pub fn simple_solver<const N: usize>(
 			assert_eq!(new_string.len(), n - 1);
 			assert!(additional.is_some());
 			let (index, letter) = additional.unwrap();
-			new_string.set(*index, *letter);
+			new_string.set(index, letter);
 		}
 
 		assert_eq!(new_string.len(), n);
@@ -103,7 +102,7 @@ pub fn simple_solver<const N: usize>(
 
 	// if even and not 4, make it so that we are uneven and under 4
 	if string.len().is_multiple_of(2) && string.len() != n {
-		let mut new_string: PauliString<N> = PauliString::id();
+		let mut new_string = PauliString::id();
 
 		// anticummute on target to keep it
 		match protection {
@@ -119,13 +118,12 @@ pub fn simple_solver<const N: usize>(
 		}
 
 		// remove as many as possible
-		let letters = string.letters();
-		let iter = letters.iter().filter(|(i, _)| *i != end_qubit);
+		let iter = string.letters().filter(|(i, _)| *i != end_qubit);
 		for (index, letter) in iter {
 			if new_string.len() == n {
 				break;
 			}
-			new_string.set(*index, *letter);
+			new_string.set(index, letter);
 		}
 
 		// make sure that the len is correct
@@ -185,7 +183,6 @@ pub fn simple_solver<const N: usize>(
 			// remove qubits
 			let mut letters: Vec<(usize, PauliLetter)> = string
 				.letters()
-				.into_iter()
 				.filter(|(i, _)| *i != end_qubit)
 				.take(n)
 				.collect();
@@ -195,7 +192,7 @@ pub fn simple_solver<const N: usize>(
 				*l = l.next();
 			}
 
-			let mut new_string = PauliString::<N>::id();
+			let mut new_string = PauliString::id();
 			for (i, l) in letters {
 				new_string.set(i, l);
 			}
@@ -268,8 +265,8 @@ pub fn simple_solver<const N: usize>(
 	pushing
 }
 
-pub fn fastest<const N: usize>(
-	tableau: &CliffordTableau<N>,
+pub fn fastest(
+	tableau: &CliffordTableau,
 	dirty_qubits: &[usize],
 	gate_size: NonZeroEvenUsize,
 ) -> Option<(usize, PauliLetter)> {

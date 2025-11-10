@@ -9,12 +9,12 @@ use super::PauliString;
 
 /// An Pauli exponential $e^{i\theta P}$ where $\theta$ is a [PauliAngle] and $P$ a [PauliString].
 #[derive(Debug, Clone)]
-pub struct PauliExp<const N: usize, T: Negate> {
-	pub string: PauliString<N>,
+pub struct PauliExp<T: Negate> {
+	pub string: PauliString,
 	pub angle: T,
 }
 
-impl<const N: usize, T: Negate> PauliExp<N, T> {
+impl<T: Negate> PauliExp<T> {
 	pub fn len(&self) -> usize {
 		self.string.len()
 	}
@@ -52,14 +52,14 @@ impl<const N: usize, T: Negate> PauliExp<N, T> {
 	///
 	/// $${e^{\pm i\frac{\pi}{4}O}Pe^{\mp i\frac{\pi}{4}O}}.$$
 	///
-	pub fn push_pi_over_4(&mut self, neg: bool, #[allow(non_snake_case)] O: &PauliString<N>) {
+	pub fn push_pi_over_4(&mut self, neg: bool, #[allow(non_snake_case)] O: &PauliString) {
 		if self.string.pi_over_4_sandwitch(neg, O) {
 			self.angle.negate();
 		}
 	}
 }
 
-impl<const N: usize> PauliExp<N, PauliAngle> {
+impl PauliExp<PauliAngle> {
 	pub fn write_exp_file(exps: &Vec<Self>, path: &str) {
 		if exists(path).unwrap() {
 			panic!("Tried to overwrite a file");
@@ -109,10 +109,6 @@ impl<const N: usize> PauliExp<N, PauliAngle> {
 					},
 				};
 
-				if letters.len() != N {
-					panic!("File contains an exp that is not of desired length.")
-				}
-
 				let mut string = PauliString::id();
 				for (i, letter) in letters.chars().enumerate() {
 					match letter {
@@ -130,9 +126,9 @@ impl<const N: usize> PauliExp<N, PauliAngle> {
 	}
 }
 
-impl<const N: usize> From<PauliExp<N, CliffordPauliAngle>> for PauliExp<N, PauliAngle> {
-	fn from(value: PauliExp<N, CliffordPauliAngle>) -> Self {
-		PauliExp::<N, PauliAngle> {
+impl From<PauliExp<CliffordPauliAngle>> for PauliExp<PauliAngle> {
+	fn from(value: PauliExp<CliffordPauliAngle>) -> Self {
+		PauliExp::<PauliAngle> {
 			angle: value.angle.into(),
 			string: value.string,
 		}
@@ -146,7 +142,7 @@ mod tests {
 
 	#[test]
 	fn red_pi_through_zz() {
-		let mut letters = PauliString::<2>::z(0);
+		let mut letters = PauliString::z(0);
 		letters.set(1, PauliLetter::Z);
 		let mut zz = PauliExp {
 			angle: PauliAngle::MultipleOfPi(-2.0),

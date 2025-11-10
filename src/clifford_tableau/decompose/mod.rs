@@ -19,7 +19,7 @@ enum QubitProtection {
 	None,
 }
 
-impl<const N: usize> CliffordTableau<N> {
+impl CliffordTableau {
 	/// # Decompose
 	///
 	/// Decomposes the tableau into clifford gates.
@@ -27,7 +27,7 @@ impl<const N: usize> CliffordTableau<N> {
 		self,
 		gate_size: NonZeroEvenUsize,
 		connectivity: Option<&Connectivity>,
-	) -> Vec<PauliExp<N, CliffordPauliAngle>> {
+	) -> Vec<PauliExp<CliffordPauliAngle>> {
 		match connectivity {
 			Some(connectivity) => self.decompose_with_connectivity(gate_size, connectivity),
 			_ => self.decompose_full_connectivity(gate_size),
@@ -38,8 +38,8 @@ impl<const N: usize> CliffordTableau<N> {
 		mut self,
 		gate_size: NonZeroEvenUsize,
 		connectivity: &Connectivity,
-	) -> Vec<PauliExp<N, CliffordPauliAngle>> {
-		let mut decomposition: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
+	) -> Vec<PauliExp<CliffordPauliAngle>> {
+		let mut decomposition: Vec<PauliExp<CliffordPauliAngle>> = Vec::new();
 
 		let terminals: Vec<_> = connectivity.explosion.node_indices().collect();
 		let mut graph = steiner_tree(&connectivity.explosion, &terminals);
@@ -86,7 +86,7 @@ impl<const N: usize> CliffordTableau<N> {
 					// solve targets
 					for target in targets.iter() {
 						let strings = handle_target(
-							self.get_x_row(*target).unwrap().0.clone(),
+							self.get_x_row(*target).0.clone(),
 							PauliLetter::X,
 							*target,
 							QubitProtection::None,
@@ -110,7 +110,7 @@ impl<const N: usize> CliffordTableau<N> {
 						assert_eq!(self.x.get(*target).unwrap(), &PauliString::x(*target));
 
 						let strings = handle_target(
-							self.get_z_row(*target).unwrap().0.clone(),
+							self.get_z_row(*target).0.clone(),
 							PauliLetter::Z,
 							*target,
 							QubitProtection::X,
@@ -152,7 +152,7 @@ impl<const N: usize> CliffordTableau<N> {
 
 						for target in targets.iter() {
 							let strings = handle_target(
-								self.get_x_row(*target).unwrap().0.clone(),
+								self.get_x_row(*target).0.clone(),
 								PauliLetter::X,
 								*target,
 								QubitProtection::None,
@@ -176,7 +176,7 @@ impl<const N: usize> CliffordTableau<N> {
 							assert_eq!(self.x.get(*target).unwrap(), &PauliString::x(*target));
 
 							let strings = handle_target(
-								self.get_z_row(*target).unwrap().0.clone(),
+								self.get_z_row(*target).0.clone(),
 								PauliLetter::Z,
 								*target,
 								QubitProtection::X,
@@ -209,14 +209,16 @@ impl<const N: usize> CliffordTableau<N> {
 			}
 		}
 
-		// Fix signs
-		for (i, (x, z)) in self
+		let last = self
 			.x_signs
-			.clone()
-			.into_iter()
-			.zip(self.z_signs.clone().into_iter())
-			.enumerate()
-		{
+			.last_one()
+			.unwrap_or_default()
+			.max(self.z_signs.last_one().unwrap_or_default());
+
+		for i in 0..=last {
+			let x = self.x_signs.get(i);
+			let z = self.z_signs.get(i);
+
 			let string = match (x, z) {
 				(true, true) => PauliString::y(i),
 				(true, false) => PauliString::z(i),
@@ -246,9 +248,9 @@ impl<const N: usize> CliffordTableau<N> {
 	fn decompose_full_connectivity(
 		mut self,
 		gate_size: NonZeroEvenUsize,
-	) -> Vec<PauliExp<N, CliffordPauliAngle>> {
-		let mut decomposition: Vec<PauliExp<N, CliffordPauliAngle>> = Vec::new();
-		let mut dirty_qubits: Vec<usize> = (0..N).collect();
+	) -> Vec<PauliExp<CliffordPauliAngle>> {
+		let mut decomposition: Vec<PauliExp<CliffordPauliAngle>> = Vec::new();
+		let mut dirty_qubits: Vec<usize> = (0..self.size()).collect();
 
 		while dirty_qubits.len() >= gate_size.as_value() {
 			let (qubit, letter) = fastest(&self, &dirty_qubits, gate_size).unwrap();
@@ -406,13 +408,16 @@ impl<const N: usize> CliffordTableau<N> {
 		}
 
 		// Fix signs
-		for (i, (x, z)) in self
+		let last = self
 			.x_signs
-			.clone()
-			.into_iter()
-			.zip(self.z_signs.clone().into_iter())
-			.enumerate()
-		{
+			.last_one()
+			.unwrap_or_default()
+			.max(self.z_signs.last_one().unwrap_or_default());
+
+		for i in 0..=last {
+			let x = self.x_signs.get(i);
+			let z = self.z_signs.get(i);
+
 			let string = match (x, z) {
 				(true, true) => PauliString::y(i),
 				(true, false) => PauliString::z(i),

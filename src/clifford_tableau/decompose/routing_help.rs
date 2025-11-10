@@ -64,8 +64,8 @@ pub(super) fn as_instructions(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn handle_target<const N: usize>(
-	mut row: PauliString<N>,
+pub(super) fn handle_target(
+	mut row: PauliString,
 	letter: PauliLetter,
 	target: usize,
 	protection: QubitProtection,
@@ -75,7 +75,7 @@ pub(super) fn handle_target<const N: usize>(
 	gate_size: NonZeroEvenUsize,
 	dirty_qubits: &[usize],
 	edge: &HyperEdge,
-) -> Vec<PauliString<N>> {
+) -> Vec<PauliString> {
 	let mut result = Vec::new();
 
 	let graph_clone: UnGraph<_, _> = graph.clone().into();

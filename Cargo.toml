@@ -9,7 +9,7 @@ members = ["bits"]
 [lib]
 
 [dependencies]
-bitvec = "1.0.1"
+bits = { path = "bits" }
 petgraph = "0.8.2"
 
 [dev-dependencies]
