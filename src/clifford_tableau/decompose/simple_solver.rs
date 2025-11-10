@@ -6,7 +6,7 @@ use crate::{
 
 /// Assumes that there are at least gate size many dirty qubits
 pub fn simple_solver(
-	string: &PauliString,
+	mut string: PauliString,
 	gate_size: NonZeroEvenUsize,
 	end_qubit: usize,
 	target_letter: PauliLetter,
@@ -15,7 +15,6 @@ pub fn simple_solver(
 ) -> Vec<PauliString> {
 	let mut pushing: Vec<PauliString> = Vec::new();
 	let n = gate_size.as_value();
-	let mut string = string.clone();
 
 	while string.len() > 2 * n - 2 {
 		let mut new_string = PauliString::id();
@@ -273,7 +272,7 @@ pub fn fastest(
 	let mut res: Option<(usize, usize, PauliLetter)> = None;
 	for qubit in dirty_qubits {
 		let x_steps = {
-			let string = tableau.x.get(*qubit).unwrap();
+			let string = tableau.get_x_row(*qubit);
 			let basic_steps = string.steps_to_len_one(gate_size);
 			if string.get(*qubit) == PauliLetter::I
 				&& string.len() >= gate_size.as_value()
@@ -287,7 +286,7 @@ pub fn fastest(
 		};
 
 		let z_steps = {
-			let string = tableau.z.get(*qubit).unwrap();
+			let string = tableau.get_z_row(*qubit);
 			let basic_steps = string.steps_to_len_one(gate_size);
 			if string.get(*qubit) == PauliLetter::I
 				&& string.len() >= gate_size.as_value()
@@ -341,7 +340,7 @@ mod test {
 		let protection = QubitProtection::None;
 
 		let strings = simple_solver(
-			&string,
+			string.clone(),
 			gate_size,
 			end_qubit,
 			target_letter,

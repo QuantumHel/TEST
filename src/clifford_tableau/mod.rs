@@ -127,14 +127,12 @@ impl CliffordTableau {
 		}
 	}
 
-	pub fn get_x_row(&self, index: usize) -> (PauliString, bool) {
-		let string = self.x.get(index).cloned().unwrap_or(PauliString::x(index));
-		(string, self.x_signs.get(index))
+	pub fn get_x_row(&self, index: usize) -> PauliString {
+		self.x.get(index).cloned().unwrap_or(PauliString::x(index))
 	}
 
-	pub fn get_z_row(&self, index: usize) -> (PauliString, bool) {
-		let string = self.z.get(index).cloned().unwrap_or(PauliString::x(index));
-		(string, self.z_signs.get(index))
+	pub fn get_z_row(&self, index: usize) -> PauliString {
+		self.z.get(index).cloned().unwrap_or(PauliString::z(index))
 	}
 
 	pub fn get_x_signs(&self) -> Bits {

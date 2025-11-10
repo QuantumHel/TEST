@@ -137,7 +137,14 @@ pub(super) fn handle_target(
 	}
 
 	let push_strings = if dirty_qubits.len() >= gate_size.as_value() {
-		simple_solver(&row, gate_size, target, letter, dirty_qubits, protection)
+		simple_solver(
+			row.clone(),
+			gate_size,
+			target,
+			letter,
+			dirty_qubits,
+			protection,
+		)
 	} else {
 		delicate_solver(&row, gate_size, target, letter, Some(&edge.nodes))
 	};

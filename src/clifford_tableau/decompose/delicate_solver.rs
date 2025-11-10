@@ -11,7 +11,7 @@ pub fn fastest_delicate(
 	let mut res: Option<(usize, usize, PauliLetter)> = None;
 	for qubit in dirty_qubits {
 		let x_steps: usize = {
-			let string = tableau.get_x_row(*qubit).0;
+			let string = tableau.get_x_row(*qubit);
 			if string.get(*qubit) != PauliLetter::I {
 				if string.len() == 1 {
 					return Some((*qubit, PauliLetter::X));
@@ -22,7 +22,7 @@ pub fn fastest_delicate(
 			}
 		};
 		let z_steps: usize = {
-			let string = tableau.get_z_row(*qubit).0;
+			let string = tableau.get_z_row(*qubit);
 			if string.get(*qubit) != PauliLetter::I {
 				if string.len() == 1 {
 					return Some((*qubit, PauliLetter::Z));

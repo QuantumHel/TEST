@@ -86,7 +86,7 @@ impl CliffordTableau {
 					// solve targets
 					for target in targets.iter() {
 						let strings = handle_target(
-							self.get_x_row(*target).0.clone(),
+							self.get_x_row(*target),
 							PauliLetter::X,
 							*target,
 							QubitProtection::None,
@@ -107,10 +107,10 @@ impl CliffordTableau {
 							});
 						}
 
-						assert_eq!(self.x.get(*target).unwrap(), &PauliString::x(*target));
+						assert_eq!(self.get_x_row(*target), PauliString::x(*target));
 
 						let strings = handle_target(
-							self.get_z_row(*target).0.clone(),
+							self.get_z_row(*target),
 							PauliLetter::Z,
 							*target,
 							QubitProtection::X,
@@ -131,7 +131,7 @@ impl CliffordTableau {
 							});
 						}
 
-						assert_eq!(self.z.get(*target).unwrap(), &PauliString::z(*target));
+						assert_eq!(self.get_z_row(*target), PauliString::z(*target));
 
 						dirty_qubits.pop();
 					}
@@ -152,7 +152,7 @@ impl CliffordTableau {
 
 						for target in targets.iter() {
 							let strings = handle_target(
-								self.get_x_row(*target).0.clone(),
+								self.get_x_row(*target),
 								PauliLetter::X,
 								*target,
 								QubitProtection::None,
@@ -173,10 +173,10 @@ impl CliffordTableau {
 								});
 							}
 
-							assert_eq!(self.x.get(*target).unwrap(), &PauliString::x(*target));
+							assert_eq!(self.get_x_row(*target), PauliString::x(*target));
 
 							let strings = handle_target(
-								self.get_z_row(*target).0.clone(),
+								self.get_z_row(*target),
 								PauliLetter::Z,
 								*target,
 								QubitProtection::X,
@@ -197,7 +197,7 @@ impl CliffordTableau {
 								});
 							}
 
-							assert_eq!(self.z.get(*target).unwrap(), &PauliString::z(*target));
+							assert_eq!(self.get_z_row(*target), PauliString::z(*target));
 
 							dirty_qubits.pop();
 						}
@@ -258,7 +258,7 @@ impl CliffordTableau {
 			match letter {
 				PauliLetter::X => {
 					let x_moves = simple_solver(
-						self.x.get(qubit).unwrap(),
+						self.get_x_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::X,
@@ -274,7 +274,7 @@ impl CliffordTableau {
 						});
 					}
 					let z_moves = simple_solver(
-						self.z.get(qubit).unwrap(),
+						self.get_z_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::Z,
@@ -292,7 +292,7 @@ impl CliffordTableau {
 				}
 				PauliLetter::Z => {
 					let z_moves = simple_solver(
-						self.z.get(qubit).unwrap(),
+						self.get_z_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::Z,
@@ -308,7 +308,7 @@ impl CliffordTableau {
 						});
 					}
 					let x_moves = simple_solver(
-						self.x.get(qubit).unwrap(),
+						self.get_x_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::X,
@@ -338,7 +338,7 @@ impl CliffordTableau {
 			match letter {
 				PauliLetter::X => {
 					let x_moves = delicate_solver(
-						self.x.get(qubit).unwrap(),
+						&self.get_x_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::X,
@@ -353,7 +353,7 @@ impl CliffordTableau {
 						});
 					}
 					let z_moves = delicate_solver(
-						self.z.get(qubit).unwrap(),
+						&self.get_z_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::Z,
@@ -370,7 +370,7 @@ impl CliffordTableau {
 				}
 				PauliLetter::Z => {
 					let z_moves = delicate_solver(
-						self.z.get(qubit).unwrap(),
+						&self.get_z_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::Z,
@@ -385,7 +385,7 @@ impl CliffordTableau {
 						});
 					}
 					let x_moves = delicate_solver(
-						self.x.get(qubit).unwrap(),
+						&self.get_x_row(qubit),
 						gate_size,
 						qubit,
 						PauliLetter::X,
