@@ -174,7 +174,7 @@ impl PauliString {
 	}
 
 	pub fn targets(&self) -> Vec<usize> {
-		(self.x.clone() | &self.z).iter_ones().collect()
+		(&self.x | &self.z).iter_ones().collect()
 	}
 
 	pub fn letters(&self) -> LetterIterator<'_> {
@@ -285,10 +285,9 @@ impl PauliString {
 		};
 
 		// The amount of results -iAB for pauli matrices A and B.
-		//let minuses = (O.z.clone() | self.z.clone())
-		//	& !(O.z.clone() ^ self.x.clone())
-		//	& !(self.z.clone() ^ new_x.clone());
-		let minuses = (&O.x & &self.x).and_not(&(&O.x & &self.z));
+		let minuses = (&O.z | &self.z)
+			.and_not(&(&O.z ^ &self.x))
+			.and_not(&(&self.z ^ &new_x));
 		if minuses.count_ones() % 2 == 1 {
 			sign = !sign;
 		}

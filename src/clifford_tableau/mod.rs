@@ -4,7 +4,7 @@ use bits::Bits;
 
 use crate::pauli::{CliffordPauliAngle, PauliExp, PauliString};
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Eq)]
 pub struct CliffordTableau {
 	x: Vec<PauliString>,
 	z: Vec<PauliString>,
@@ -63,7 +63,7 @@ impl CliffordTableau {
 	/// Merges a $e^{\pm i\frac{\pi}{4}P}$ Pauli exponential into the tableau (On a
 	/// circuit the Pauli would be originally on the right side of the tableau).
 	pub fn merge_pi_over_4_pauli(&mut self, neg: bool, string: &PauliString) {
-		let space_needed = string.size() - self.x.len();
+		let space_needed = string.size().saturating_sub(self.x.len());
 		for _ in 0..space_needed {
 			let i = self.x.len();
 			self.x.push(PauliString::x(i));
@@ -90,7 +90,7 @@ impl CliffordTableau {
 	/// Merges a Clifford Pauli exponential into the tableau (On a
 	/// circuit the Pauli would be originally on the right side of the tableau).
 	pub fn merge_clifford(&mut self, clifford: PauliExp<CliffordPauliAngle>) {
-		let space_needed = clifford.string.size() - self.x.len();
+		let space_needed = clifford.string.size().saturating_sub(self.x.len());
 		for _ in 0..space_needed {
 			let i = self.x.len();
 			self.x.push(PauliString::x(i));
@@ -159,5 +159,65 @@ impl CliffordTableau {
 				self.z.get(i).unwrap_or(&PauliString::z(i)).as_string()
 			);
 		}
+	}
+}
+
+impl PartialEq for CliffordTableau {
+	fn eq(&self, other: &Self) -> bool {
+		let mut this = self.x.iter().enumerate();
+		let mut that = other.x.iter().enumerate();
+		loop {
+			match (this.next(), that.next()) {
+				(Some((_, this)), Some((_, that))) => {
+					if this != that {
+						return false;
+					}
+				}
+				(Some((i, this)), None) => {
+					if *this != PauliString::x(i) {
+						return false;
+					}
+				}
+				(None, Some((i, that))) => {
+					if *that != PauliString::x(i) {
+						return false;
+					}
+				}
+				(None, None) => break,
+			}
+		}
+
+		let mut this = self.z.iter().enumerate();
+		let mut that = other.z.iter().enumerate();
+		loop {
+			match (this.next(), that.next()) {
+				(Some((_, this)), Some((_, that))) => {
+					if this != that {
+						return false;
+					}
+				}
+				(Some((i, this)), None) => {
+					if *this != PauliString::z(i) {
+						return false;
+					}
+				}
+				(None, Some((i, that))) => {
+					if *that != PauliString::z(i) {
+						return false;
+					}
+				}
+				(None, None) => break,
+			}
+		}
+
+		if self.x_signs != other.x_signs {
+			return false;
+		}
+
+		if self.z_signs != other.z_signs {
+			return false;
+		}
+
+		true
 	}
 }

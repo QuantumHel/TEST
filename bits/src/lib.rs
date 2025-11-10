@@ -47,7 +47,7 @@ impl Bits {
 
 	pub fn with_capacity(capacity: usize) -> Self {
 		let len = capacity.div_ceil(BITS_PER);
-		Bits { bits: vec![0, len] }
+		Bits { bits: vec![0; len] }
 	}
 
 	/// Returns the index of the last '1' bit.

@@ -49,9 +49,9 @@ fn synthesize_with_connectivity(
 	connectivity: &Connectivity,
 ) -> SynthesizeResult {
 	#[cfg(feature = "return_ordered")]
-	let mut ordered: Vec<PauliExp<N, PauliAngle>> = Vec::new();
+	let mut ordered: Vec<PauliExp<PauliAngle>> = Vec::new();
 	#[cfg(feature = "return_ordered")]
-	let mut ordered_clifford: Vec<PauliExp<N, PauliAngle>> = Vec::new();
+	let mut ordered_clifford: Vec<PauliExp<PauliAngle>> = Vec::new();
 
 	let mut circuit: Vec<PauliExp<PauliAngle>> = Vec::new();
 	let mut clifford_part: Vec<PauliExp<CliffordPauliAngle>> = Vec::new();
@@ -71,7 +71,7 @@ fn synthesize_with_connectivity(
 	}
 
 	#[cfg(feature = "return_ordered")]
-	let mut clone: Vec<PauliExp<N, PauliAngle>> = exponentials.clone();
+	let mut clone: Vec<PauliExp<PauliAngle>> = exponentials.clone();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);
@@ -184,7 +184,7 @@ fn synthesize_full_connectivity(
 	}
 
 	#[cfg(feature = "return_ordered")]
-	let mut clone: Vec<PauliExp<N, PauliAngle>> = exponentials.clone();
+	let mut clone: Vec<PauliExp<PauliAngle>> = exponentials.clone();
 
 	// move single (an no) qubit gates to circuit
 	let remove_indexes = get_remove_indexes(&exponentials, |p| p.len() <= 1);

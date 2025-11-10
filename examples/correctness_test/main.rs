@@ -13,9 +13,9 @@ const GATE_SIZE: usize = 4;
 const N_ROUNDS: usize = 10;
 const USE_TABLEAU: bool = true;
 
-fn random_exp<const N: usize, R: Rng>(rng: &mut R) -> PauliExp<N, PauliAngle> {
-	let n_letters = (1_usize..=N).choose(rng).unwrap();
-	let mut selection: Vec<usize> = (0..N).collect();
+fn random_exp<R: Rng>(max_size: usize, rng: &mut R) -> PauliExp<PauliAngle> {
+	let n_letters = (1_usize..=max_size).choose(rng).unwrap();
+	let mut selection: Vec<usize> = (0..max_size).collect();
 	selection.shuffle(rng);
 	let mut string = PauliString::default();
 	for qubit in selection.into_iter().take(n_letters) {
@@ -47,8 +47,8 @@ fn main() {
 
 	for i in 0..N_ROUNDS {
 		let mut rng = rand::rng();
-		let input: Vec<PauliExp<N_QUBITS, PauliAngle>> = (0..N_EXPS)
-			.map(move |_| random_exp::<N_QUBITS, _>(&mut rng))
+		let input: Vec<PauliExp<PauliAngle>> = (0..N_EXPS)
+			.map(move |_| random_exp::<_>(N_QUBITS, &mut rng))
 			.collect();
 
 		let (mut circuit, clifford, order) = synthesize(
@@ -57,8 +57,8 @@ fn main() {
 			connectivity.as_ref(),
 		);
 
-		let clifford: Vec<PauliExp<{ N_QUBITS }, CliffordPauliAngle>> = if USE_TABLEAU {
-			let mut tableau: CliffordTableau<{ N_QUBITS }> = CliffordTableau::id();
+		let clifford: Vec<PauliExp<CliffordPauliAngle>> = if USE_TABLEAU {
+			let mut tableau: CliffordTableau = CliffordTableau::id();
 			for op in clifford.into_iter() {
 				tableau.merge_clifford(op);
 			}
@@ -73,7 +73,7 @@ fn main() {
 
 		let mut clifford = clifford
 			.into_iter()
-			.map(PauliExp::<{ N_QUBITS }, PauliAngle>::from)
+			.map(PauliExp::<PauliAngle>::from)
 			.collect();
 
 		circuit.append(&mut clifford);
