@@ -1,4 +1,4 @@
-use bitvec::vec::BitVec;
+use bits::Bits;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use std::io::Write;
@@ -13,7 +13,7 @@ use test_transpiler::{
 	synthesize::synthesize,
 };
 
-fn random_exp<const N: usize, R: Rng>(max_exp_size: usize, rng: &mut R) -> PauliExp<N, PauliAngle> {
+fn random_exp<R: Rng>(max_exp_size: usize, rng: &mut R) -> PauliExp<PauliAngle> {
 	let n_letters = (1_usize..=max_exp_size).choose(rng);
 	let mut selection: Vec<usize> = (0..max_exp_size).collect();
 	selection.shuffle(rng);
@@ -34,8 +34,8 @@ fn random_exp<const N: usize, R: Rng>(max_exp_size: usize, rng: &mut R) -> Pauli
 }
 
 /// How many "layers" we need
-fn gate_dept<const N: usize, P: Negate>(circuit: &[PauliExp<N, P>]) -> usize {
-	let mut layers: Vec<BitVec> = Vec::new();
+fn gate_dept<P: Negate>(circuit: &[PauliExp<P>]) -> usize {
+	let mut layers: Vec<Bits> = Vec::new();
 
 	for exp in circuit.iter() {
 		if exp.len() < 2 {
@@ -45,7 +45,7 @@ fn gate_dept<const N: usize, P: Negate>(circuit: &[PauliExp<N, P>]) -> usize {
 		let mut stop: Option<usize> = None;
 		'layer: for (i, layer) in layers.iter().enumerate().rev() {
 			for (qubit, _) in exp.string.letters() {
-				if layer[qubit] {
+				if layer.get(qubit) {
 					stop = Some(i);
 					break 'layer;
 				}
@@ -55,13 +55,13 @@ fn gate_dept<const N: usize, P: Negate>(circuit: &[PauliExp<N, P>]) -> usize {
 		let layer: usize = match stop {
 			Some(i) => {
 				if (i + 1) == layers.len() {
-					layers.push(BitVec::repeat(false, N));
+					layers.push(Bits::default());
 				}
 				i + 1
 			}
 			None => {
 				if layers.is_empty() {
-					layers.push(BitVec::repeat(false, N));
+					layers.push(Bits::default());
 				}
 				0
 			}
@@ -75,7 +75,7 @@ fn gate_dept<const N: usize, P: Negate>(circuit: &[PauliExp<N, P>]) -> usize {
 	layers.len()
 }
 
-fn multi_gate_count<const N: usize, A: Negate>(gates: &[PauliExp<N, A>]) -> usize {
+fn multi_gate_count<A: Negate>(gates: &[PauliExp<A>]) -> usize {
 	gates
 		.iter()
 		.filter(|p| p.len() > 1)
@@ -119,10 +119,9 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 	let mut depth_sum = 0;
 
 	for i in 0..parameters.n_rounds {
-		let mut original_exponentials: Vec<PauliExp<N_QUBITS, PauliAngle>> = Vec::new();
+		let mut original_exponentials: Vec<PauliExp<PauliAngle>> = Vec::new();
 		for _ in 0..parameters.n_exps {
-			original_exponentials
-				.push(random_exp::<N_QUBITS, _>(parameters.max_exp_size, &mut rng));
+			original_exponentials.push(random_exp::<_>(parameters.max_exp_size, &mut rng));
 		}
 
 		#[cfg(not(feature = "return_ordered"))]
@@ -138,7 +137,7 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 			connectivity.as_ref().as_ref(),
 		);
 
-		let mut clifford: Vec<PauliExp<{ N_QUBITS }, PauliAngle>> = if parameters.use_tableau {
+		let mut clifford: Vec<PauliExp<PauliAngle>> = if parameters.use_tableau {
 			let mut tableau = CliffordTableau::id();
 
 			for op in clifford.iter() {

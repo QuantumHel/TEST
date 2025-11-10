@@ -12,7 +12,10 @@ fn main() {
 
 	println!("{bits1:b}");
 	println!("{bits2:b}");
+	println!("{bits2:?}");
 	println!("{:b}", &bits1 ^ &bits2);
+	println!("{:b}", &bits1 ^ &bits2);
+	println!("{:b}", bits2.and_not(&bits1));
 	println!("{:?}", bits1.last_one());
 	println!("{:?}", Bits::new().last_one());
 

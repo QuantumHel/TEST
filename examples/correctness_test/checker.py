@@ -9,27 +9,30 @@ import math
 def read_exp(path):
 	file = open(path)
 
+	num_qubits = 0
 	gates = []
 	for line in file:
 		parts = line.strip().split(";")
 		angle = -float(parts[0]) * math.pi
 		string = parts[1]
 
-		operator = SparsePauliOp(string[0])
-		for letter in string[1:]:
-			operator = operator ^ SparsePauliOp(letter)
+		operator = SparsePauliOp(string[::-1])
+		#for letter in string[1:]:
+		#	operator = operator ^ SparsePauliOp(letter)
 		
 		gate = PauliEvolutionGate(operator, time=angle)
-		gates.append(gate)
+		qubits = len(string)
+		gates.append((gate, qubits))
+		if qubits > num_qubits:
+			num_qubits = qubits
 
 	if len(gates) == 0:
 		raise Exception("no gates found")
 	
-	n_qubits = gates[0].num_qubits
-	circuit = QuantumCircuit(n_qubits)
+	circuit = QuantumCircuit(num_qubits)
 
-	for gate in gates:
-		circuit.append(gate, range(n_qubits))
+	for (gate, qubits) in gates:
+		circuit.append(gate, range(qubits))
 
 	return circuit
 

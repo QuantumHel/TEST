@@ -14,22 +14,25 @@ const PURPLE: &str = "magenta";
 const RED: &str = "red";
 const GREEN: &str = "lightgreen";
 
-impl<const N: usize, T: Negate + Clone> PauliExp<N, T> {
+impl<T: Negate + Clone> PauliExp<T> {
 	/// # Draw pi over 4 evolution
 	///
 	/// Draws an image that shows how the Pauli string evolves in the
 	/// exponential as pi over 4 exponentials are pushed trough it.
-	pub fn draw_pi_over_4_evolution(
-		&self,
-		strings: &[PauliString<N>],
-		size: ImageSize,
-	) -> SVGImage {
+	pub fn draw_pi_over_4_evolution(&self, strings: &[PauliString], size: ImageSize) -> SVGImage {
+		let len = strings
+			.iter()
+			.map(PauliString::start_of_trailin_is)
+			.max()
+			.unwrap_or_default();
+		let len = len.max(self.string.start_of_trailin_is());
+
 		// need to fit 3+3*strings.len() squares in height
-		// need to fit 4 + N squares in width
+		// need to fit 4 + len squares in width
 		let (width, height, square_size, padding_w, padding_h) = {
 			match size {
 				ImageSize::FixedWidth(width) => {
-					let square_size = width as f64 / (4 + N) as f64;
+					let square_size = width as f64 / (4 + len) as f64;
 					let height = square_size * (3 + 3 * strings.len()) as f64;
 					(
 						width,
@@ -41,7 +44,7 @@ impl<const N: usize, T: Negate + Clone> PauliExp<N, T> {
 				}
 				ImageSize::FixedHeight(height) => {
 					let square_size = height as f64 / (3 + 3 * strings.len()) as f64;
-					let width = square_size * (4 + N) as f64;
+					let width = square_size * (4 + len) as f64;
 					(
 						width.round() as u32,
 						height,
@@ -51,11 +54,11 @@ impl<const N: usize, T: Negate + Clone> PauliExp<N, T> {
 					)
 				}
 				ImageSize::Fixed { width, height } => {
-					let max_width = width as f64 / (4 + N) as f64;
+					let max_width = width as f64 / (4 + len) as f64;
 					let max_height = height as f64 / (3 + 3 * strings.len()) as f64;
 					let square_size = max_height.min(max_width);
 
-					let padding_w = (width as f64 - square_size * (4 + N) as f64) / 2.0;
+					let padding_w = (width as f64 - square_size * (4 + len) as f64) / 2.0;
 					let padding_h =
 						(height as f64 - square_size * (3 + 3 * strings.len()) as f64) / 2.0;
 					(width, height, square_size, padding_w, padding_h)

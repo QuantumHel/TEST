@@ -1,6 +1,6 @@
 //! This crate contains [Bits], a collection of bits that behaves as an "infinite" vector of bits.
 
-use std::fmt::Binary;
+use std::fmt::{Binary, Debug};
 
 mod bit_and;
 mod bit_or;
@@ -47,9 +47,10 @@ impl Bits {
 
 	pub fn with_capacity(capacity: usize) -> Self {
 		let len = capacity.div_ceil(BITS_PER);
-		Bits { bits: vec![0, len] }
+		Bits { bits: vec![0; len] }
 	}
 
+	/// Returns the index of the last '1' bit.
 	pub fn last_one(&self) -> Option<usize> {
 		for (index, bits) in self.bits.iter().enumerate().rev() {
 			let pos = BITS_PER - bits.leading_zeros() as usize;
@@ -77,8 +78,8 @@ impl Bits {
 		true
 	}
 
-	pub fn count_ones(&self) -> u32 {
-		self.bits.iter().map(|v| v.count_ones()).sum()
+	pub fn count_ones(&self) -> usize {
+		self.bits.iter().map(|v| v.count_ones()).sum::<u32>() as usize
 	}
 
 	pub fn set(&mut self, index: usize, value: bool) {
@@ -110,6 +111,27 @@ impl Bits {
 			.map(|group| group & 2_usize.pow(bit_index as u32) != 0)
 			.unwrap_or(false)
 	}
+
+	/// Calculates self & !other
+	///
+	/// This allows the usage of a ! operator in some cases, even though we cant do a ! operator by itself.
+	pub fn and_not(&self, other: &Self) -> Self {
+		let mut result = Bits {
+			bits: Vec::with_capacity(self.bits.len()),
+		};
+
+		let mut this = self.bits.iter();
+		let mut that = other.bits.iter();
+		loop {
+			match (this.next(), that.next()) {
+				(Some(this), Some(that)) => result.bits.push(this & !that),
+				(Some(this), None) => result.bits.push(*this),
+				(None, Some(_)) | (None, None) => break,
+			}
+		}
+
+		result
+	}
 }
 
 impl Binary for Bits {
@@ -126,6 +148,23 @@ impl Binary for Bits {
 		}
 
 		write!(f, "{string}")
+	}
+}
+
+impl Debug for Bits {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "Bits [")?;
+		let chars = format!("{self:b}");
+		let mut chars = chars.chars().rev();
+		if let Some(first) = chars.next() {
+			write!(f, "{first}")?;
+		}
+
+		for bit in chars {
+			write!(f, ", {bit}")?;
+		}
+
+		write!(f, "]")
 	}
 }
 

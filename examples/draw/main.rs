@@ -8,7 +8,7 @@ use test_transpiler::{
 };
 
 fn main() {
-	let p: PauliExp<7, PauliAngle> = PauliExp {
+	let p: PauliExp<PauliAngle> = PauliExp {
 		angle: PauliAngle::MultipleOfPi(1.4),
 		string: pauli_string!("XYZIXXY"),
 	};

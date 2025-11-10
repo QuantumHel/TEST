@@ -1,4 +1,4 @@
-use bitvec::vec::BitVec;
+use bits::{Bits, IterOnes};
 
 use crate::{
 	connectivity::{RoutingInstruction, RoutingInstructionTarget},
@@ -7,57 +7,142 @@ use crate::{
 
 use super::PauliLetter;
 
-/// An collection of [PauliLetter]s in qubit order.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct PauliString<const N: usize> {
-	x: BitVec,
-	z: BitVec,
+pub struct LetterIterator<'a> {
+	x: IterOnes<'a>,
+	z: IterOnes<'a>,
+	next_x: Option<usize>,
+	next_z: Option<usize>,
 }
 
-impl<const N: usize> Default for PauliString<N> {
-	fn default() -> Self {
-		let z = BitVec::repeat(false, N);
-		Self { x: z.clone(), z }
+impl Iterator for LetterIterator<'_> {
+	type Item = (usize, PauliLetter);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.next_x.is_none() {
+			self.next_x = self.x.next()
+		}
+
+		if self.next_z.is_none() {
+			self.next_z = self.z.next()
+		}
+
+		match (self.next_x, self.next_z) {
+			(Some(x), Some(z)) => {
+				if x == z {
+					self.next_x = None;
+					self.next_z = None;
+					Some((x, PauliLetter::Y))
+				} else if x < z {
+					self.next_x = None;
+					Some((x, PauliLetter::X))
+				} else {
+					self.next_z = None;
+					Some((z, PauliLetter::Z))
+				}
+			}
+			(Some(x), None) => {
+				self.next_x = None;
+				Some((x, PauliLetter::X))
+			}
+			(None, Some(z)) => {
+				self.next_z = None;
+				Some((z, PauliLetter::Z))
+			}
+			(None, None) => None,
+		}
 	}
 }
 
-impl<const N: usize> PauliString<N> {
+/// An collection of [PauliLetter]s in qubit order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PauliString {
+	x: Bits,
+	z: Bits,
+}
+
+impl Default for PauliString {
+	fn default() -> Self {
+		Self {
+			x: Bits::new(),
+			z: Bits::new(),
+		}
+	}
+}
+
+impl PauliString {
+	pub fn size(&self) -> usize {
+		self.start_of_trailin_is()
+	}
+
 	pub fn id() -> Self {
 		Self::default()
 	}
 
-	/// # Panics
-	/// If index is out of range.
-	pub fn x(index: usize) -> Self {
-		let mut x = BitVec::repeat(false, N);
-		x.set(index, true);
+	pub fn id_with_capacity(capacity: usize) -> Self {
 		Self {
-			x,
-			z: BitVec::repeat(false, N),
+			x: Bits::with_capacity(capacity),
+			z: Bits::with_capacity(capacity),
 		}
 	}
 
-	/// # Panics
-	/// If index is out of range.
+	pub fn x(index: usize) -> Self {
+		let mut x = Bits::with_capacity(index + 1);
+		x.set(index, true);
+		Self {
+			x,
+			z: Bits::with_capacity(index + 1),
+		}
+	}
+
+	pub fn x_with_capacity(index: usize, capacity: usize) -> Self {
+		let capacity = capacity.max(index + 1);
+		let mut x = Bits::with_capacity(capacity);
+		x.set(index, true);
+		Self {
+			x,
+			z: Bits::with_capacity(capacity),
+		}
+	}
+
 	pub fn z(index: usize) -> Self {
-		let mut z = BitVec::repeat(false, N);
+		let mut z = Bits::with_capacity(index + 1);
 		z.set(index, true);
 		Self {
-			x: BitVec::repeat(false, N),
+			x: Bits::with_capacity(index + 1),
 			z,
 		}
 	}
 
-	/// # Panics
-	/// If index is out of range.
+	pub fn z_with_capacity(index: usize, capacity: usize) -> Self {
+		let capacity = capacity.max(index + 1);
+		let mut z = Bits::with_capacity(capacity);
+		z.set(index, true);
+		Self {
+			x: Bits::with_capacity(capacity),
+			z,
+		}
+	}
+
 	pub fn y(index: usize) -> Self {
-		let mut z = BitVec::repeat(false, N);
+		let mut z = Bits::with_capacity(index + 1);
 		z.set(index, true);
 		Self { x: z.clone(), z }
 	}
 
-	/// # Panics
-	/// If index is out of range.
+	pub fn y_with_capacity(index: usize, capacity: usize) -> Self {
+		let capacity = capacity.max(index + 1);
+		let mut z = Bits::with_capacity(capacity);
+		z.set(index, true);
+		Self { x: z.clone(), z }
+	}
+
+	/// The index after which there are only I letters
+	pub fn start_of_trailin_is(&self) -> usize {
+		let x = self.x.last_one().map(|v| v + 1).unwrap_or_default();
+		let z = self.z.last_one().map(|v| v + 1).unwrap_or_default();
+		x.max(z)
+	}
+
 	pub fn set(&mut self, index: usize, letter: PauliLetter) {
 		match letter {
 			PauliLetter::I => {
@@ -80,41 +165,33 @@ impl<const N: usize> PauliString<N> {
 	}
 
 	pub fn get(&self, index: usize) -> PauliLetter {
-		match (self.x.get(index).as_deref(), self.z.get(index).as_deref()) {
-			(Some(true), Some(false)) => PauliLetter::X,
-			(Some(false), Some(true)) => PauliLetter::Z,
-			(Some(true), Some(true)) => PauliLetter::Y,
+		match (self.x.get(index), self.z.get(index)) {
+			(true, false) => PauliLetter::X,
+			(false, true) => PauliLetter::Z,
+			(true, true) => PauliLetter::Y,
 			_ => PauliLetter::I,
 		}
 	}
 
 	pub fn targets(&self) -> Vec<usize> {
-		(self.x.clone() | &self.z).iter_ones().collect()
+		(&self.x | &self.z).iter_ones().collect()
 	}
 
-	pub fn letters(&self) -> Vec<(usize, PauliLetter)> {
-		self.x
-			.iter()
-			.zip(self.z.iter())
-			.enumerate()
-			.filter(|(_, (x, z))| **x || **z)
-			.map(|(i, (x, z))| match (*x, *z) {
-				(true, false) => (i, PauliLetter::X),
-				(false, true) => (i, PauliLetter::Z),
-				(true, true) => (i, PauliLetter::Y),
-				_ => {
-					unreachable!()
-				}
-			})
-			.collect()
+	pub fn letters(&self) -> LetterIterator<'_> {
+		LetterIterator {
+			x: self.x.iter_ones(),
+			z: self.z.iter_ones(),
+			next_x: None,
+			next_z: None,
+		}
 	}
 
 	pub fn commutes_with(&self, other: &Self) -> bool {
-		let x_diff = self.x.clone() ^ other.x.clone();
-		let z_diff = self.z.clone() ^ other.z.clone();
+		let x_diff = &self.x ^ &other.x;
+		let z_diff = &self.z ^ &other.z;
 
-		let non_i_self = self.x.clone() | self.z.clone();
-		let non_i_other = other.x.clone() | other.z.clone();
+		let non_i_self = &self.x | &self.z;
+		let non_i_other = &other.x | &other.z;
 		let anti_comm = non_i_self & non_i_other & (x_diff | z_diff);
 		anti_comm.count_ones().is_multiple_of(2)
 	}
@@ -187,12 +264,12 @@ impl<const N: usize> PauliString<N> {
 	/// =\pm iOP
 	/// $$
 	pub fn pi_over_4_sandwitch(&mut self, neg: bool, #[allow(non_snake_case)] O: &Self) -> bool {
-		let new_x = O.x.clone() ^ &self.x;
-		let new_z = O.z.clone() ^ &self.z;
+		let new_x = &O.x ^ &self.x;
+		let new_z = &O.z ^ &self.z;
 
-		let non_i_self = self.x.clone() | self.z.clone();
-		let non_i_other = O.x.clone() | O.z.clone();
-		let anti_comm = non_i_self & non_i_other & (new_x.clone() | new_z.clone());
+		let non_i_self = &self.x | &self.z;
+		let non_i_other = &O.x | &O.z;
+		let anti_comm = non_i_self & non_i_other & (&new_x | &new_z);
 		let n_anti_comm = anti_comm.count_ones();
 
 		// Commutes
@@ -208,9 +285,9 @@ impl<const N: usize> PauliString<N> {
 		};
 
 		// The amount of results -iAB for pauli matrices A and B.
-		let minuses = (O.z.clone() | self.z.clone())
-			& !(O.z.clone() ^ self.x.clone())
-			& !(self.z.clone() ^ new_x.clone());
+		let minuses = (&O.z | &self.z)
+			.and_not(&(&O.z ^ &self.x))
+			.and_not(&(&self.z ^ &new_x));
 		if minuses.count_ones() % 2 == 1 {
 			sign = !sign;
 		}
@@ -222,7 +299,7 @@ impl<const N: usize> PauliString<N> {
 	}
 
 	pub fn len(&self) -> usize {
-		(self.x.clone() | self.z.clone()).count_ones()
+		(&self.x | &self.z).count_ones()
 	}
 
 	pub fn is_empty(&self) -> bool {
@@ -230,10 +307,14 @@ impl<const N: usize> PauliString<N> {
 	}
 
 	pub fn as_string(&self) -> String {
-		self.x
-			.iter()
-			.zip(self.z.iter())
-			.map(|(x, z)| match (*x, *z) {
+		let last = self
+			.x
+			.last_one()
+			.unwrap_or_default()
+			.max(self.z.last_one().unwrap_or_default());
+
+		(0..=last)
+			.map(|i| match (self.x.get(i), self.z.get(i)) {
 				(true, false) => 'X',
 				(false, true) => 'Z',
 				(true, true) => 'Y',
@@ -351,7 +432,7 @@ impl<const N: usize> PauliString<N> {
 #[macro_export]
 macro_rules! pauli_string {
 	($x:literal) => {{
-		let mut string = test_transpiler::pauli::PauliString::<{ $x.len() }>::id();
+		let mut string = test_transpiler::pauli::PauliString::id_with_capacity($x.len());
 		for (i, c) in $x.chars().enumerate() {
 			match c {
 				'I' | 'i' => string.set(i, test_transpiler::pauli::PauliLetter::I),
@@ -449,7 +530,7 @@ mod tests {
 
 	#[test]
 	fn anticommuting_pos_sandwitch() {
-		let mut o = PauliString::<6>::x(0);
+		let mut o = PauliString::x(0);
 		o.set(1, PauliLetter::Y);
 		o.set(2, PauliLetter::Z);
 		o.set(3, PauliLetter::X);
@@ -471,7 +552,7 @@ mod tests {
 
 	#[test]
 	fn anticommuting_neq_sandwitch() {
-		let mut o = PauliString::<8>::x(0);
+		let mut o = PauliString::x(0);
 		o.set(1, PauliLetter::Z);
 		o.set(2, PauliLetter::Y);
 		o.set(3, PauliLetter::Y);
@@ -499,7 +580,7 @@ mod tests {
 
 	#[test]
 	fn neq_sign_sandwitch() {
-		let mut o = PauliString::<6>::x(0);
+		let mut o = PauliString::x(0);
 		o.set(1, PauliLetter::Y);
 		o.set(2, PauliLetter::Z);
 		o.set(3, PauliLetter::X);

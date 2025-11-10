@@ -4,14 +4,14 @@ use crate::{
 	pauli::{PauliLetter, PauliString},
 };
 
-pub fn fastest_delicate<const N: usize>(
-	tableau: &CliffordTableau<N>,
+pub fn fastest_delicate(
+	tableau: &CliffordTableau,
 	dirty_qubits: &[usize],
 ) -> Option<(usize, PauliLetter)> {
 	let mut res: Option<(usize, usize, PauliLetter)> = None;
 	for qubit in dirty_qubits {
 		let x_steps: usize = {
-			let string = tableau.get_x_row(*qubit).unwrap().0;
+			let string = tableau.get_x_row(*qubit);
 			if string.get(*qubit) != PauliLetter::I {
 				if string.len() == 1 {
 					return Some((*qubit, PauliLetter::X));
@@ -22,7 +22,7 @@ pub fn fastest_delicate<const N: usize>(
 			}
 		};
 		let z_steps: usize = {
-			let string = tableau.get_z_row(*qubit).unwrap().0;
+			let string = tableau.get_z_row(*qubit);
 			if string.get(*qubit) != PauliLetter::I {
 				if string.len() == 1 {
 					return Some((*qubit, PauliLetter::Z));
@@ -59,13 +59,13 @@ pub fn fastest_delicate<const N: usize>(
 /// Does not edit rows for solved qubits, but is expensive
 ///
 /// Target letter has to be X or Z
-pub fn delicate_solver<const N: usize>(
-	string: &PauliString<N>,
+pub fn delicate_solver(
+	string: &PauliString,
 	gate_size: NonZeroEvenUsize,
 	target_qubit: usize,
 	target_letter: PauliLetter,
 	usable_qubits: Option<&[usize]>,
-) -> Vec<PauliString<N>> {
+) -> Vec<PauliString> {
 	if !(target_letter == PauliLetter::X || target_letter == PauliLetter::Z) {
 		panic!("delicate solver only solves for X and Z");
 	}
@@ -81,7 +81,7 @@ pub fn delicate_solver<const N: usize>(
 		_ => &range,
 	};
 
-	let mut pushing: Vec<PauliString<N>> = Vec::new();
+	let mut pushing: Vec<PauliString> = Vec::new();
 
 	if string.len() == 1 && string.get(target_qubit) != PauliLetter::I {
 		let letter = if target_letter.next() != string.get(target_qubit) {
@@ -98,7 +98,7 @@ pub fn delicate_solver<const N: usize>(
 
 		// use single qubit gate to make sure that target qubit does not have target letter
 		if string.get(target_qubit) == target_letter {
-			let mut push: PauliString<N> = PauliString::id();
+			let mut push = PauliString::id();
 			match target_letter {
 				PauliLetter::X => {
 					push.set(target_qubit, PauliLetter::Z);
@@ -116,7 +116,6 @@ pub fn delicate_solver<const N: usize>(
 		let old_target = string.get(target_qubit);
 		let other: Vec<(usize, PauliLetter)> = string
 			.letters()
-			.into_iter()
 			.filter(|(q, _)| *q != target_qubit)
 			.collect();
 
@@ -124,14 +123,14 @@ pub fn delicate_solver<const N: usize>(
 			// All uninvolved qubits have X in first string and Z on second.
 			// The non target involved qubits always have their letter in the string
 			// Target qubit has target letter
-			let mut outer1: PauliString<N> = PauliString::id();
-			let mut outer2: PauliString<N> = PauliString::id();
+			let mut outer1 = PauliString::id();
+			let mut outer2 = PauliString::id();
 
 			// middle string
 			// All non involved qubits have Y
 			// All non target involved qubits have original letter
 			// Target qubit has the one that is not target and not the one in string
-			let mut inner: PauliString<N> = PauliString::id();
+			let mut inner = PauliString::id();
 
 			for (qubit, letter) in other.iter() {
 				outer1.set(*qubit, *letter);
@@ -170,13 +169,13 @@ pub fn delicate_solver<const N: usize>(
 			// All non involved qubits have Y
 			// All non target involved qubits get involved.next
 			// target qubit gets target letter
-			let mut outer: PauliString<N> = PauliString::id();
+			let mut outer = PauliString::id();
 
 			// inner (1)
 			// All non involved qubits get Y
 			// All non target involved qubits get the one that is not involved and not involved.next
 			// target qubit gets the one in string
-			let mut inner: PauliString<N> = PauliString::id();
+			let mut inner = PauliString::id();
 
 			for (qubit, letter) in other.iter() {
 				outer.set(*qubit, letter.next());
@@ -204,19 +203,19 @@ pub fn delicate_solver<const N: usize>(
 	} else {
 		// else (if target qubit not free). This does not protect the target qubit, but needing to protect it should be impossible
 
-		let other: Vec<(usize, PauliLetter)> = string.letters();
+		let other: Vec<(usize, PauliLetter)> = string.letters().collect();
 
 		if string.len().is_multiple_of(2) {
 			// 2 outer 2 inner
 			// outer 1: uninvolved Y, target: target, first_inv: inv.next() = A, other: next
-			let mut outer1: PauliString<N> = PauliString::id();
+			let mut outer1 = PauliString::id();
 			// outer 2: uninvolved X, target: other, first_inv: A.next(), other: next next
-			let mut outer2: PauliString<N> = PauliString::id();
+			let mut outer2 = PauliString::id();
 
 			// inner 1: uninvolved: Z, target: target, first_inv: involved, other: nextnext
-			let mut inner1: PauliString<N> = PauliString::id();
+			let mut inner1 = PauliString::id();
 			// inner 2: uninvolved: Y, target: other, first_inv: nextnext, other: involved
-			let mut inner2: PauliString<N> = PauliString::id();
+			let mut inner2 = PauliString::id();
 
 			let mut other = other.into_iter();
 			let (first_qubit, first_letter) = other.next().unwrap();
@@ -268,14 +267,14 @@ pub fn delicate_solver<const N: usize>(
 			// 2 outer, 2 inner
 
 			// outer 1: uninvolved X, target: Y, all other involved take involved.next() = A
-			let mut outer1: PauliString<N> = PauliString::id();
+			let mut outer1 = PauliString::id();
 			// outer 2: uninvolved Z, target: Y, other involved: A.next()
-			let mut outer2: PauliString<N> = PauliString::id();
+			let mut outer2 = PauliString::id();
 
 			// inner 1: uninvolved Y, taget: opposite of target letter (X->Z, Z-> X), other same as outer 2
-			let mut inner1: PauliString<N> = PauliString::id();
+			let mut inner1 = PauliString::id();
 			// inner 2: non target involved = outer1, all other (target+uninvolved) Y
-			let mut inner2: PauliString<N> = PauliString::id();
+			let mut inner2 = PauliString::id();
 
 			for (qubit, letter) in other.into_iter() {
 				outer1.set(qubit, letter.next());
