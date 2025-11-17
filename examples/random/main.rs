@@ -1,10 +1,9 @@
-use bits::Bits;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use std::io::Write;
 use std::thread;
 use std::{fs::File, sync::Arc};
-use test_transpiler::pauli::Negate;
+use test_transpiler::experiment::{gate_count, gate_depth, multi_qubit_filter};
 use test_transpiler::{
 	clifford_tableau::CliffordTableau,
 	connectivity::Connectivity,
@@ -31,56 +30,6 @@ fn random_exp<R: Rng>(max_exp_size: usize, rng: &mut R) -> PauliExp<PauliAngle> 
 		string,
 		angle: PauliAngle::MultipleOfPi(rng.random()),
 	}
-}
-
-/// How many "layers" we need
-fn gate_dept<P: Negate>(circuit: &[PauliExp<P>]) -> usize {
-	let mut layers: Vec<Bits> = Vec::new();
-
-	for exp in circuit.iter() {
-		if exp.len() < 2 {
-			continue;
-		}
-
-		let mut stop: Option<usize> = None;
-		'layer: for (i, layer) in layers.iter().enumerate().rev() {
-			for (qubit, _) in exp.string.letters() {
-				if layer.get(qubit) {
-					stop = Some(i);
-					break 'layer;
-				}
-			}
-		}
-
-		let layer: usize = match stop {
-			Some(i) => {
-				if (i + 1) == layers.len() {
-					layers.push(Bits::default());
-				}
-				i + 1
-			}
-			None => {
-				if layers.is_empty() {
-					layers.push(Bits::default());
-				}
-				0
-			}
-		};
-
-		for (qubit, _) in exp.string.letters() {
-			layers[layer].set(qubit, true);
-		}
-	}
-
-	layers.len()
-}
-
-fn multi_gate_count<A: Negate>(gates: &[PauliExp<A>]) -> usize {
-	gates
-		.iter()
-		.filter(|p| p.len() > 1)
-		.collect::<Vec<_>>()
-		.len()
 }
 
 const N_QUBITS: usize = 20;
@@ -154,7 +103,9 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 				connectivity.as_ref().as_ref(),
 			);
 
-			if multi_gate_count(&decomposition) < multi_gate_count(&clifford) {
+			if gate_count(&decomposition, multi_qubit_filter)
+				< gate_count(&clifford, multi_qubit_filter)
+			{
 				decomposition.into_iter().map(PauliExp::from).collect()
 			} else {
 				clifford.into_iter().map(PauliExp::from).collect()
@@ -169,8 +120,8 @@ fn run_experiment(parameters: Parameters, connectivity: Arc<Option<Connectivity>
 			assert!(exp.len() == 1 || exp.len() == parameters.gate_size);
 		}
 
-		let gate_count = multi_gate_count(&circuit);
-		let gate_depth = gate_dept(&circuit);
+		let gate_count = gate_count(&circuit, multi_qubit_filter);
+		let gate_depth = gate_depth(&circuit, multi_qubit_filter);
 		count_sum += gate_count;
 		depth_sum += gate_depth;
 

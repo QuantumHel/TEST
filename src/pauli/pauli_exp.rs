@@ -1,6 +1,7 @@
 use std::{
 	fs::{File, exists},
 	io::{self, BufRead, Write},
+	path::Path,
 };
 
 use crate::pauli::{CliffordPauliAngle, PauliAngle, PauliLetter, pauli_angle::Negate};
@@ -83,7 +84,7 @@ impl PauliExp<PauliAngle> {
 		file.flush().expect("Failed to write to file");
 	}
 
-	pub fn read_exp_file(path: &str) -> Vec<Self> {
+	pub fn read_exp_file<P: AsRef<Path>>(path: P) -> Vec<Self> {
 		let file = File::open(path).expect("Failed to open file");
 		io::BufReader::new(file)
 			.lines()

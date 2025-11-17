@@ -1,4 +1,4 @@
 target
 Cargo.lock
 sandbox*
-experiment
+./experiment
