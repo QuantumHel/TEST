@@ -3,7 +3,7 @@ pub mod measure;
 use std::{
 	env,
 	fs::{self, File, ReadDir},
-	io::{BufWriter, Write},
+	io::Write,
 	path::Path,
 	sync::{Arc, Mutex},
 	thread::{self, JoinHandle},

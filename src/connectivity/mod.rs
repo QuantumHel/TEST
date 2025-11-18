@@ -4,6 +4,7 @@ pub(crate) mod hypergraph;
 use std::collections::BTreeSet;
 
 pub(crate) use crate::connectivity::{explosion::ExplosionNode, hypergraph::HyperGraph};
+use crate::misc::NonZeroEvenUsize;
 use petgraph::{algo::steiner_tree, graph::UnGraph};
 
 #[derive(Debug)]
@@ -80,29 +81,93 @@ impl Connectivity {
 
 	/// # Create Line
 	///
-	/// Creates a line connectivity.
-	///
-	/// ## Panics
-	/// if group size is smaller than 2.
-	pub fn create_line(group_size: usize, length: usize) -> Self {
-		if group_size < 2 {
-			panic!("Can not create line connectivity with group_size smalle than 2!");
-		}
-
-		if length == 0 {
+	/// Creates a line connectivity with minimal overlap.
+	pub fn create_line(group_size: NonZeroEvenUsize, min_qubit_count: usize) -> Self {
+		if min_qubit_count == 0 {
 			return Self::new(0, vec![]).unwrap();
 		}
 
-		let qubit_count = 1 + length * (group_size - 1);
+		let group_size = group_size.as_value();
+
+		// first has group_size. others have group_size -1
+		let attached = min_qubit_count.saturating_sub(group_size);
+		let n_groups = (attached + group_size - 2) / (group_size - 1) + 1;
+
+		let qubit_count = 1 + n_groups * (group_size - 1);
 
 		let mut operator_groups: Vec<Vec<usize>> = Vec::new();
-		for i in 0..length {
+		for i in 0..n_groups {
 			let start = i * (group_size - 1);
 			let group: Vec<usize> = (start..(start + group_size)).collect();
 			operator_groups.push(group);
 		}
 
 		Self::new(qubit_count, operator_groups).unwrap()
+	}
+
+	/// # Create Square Grid
+	///
+	/// Creates a square grid connectivity with minimal overlap.
+	pub fn create_square_grid(group_size: NonZeroEvenUsize, min_qubit_count: usize) -> Self {
+		if min_qubit_count == 0 {
+			return Self::new(0, vec![]).unwrap();
+		}
+
+		let group_size = group_size.as_value();
+
+		let mut layers = 2; // same as rows and columns
+		let mut n_qubits = 4 * (group_size - 1);
+
+		let side_add = group_size - 1 + group_size - 2;
+		let outer_corner = 2 * (group_size - 1) + group_size - 2; // add 2 times
+		let inner_corner = 1 + 2 * (group_size - 2); // add 1 times
+
+		while n_qubits < min_qubit_count {
+			n_qubits += 2 * outer_corner;
+			n_qubits += inner_corner;
+			n_qubits += 2 * (layers - 2) * side_add;
+			layers += 1;
+		}
+
+		// Layering order
+		//  0  1  2  3
+		//  4  5  6  7
+		//  8  9 10 11
+		// 12 13 14 15
+		let mut operator_groups: Vec<Vec<usize>> = Vec::new();
+
+		for group in 0..(layers - 1) {
+			let offset = group * (group_size - 1);
+			let group: Vec<usize> = (offset..(offset + group_size)).collect();
+			operator_groups.push(group);
+		}
+
+		let qubits_in_row = 1 + (layers - 1) * (group_size - 1);
+		let layer_size_in_qubits = qubits_in_row + layers * (group_size - 2);
+
+		for row in 1..layers {
+			let row_offset = row * layer_size_in_qubits;
+			for group in 0..(layers - 1) {
+				let offset = row_offset + group * (group_size - 1);
+				let group: Vec<usize> = (offset..(offset + group_size)).collect();
+				operator_groups.push(group);
+			}
+
+			let last_offset = (row - 1) * layer_size_in_qubits;
+			for col in 0..layers {
+				let end = row_offset + col * (group_size - 1);
+				let start = end - layer_size_in_qubits;
+				let between_start = last_offset + qubits_in_row + col * (group_size - 2);
+				let between_end = last_offset + qubits_in_row + (col + 1) * (group_size - 2) - 1;
+
+				let mut connections = vec![start];
+				connections.append(&mut (between_start..=between_end).collect());
+				connections.push(end);
+				operator_groups.push(connections);
+			}
+		}
+
+		Self::new(n_qubits, operator_groups).unwrap()
 	}
 
 	pub fn supports_operation_on(&self, targets: &[usize]) -> bool {
