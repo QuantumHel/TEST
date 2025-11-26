@@ -1,4 +1,6 @@
 pub mod measure;
+mod random;
+pub use random::random_exp;
 
 use std::{
 	env,
