@@ -2,3 +2,8 @@ target
 Cargo.lock
 sandbox*
 ./experiment
+
+# Perf things
+/perf.data
+/perf.exp
+/flamegraph.svg
