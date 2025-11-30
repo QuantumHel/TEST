@@ -1,4 +1,4 @@
-// molecules 30 qubits
+// molecules 20 qubits
 // random 100 qubits
 
 use std::{fs, path::Path, sync::Arc};
@@ -18,25 +18,25 @@ fn main() {
 		let mut targets: Vec<Target> = Vec::new();
 
 		let full: Arc<Option<Connectivity>> = Arc::new(None);
-		let linear_30 = Arc::new(Some(Connectivity::create_line(gate_size, 30)));
-		let square_30 = Arc::new(Some(Connectivity::create_square_grid(gate_size, 30)));
+		let linear_20 = Arc::new(Some(Connectivity::create_line(gate_size, 20)));
+		let square_20 = Arc::new(Some(Connectivity::create_square_grid(gate_size, 20)));
 
 		targets.push(Target {
 			out_path: "/fully_connected/molecules/".into(),
-			in_path: "./datasets/molecules/".into(),
+			in_path: "./datasets/molecules_small/".into(),
 			connectivity: full.clone(),
 		});
 
 		targets.push(Target {
 			out_path: "/line/molecules/".into(),
-			in_path: "./datasets/molecules/".into(),
-			connectivity: linear_30.clone(),
+			in_path: "./datasets/molecules_small/".into(),
+			connectivity: linear_20.clone(),
 		});
 
 		targets.push(Target {
 			out_path: "/square_grid/molecules/".into(),
-			in_path: "./datasets/molecules/".into(),
-			connectivity: square_30.clone(),
+			in_path: "./datasets/molecules_small/".into(),
+			connectivity: square_20.clone(),
 		});
 
 		let linear_100 = Arc::new(Some(Connectivity::create_line(gate_size, 100)));
