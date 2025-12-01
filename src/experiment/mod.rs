@@ -13,7 +13,6 @@ use std::{
 
 pub use measure::{gate_count, gate_depth, multi_qubit_filter};
 
-#[cfg(not(feature = "return_ordered"))]
 use crate::synthesize::synthesize;
 use crate::{
 	clifford_tableau::CliffordTableau,

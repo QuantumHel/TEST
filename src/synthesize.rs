@@ -85,7 +85,6 @@ fn synthesize_with_connectivity(
 	// main loop
 	while !exponentials.is_empty() {
 		// The fastest one to solve
-		println!("to_solve {}", exponentials.len());
 		let (index, instructions) = {
 			let mut iter = exponentials.iter();
 

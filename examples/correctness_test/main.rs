@@ -43,7 +43,10 @@ fn random_exp<R: Rng>(max_size: usize, rng: &mut R) -> PauliExp<PauliAngle> {
 }
 
 fn main() {
-	let connectivity = Some(Connectivity::create_line(4, 4));
+	let connectivity = Some(Connectivity::create_line(
+		NonZeroEvenUsize::new(4).unwrap(),
+		N_QUBITS,
+	));
 
 	for i in 0..N_ROUNDS {
 		let mut rng = rand::rng();
