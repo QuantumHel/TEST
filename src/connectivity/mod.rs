@@ -228,7 +228,7 @@ impl Connectivity {
 		} else {
 			let tree = {
 				let mut tree = steiner_tree(&self.explosion, &terminals);
-				enforce_tree(&mut tree);
+				enforce_tree(&mut tree, &terminals);
 				tree
 			};
 			explosion::as_instructions(tree)

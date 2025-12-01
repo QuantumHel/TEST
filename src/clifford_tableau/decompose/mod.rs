@@ -43,7 +43,7 @@ impl CliffordTableau {
 
 		let terminals: Vec<_> = connectivity.explosion.node_indices().collect();
 		let mut graph = steiner_tree(&connectivity.explosion, &terminals);
-		enforce_tree(&mut graph);
+		enforce_tree(&mut graph, &terminals);
 		let mut handled_edges: Vec<HyperEdgeIndex> = Vec::new();
 
 		while graph.node_count() != 0 {

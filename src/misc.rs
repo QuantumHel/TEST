@@ -1,6 +1,10 @@
 use std::ops::Deref;
 
-use petgraph::{Undirected, prelude::StableGraph, visit::EdgeRef};
+use petgraph::{
+	Undirected,
+	prelude::{NodeIndex, StableGraph},
+	visit::EdgeRef,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct NonZeroEvenUsize {
@@ -56,7 +60,7 @@ pub mod generic_bounds {
 }
 
 /// Makes sure that the graph is a tree.
-pub fn enforce_tree<N, E>(graph: &mut StableGraph<N, E, Undirected>) {
+pub fn enforce_tree<N, E>(graph: &mut StableGraph<N, E, Undirected>, terminals: &Vec<NodeIndex>) {
 	let mut visited = Vec::new();
 	let mut next = Vec::new();
 	let mut used_edges = Vec::new();
@@ -96,6 +100,10 @@ pub fn enforce_tree<N, E>(graph: &mut StableGraph<N, E, Undirected>) {
 		for id in remove {
 			graph.remove_edge(id);
 		}
+	}
+
+	for node_index in terminals.iter() {
+		assert!(graph.contains_node(*node_index))
 	}
 
 	assert_eq!(visited.len(), graph.node_count())

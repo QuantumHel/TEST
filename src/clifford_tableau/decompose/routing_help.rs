@@ -111,10 +111,9 @@ pub(super) fn handle_target(
 
 	let tree = {
 		let mut tree = steiner_tree(&graph_clone, &terminals);
-		enforce_tree(&mut tree);
+		enforce_tree(&mut tree, &terminals);
 		tree
 	};
-
 
 	let instructions =
 		as_instructions(tree, edge_index)
