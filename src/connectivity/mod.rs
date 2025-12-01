@@ -4,7 +4,7 @@ pub(crate) mod hypergraph;
 use std::collections::BTreeSet;
 
 pub(crate) use crate::connectivity::{explosion::ExplosionNode, hypergraph::HyperGraph};
-use crate::misc::NonZeroEvenUsize;
+use crate::misc::{NonZeroEvenUsize, enforce_tree};
 use petgraph::{algo::steiner_tree, graph::UnGraph};
 
 #[derive(Debug)]
@@ -226,7 +226,11 @@ impl Connectivity {
 
 			vec![(edge, None)]
 		} else {
-			let tree = steiner_tree(&self.explosion, &terminals);
+			let tree = {
+				let mut tree = steiner_tree(&self.explosion, &terminals);
+				enforce_tree(&mut tree);
+				tree
+			};
 			explosion::as_instructions(tree)
 		};
 

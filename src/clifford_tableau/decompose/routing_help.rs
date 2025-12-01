@@ -8,7 +8,7 @@ use crate::{
 		Connectivity, ExplosionNode, RoutingInstruction, RoutingInstructionTarget,
 		hypergraph::{HyperEdge, HyperEdgeIndex},
 	},
-	misc::NonZeroEvenUsize,
+	misc::{NonZeroEvenUsize, enforce_tree},
 	pauli::{PauliLetter, PauliString},
 	synthesize::handle_instruction,
 };
@@ -109,7 +109,13 @@ pub(super) fn handle_target(
 		terminals
 	};
 
-	let tree = steiner_tree(&graph_clone, &terminals);
+	let tree = {
+		let mut tree = steiner_tree(&graph_clone, &terminals);
+		enforce_tree(&mut tree);
+		tree
+	};
+
+
 	let instructions =
 		as_instructions(tree, edge_index)
 			.into_iter()
