@@ -41,10 +41,39 @@ impl CliffordTableau {
 	) -> Vec<PauliExp<CliffordPauliAngle>> {
 		let mut decomposition: Vec<PauliExp<CliffordPauliAngle>> = Vec::new();
 
-		let terminals: Vec<_> = connectivity.explosion.node_indices().collect();
+		// Contains all that are sole owners of needed qubits
+		let terminals: Vec<_> = connectivity
+			.explosion
+			.node_indices()
+			.filter(|i| {
+				let node = connectivity.explosion.node_weight(*i).unwrap();
+
+				// keep only those who own alterations
+				for qubit in node.hyper_nodes.iter() {
+					if !self.is_identity_qubit(*qubit) {
+						return true;
+					}
+				}
+
+				false
+			})
+			.collect();
+
 		let mut graph = steiner_tree(&connectivity.explosion, &terminals);
 		enforce_tree(&mut graph, &terminals);
 		let mut handled_edges: Vec<HyperEdgeIndex> = Vec::new();
+		// These edges are already solved
+		for node_index in connectivity.explosion.node_indices() {
+			let node = connectivity.explosion.node_weight(node_index).unwrap();
+			if node.hyper_edges.len() != 1 {
+				continue;
+			}
+
+			if !graph.contains_node(node_index) {
+				let edge = node.hyper_edges.first().cloned().unwrap();
+				handled_edges.push(edge);
+			}
+		}
 
 		while graph.node_count() != 0 {
 			// check for leafs
@@ -69,15 +98,15 @@ impl CliffordTableau {
 
 					// Tese are the qubits that we solve now
 					let mut targets: Vec<usize> = Vec::new();
-					'node_index: for node_inxdex in edge.nodes.iter() {
-						let node = connectivity.hypergraph.get_node(*node_inxdex).unwrap();
+					'node_index: for node_index in edge.nodes.iter() {
+						let node = connectivity.hypergraph.get_node(*node_index).unwrap();
 						for edge in node.edges.iter() {
 							if *edge != edge_index && !handled_edges.contains(edge) {
 								// The node contributes to a hyperedge that we handle later
 								continue 'node_index;
 							}
 						}
-						targets.push(*node_inxdex);
+						targets.push(*node_index);
 					}
 
 					// track which qubits can still be used freely

@@ -1,4 +1,4 @@
-use petgraph::{Undirected, algo::steiner_tree, graph::UnGraph, prelude::StableGraph};
+use petgraph::{Undirected, prelude::StableGraph};
 
 use crate::{
 	clifford_tableau::decompose::{
@@ -8,7 +8,7 @@ use crate::{
 		Connectivity, ExplosionNode, RoutingInstruction, RoutingInstructionTarget,
 		hypergraph::{HyperEdge, HyperEdgeIndex},
 	},
-	misc::{NonZeroEvenUsize, enforce_tree},
+	misc::NonZeroEvenUsize,
 	pauli::{PauliLetter, PauliString},
 	synthesize::handle_instruction,
 };
@@ -78,26 +78,18 @@ pub(super) fn handle_target(
 ) -> Vec<PauliString> {
 	let mut result = Vec::new();
 
-	let graph_clone: UnGraph<_, _> = graph.clone().into();
 	let terminals = {
-		let mut associated: Vec<usize> = row.targets();
-
-		// make sure that associated contains something from targets
-		for qubit in connectivity
-			.hypergraph
-			.get_edge(edge_index)
-			.unwrap()
-			.nodes
-			.iter()
-		{
-			if row.get(*qubit) == PauliLetter::I {
-				associated.push(*qubit);
-			}
-		}
+		let associated: Vec<usize> = row.targets();
 
 		let mut terminals = Vec::new();
-		for node_index in graph_clone.node_indices() {
-			let node = graph_clone.node_weight(node_index).unwrap();
+		for node_index in graph.node_indices() {
+			let node = graph.node_weight(node_index).unwrap();
+			// Make sure that we have the target hyperedge
+			if node.hyper_edges.len() == 1 && *node.hyper_edges.first().unwrap() == edge_index {
+				terminals.push(node_index);
+				continue;
+			}
+
 			for node in node.hyper_nodes.iter() {
 				if associated.contains(node) {
 					terminals.push(node_index);
@@ -110,8 +102,21 @@ pub(super) fn handle_target(
 	};
 
 	let tree = {
-		let mut tree = steiner_tree(&graph_clone, &terminals);
-		enforce_tree(&mut tree, &terminals);
+		// graph is already a steiner_tree, we just need to make a smaller tree
+		// we do this by repeatetly removing all non terminals leafs
+		let mut tree = graph.clone();
+
+		let mut nodes = 0;
+		while nodes != tree.node_count() {
+			nodes = tree.node_count();
+			let indices: Vec<_> = tree.node_indices().collect();
+			for index in indices {
+				let neighbors: Vec<_> = tree.neighbors(index).collect();
+				if neighbors.len() < 2 && !terminals.contains(&index) {
+					tree.remove_node(index);
+				}
+			}
+		}
 		tree
 	};
 
@@ -138,7 +143,7 @@ pub(super) fn handle_target(
 
 	// Check that we only have things left inside this edge
 	for occupied in row.targets() {
-		assert!(edge.nodes.contains(&occupied))
+		assert!(edge.nodes.contains(&occupied)) // hehe
 	}
 
 	let push_strings = if dirty_qubits.len() >= gate_size.as_value() {

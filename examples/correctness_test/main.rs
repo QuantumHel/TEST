@@ -8,7 +8,7 @@ use test_transpiler::{
 };
 
 const N_EXPS: usize = 30;
-const N_QUBITS: usize = 13;
+const N_QUBITS: usize = 16;
 const GATE_SIZE: usize = 4;
 const N_ROUNDS: usize = 10;
 const USE_TABLEAU: bool = true;
@@ -43,8 +43,8 @@ fn random_exp<R: Rng>(max_size: usize, rng: &mut R) -> PauliExp<PauliAngle> {
 }
 
 fn main() {
-	let connectivity = Some(Connectivity::create_line(
-		NonZeroEvenUsize::new(4).unwrap(),
+	let connectivity = Some(Connectivity::create_square_grid(
+		NonZeroEvenUsize::new(GATE_SIZE).unwrap(),
 		N_QUBITS,
 	));
 

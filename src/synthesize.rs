@@ -374,6 +374,10 @@ pub(crate) fn handle_instruction(
 		}
 	}
 
+	if removable.is_empty() {
+		return Vec::new();
+	}
+
 	// make shorter than 2n
 	while removable.len() > 2 * n - 2 {
 		let mut push_str = PauliString::id();

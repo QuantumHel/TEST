@@ -58,6 +58,28 @@ impl CliffordTableau {
 		true
 	}
 
+	pub fn is_identity_qubit(&self, index: usize) -> bool {
+		if !self
+			.x
+			.get(index)
+			.map(|r| *r == PauliString::x(index))
+			.unwrap_or(true)
+		{
+			return false;
+		}
+
+		if !self
+			.z
+			.get(index)
+			.map(|r| *r == PauliString::z(index))
+			.unwrap_or(true)
+		{
+			return false;
+		}
+
+		!(self.x_signs.get(index) || self.z_signs.get(index))
+	}
+
 	/// # merge pi over 4 pauli
 	///
 	/// Merges a $e^{\pm i\frac{\pi}{4}P}$ Pauli exponential into the tableau (On a
