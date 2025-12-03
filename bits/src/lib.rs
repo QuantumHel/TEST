@@ -6,11 +6,16 @@ mod bit_and;
 mod bit_or;
 mod bit_xor;
 
+// This should always be usize, but can be changed here for testing purposes.
+type BitHolder = usize;
+const BITS_PER: usize = BitHolder::BITS as usize;
+const TWO: BitHolder = 2;
+
 pub struct IterOnes<'a> {
 	bits: &'a Bits,
 	group: usize,
 	// We keep editing the group. The edited state lives here
-	variation: usize,
+	variation: BitHolder,
 }
 
 impl Iterator for IterOnes<'_> {
@@ -27,7 +32,7 @@ impl Iterator for IterOnes<'_> {
 			self.variation = self.bits.bits.get(self.group).cloned().unwrap();
 			return self.next();
 		}
-		self.variation &= !2_usize.pow(index as u32);
+		self.variation &= !TWO.pow(index as u32);
 		Some(index + self.group * BITS_PER)
 	}
 }
@@ -35,10 +40,8 @@ impl Iterator for IterOnes<'_> {
 /// A collection of bits that behaves as an "infinite" vector of bits.
 #[derive(Default, Clone)]
 pub struct Bits {
-	bits: Vec<usize>,
+	bits: Vec<BitHolder>,
 }
-
-const BITS_PER: usize = usize::BITS as usize;
 
 impl Bits {
 	pub fn new() -> Self {
@@ -97,9 +100,9 @@ impl Bits {
 		};
 
 		if value {
-			*group |= 2_usize.pow(bit_index as u32);
+			*group |= TWO.pow(bit_index as u32);
 		} else {
-			*group &= !2_usize.pow(bit_index as u32);
+			*group &= !TWO.pow(bit_index as u32);
 		}
 	}
 
@@ -108,7 +111,7 @@ impl Bits {
 		let bit_index = index % BITS_PER;
 		self.bits
 			.get(group_index)
-			.map(|group| group & 2_usize.pow(bit_index as u32) != 0)
+			.map(|group| group & TWO.pow(bit_index as u32) != 0)
 			.unwrap_or(false)
 	}
 
