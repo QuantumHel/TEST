@@ -67,7 +67,10 @@ pub fn enforce_tree<N, E>(graph: &mut StableGraph<N, E, Undirected>, terminals: 
 
 	let first = match graph.node_indices().next() {
 		Some(first) => first,
-		_ => return,
+		_ => {
+			assert!(terminals.is_empty());
+			return;
+		}
 	};
 	visited.push(first);
 	next.push(first);
