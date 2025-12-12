@@ -5,11 +5,10 @@ mod simple_solver;
 use crate::{
 	clifford_tableau::{CliffordTableau, decompose::routing_help::handle_target},
 	connectivity::{Connectivity, hypergraph::HyperEdgeIndex},
-	misc::{NonZeroEvenUsize, enforce_tree},
+	misc::{NonZeroEvenUsize, enforced_fixed_steiner_tree},
 	pauli::{CliffordPauliAngle, PauliExp, PauliLetter, PauliString},
 };
 use delicate_solver::{delicate_solver, fastest_delicate};
-use petgraph::algo::steiner_tree;
 use simple_solver::{fastest, simple_solver};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -59,8 +58,7 @@ impl CliffordTableau {
 			})
 			.collect();
 
-		let mut graph = steiner_tree(&connectivity.explosion, &terminals);
-		enforce_tree(&mut graph, &terminals);
+		let mut graph = enforced_fixed_steiner_tree(&connectivity.explosion, &terminals);
 		let mut handled_edges: Vec<HyperEdgeIndex> = Vec::new();
 		// These edges are already solved
 		for node_index in connectivity.explosion.node_indices() {

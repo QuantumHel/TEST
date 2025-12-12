@@ -1,7 +1,10 @@
-use std::ops::Deref;
+use std::{fmt::Debug, hash::Hash, ops::Deref};
 
 use petgraph::{
 	Undirected,
+	algo::{BoundedMeasure, Measure, steiner_tree},
+	csr::IndexType,
+	graph::UnGraph,
 	prelude::{NodeIndex, StableGraph},
 	visit::EdgeRef,
 };
@@ -59,8 +62,30 @@ pub mod generic_bounds {
 	impl IsTrue for Assert<true> {}
 }
 
+pub fn enforced_fixed_steiner_tree<N, E, Ix>(
+	graph: &UnGraph<N, E, Ix>,
+	terminals: &[NodeIndex<Ix>],
+) -> StableGraph<N, E, Undirected, Ix>
+where
+	N: Default + Clone + Eq + Hash + Debug,
+	E: Copy + Eq + Ord + Measure + BoundedMeasure,
+	Ix: IndexType,
+{
+	let mut tree: StableGraph<N, E, Undirected, Ix> =
+		if graph.node_count() == 1 && !terminals.is_empty() {
+			graph.clone().into()
+		} else {
+			steiner_tree(graph, terminals)
+		};
+	enforce_tree(&mut tree, terminals);
+	tree
+}
+
 /// Makes sure that the graph is a tree.
-pub fn enforce_tree<N, E>(graph: &mut StableGraph<N, E, Undirected>, terminals: &[NodeIndex]) {
+pub fn enforce_tree<N, E, Ix: IndexType>(
+	graph: &mut StableGraph<N, E, Undirected, Ix>,
+	terminals: &[NodeIndex<Ix>],
+) {
 	let mut visited = Vec::new();
 	let mut next = Vec::new();
 	let mut used_edges = Vec::new();
