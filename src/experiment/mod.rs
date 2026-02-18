@@ -63,7 +63,7 @@ pub fn run_experiment<T: Iterator<Item = (String, Vec<PauliExp<PauliAngle>>)> + 
 		.expect("Failed to create output file");
 	writeln!(
 		file,
-		"name,input_gate_count,output_gate_count,input_gate_depth,output_gate_depth"
+		"name,input_count,output_count,output_base_count,output_tableau_count,input_depth,output_depth,output_base_depth,output_tableau_depth"
 	)
 	.expect("Failed to write to file");
 
@@ -93,14 +93,16 @@ pub fn run_experiment<T: Iterator<Item = (String, Vec<PauliExp<PauliAngle>>)> + 
 
 				let (name, target) = job.unwrap();
 
-				let input_gate_count = gate_count(&target, multi_qubit_filter);
-				let input_gate_depth = gate_depth(&target, multi_qubit_filter);
+				let input_count = gate_count(&target, multi_qubit_filter);
+				let input_depth = gate_depth(&target, multi_qubit_filter);
 
 				#[cfg(not(feature = "return_ordered"))]
 				let (mut circuit, clifford) = synthesize(target, gate_size, connectivity);
 				#[cfg(feature = "return_ordered")]
 				let (mut circuit, clifford, _) = synthesize(target, gate_size, connectivity);
 
+				let output_base_count = gate_count(&circuit, multi_qubit_filter);
+				let output_base_depth = gate_depth(&circuit, multi_qubit_filter);
 				let clifford: Vec<PauliExp<CliffordPauliAngle>> = {
 					let mut tableau = CliffordTableau::id();
 					for clifford_op in clifford.into_iter() {
@@ -110,18 +112,21 @@ pub fn run_experiment<T: Iterator<Item = (String, Vec<PauliExp<PauliAngle>>)> + 
 					tableau.decompose(gate_size, connectivity)
 				};
 
+				let output_tableau_count = gate_count(&clifford, multi_qubit_filter);
+				let output_tableau_depth = gate_depth(&clifford, multi_qubit_filter);
+
 				circuit.append(&mut clifford.into_iter().map(PauliExp::from).collect());
 
-				let output_gate_count = gate_count(&circuit, multi_qubit_filter);
-				let output_gate_depth = gate_depth(&circuit, multi_qubit_filter);
+				let output_count = gate_count(&circuit, multi_qubit_filter);
+				let output_depth = gate_depth(&circuit, multi_qubit_filter);
 
 				println!(
-					"{name},{input_gate_count},{output_gate_count},{input_gate_depth},{output_gate_depth}"
+					"{name},{input_count},{output_count},{output_base_count},{output_tableau_count},{input_depth},{output_depth},{output_base_depth},{output_tableau_depth}"
 				);
 				let mut f = file.lock().unwrap();
 				writeln!(
 					f,
-					"{name},{input_gate_count},{output_gate_count},{input_gate_depth},{output_gate_depth}"
+					"{name},{input_count},{output_count},{output_base_count},{output_tableau_count},{input_depth},{output_depth},{output_base_depth},{output_tableau_depth}"
 				)
 				.expect("Failed towrite to file.");
 			}
