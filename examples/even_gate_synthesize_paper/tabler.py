@@ -39,8 +39,8 @@ base_data = [
 for molecule in base_data:
 	path = f"./fully_connected/molecules/gate_size_2.exp"
 	df = pd.read_csv(path)
-	count = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["input_gate_count"].values[0]
-	depth = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["input_gate_depth"].values[0]
+	count = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["input_count"].values[0]
+	depth = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["input_depth"].values[0]
 	molecule.append(count.item())
 	molecule.append(depth.item())
 
@@ -51,8 +51,8 @@ for connectivity in ["fully_connected", "line", "square_grid"]:
 		path = f"./{connectivity}/molecules/gate_size_{gate_size}.exp"
 		df = pd.read_csv(path)
 		for molecule in data:
-			count = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["output_gate_count"].values[0]
-			depth = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["output_gate_depth"].values[0]
+			count = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["output_count"].values[0]
+			depth = df.loc[df["name"] == f"./datasets/molecules_small/{molecule[0]}.exp"]["output_depth"].values[0]
 			molecule.append(count.item())
 			molecule.append(depth.item())
 	
