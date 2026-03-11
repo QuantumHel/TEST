@@ -9,7 +9,9 @@ impl BitOrAssign for Bits {
 			.zip(rhs.bits.iter())
 			.for_each(|(this, that)| *this |= that);
 
-		self.bits.extend(&mut rhs.bits.drain(self.bits.len()..));
+		if rhs.bits.len() > self.bits.len() {
+			self.bits.extend(&mut rhs.bits.drain(self.bits.len()..));
+		}
 	}
 }
 
@@ -20,7 +22,9 @@ impl BitOrAssign<&Self> for Bits {
 			.zip(rhs.bits.iter())
 			.for_each(|(this, that)| *this |= that);
 
-		self.bits.extend_from_slice(&rhs.bits[self.bits.len()..]);
+		if rhs.bits.len() > self.bits.len() {
+			self.bits.extend_from_slice(&rhs.bits[self.bits.len()..]);
+		}
 	}
 }
 

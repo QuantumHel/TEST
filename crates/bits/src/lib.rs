@@ -107,6 +107,11 @@ impl Bits {
 			*bits.bits.get_mut(i).unwrap() >>= shift;
 		}
 
+		// remove last holder when pushing last bits out of it
+		if shift > end % BITS_PER && bits.bits.len() > end_holder {
+			bits.bits.pop();
+		}
+
 		// remove last bits
 		// We need to use end-1 to change from index to bit count
 		let empty_at_end = BITS_PER - (end + 1 - shift) % BITS_PER;
@@ -358,5 +363,18 @@ mod test {
 		let bits = create(&[1, 1, 1, 1]);
 		let range = bits.get_range(..3);
 		assert_eq!(range, create(&[1, 1, 1]));
+	}
+
+	#[test]
+	fn test_removing_last_holder() {
+		let bits = create(&[
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0, 0, 0, 0, 1, // [63]
+			0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0,
+			0, 1,
+		]);
+		let range = bits.get_range(63..66);
+		assert_eq!(range, Bits::with_one(0));
 	}
 }
