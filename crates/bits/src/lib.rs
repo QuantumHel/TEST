@@ -2,7 +2,7 @@
 
 use std::{
 	fmt::{Binary, Debug},
-	ops::{Bound, Range, RangeBounds},
+	ops::{Bound, RangeBounds},
 };
 
 mod bit_and;
@@ -205,6 +205,23 @@ impl Bits {
 		}
 
 		result
+	}
+}
+
+#[derive(Debug)]
+pub struct BitsOutOfRange;
+
+impl TryFrom<Bits> for usize {
+	type Error = BitsOutOfRange;
+
+	fn try_from(value: Bits) -> Result<Self, Self::Error> {
+		match value.bits.len() {
+			0 => Ok(0),
+			_ if value.last_one().unwrap_or_default() < BITS_PER => {
+				Ok(*value.bits.first().unwrap())
+			}
+			_ => Err(BitsOutOfRange),
+		}
 	}
 }
 
