@@ -1,6 +1,9 @@
 //! This crate contains [Bits], a collection of bits that behaves as an "infinite" vector of bits.
 
-use std::fmt::{Binary, Debug};
+use std::{
+	fmt::{Binary, Debug},
+	ops::{Bound, Range, RangeBounds},
+};
 
 mod bit_and;
 mod bit_or;
@@ -51,6 +54,69 @@ impl Bits {
 	pub fn with_capacity(capacity: usize) -> Self {
 		let len = capacity.div_ceil(BITS_PER);
 		Bits { bits: vec![0; len] }
+	}
+
+	/// Creates Bits with true at the given location and false elsewhere.
+	pub fn with_one(location: usize) -> Bits {
+		let mut bits = Bits::with_capacity(location + 1);
+		bits.set(location, true);
+		bits
+	}
+
+	pub fn get_range<T: RangeBounds<usize>>(&self, range: T) -> Bits {
+		let start = match range.start_bound() {
+			Bound::Included(start) => *start,
+			Bound::Excluded(before) => *before + 1,
+			Bound::Unbounded => 0,
+		};
+		let end = match range.end_bound() {
+			Bound::Included(end) => *end,
+			Bound::Excluded(limit) => *limit - 1,
+			Bound::Unbounded => self.last_one().unwrap_or(0),
+		};
+
+		if end < start {
+			return Bits::default();
+		}
+
+		let start_holder = start / BITS_PER;
+		let end_holder = end / BITS_PER;
+
+		// Collect all relevan holders
+		let mut bits = Bits::default();
+		for i in start_holder..=end_holder {
+			if let Some(holder) = self.bits.get(i) {
+				bits.bits.push(*holder);
+			}
+		}
+
+		if bits.bits.is_empty() {
+			return bits;
+		}
+
+		// Shift bits (including between holders)
+		let shift = start % BITS_PER;
+		*bits.bits.first_mut().unwrap() >>= shift;
+		for i in 1..bits.bits.len() {
+			let mut moved_back = *bits.bits.get(i).unwrap();
+			moved_back <<= BITS_PER - shift;
+
+			let prevous = bits.bits.get_mut(i - 1).unwrap();
+			*prevous += moved_back;
+
+			*bits.bits.get_mut(i).unwrap() >>= shift;
+		}
+
+		// remove last bits
+		// We need to use end-1 to change from index to bit count
+		let empty_at_end = BITS_PER - (end + 1 - shift) % BITS_PER;
+		if empty_at_end != 0 {
+			let last = bits.bits.last_mut().unwrap();
+			*last <<= empty_at_end;
+			*last >>= empty_at_end;
+		}
+
+		bits
 	}
 
 	/// Returns the index of the last '1' bit.
@@ -201,3 +267,96 @@ impl PartialEq for Bits {
 }
 
 impl Eq for Bits {}
+
+#[cfg(test)]
+mod test {
+	use crate::Bits;
+
+	fn create(bits: &[usize]) -> Bits {
+		let mut bits_struct = Bits::default();
+
+		for (i, bit) in bits.iter().enumerate() {
+			bits_struct.set(i, *bit != 0);
+		}
+
+		bits_struct
+	}
+
+	#[test]
+	fn first_holder_range_test() {
+		let bits = create(&[1, 1, 0, 1, 1]);
+		let range = bits.get_range(1..4);
+		assert_eq!(range, create(&[1, 0, 1]));
+	}
+
+	#[test]
+	fn cross_border_range_test() {
+		let mut bits = Bits::with_one(62);
+		bits.set(65, true);
+		let range = bits.get_range(62..66);
+		assert_eq!(range, create(&[1, 0, 0, 1]));
+	}
+
+	#[test]
+	fn partial_over_allocated_range_test() {
+		let bits = Bits::with_one(62);
+		let range = bits.get_range(62..66);
+		assert_eq!(range, create(&[1, 0, 0, 0]));
+	}
+
+	#[test]
+	fn over_allocated_range_test() {
+		let bits = Bits::with_one(62);
+		let range = bits.get_range(64..66);
+		assert_eq!(range, create(&[0, 0]));
+	}
+
+	#[test]
+	fn empty_range_test() {
+		let bits = Bits::with_one(62);
+		assert_eq!(bits.get_range(62..62), Bits::default())
+	}
+
+	#[test]
+	fn faulty_range_test() {
+		let bits = Bits::with_one(100);
+		#[allow(clippy::reversed_empty_ranges)]
+		let range = bits.get_range(100..30);
+		assert_eq!(range, Bits::default())
+	}
+
+	#[test]
+	fn inclusive_range_test() {
+		let bits = create(&[0, 1, 1, 0, 1]);
+		let range = bits.get_range(1..=3);
+		assert_eq!(range, create(&[1, 1, 0]));
+	}
+
+	#[test]
+	fn open_end_range_test() {
+		let bits = create(&[1, 1, 0, 0, 1]);
+		let range = bits.get_range(2..);
+		assert_eq!(range, create(&[0, 0, 1]));
+	}
+
+	#[test]
+	fn open_start_range_test() {
+		let bits = create(&[1, 1, 0, 1]);
+		let range = bits.get_range(..3);
+		assert_eq!(range, create(&[1, 1, 0]));
+	}
+
+	#[test]
+	fn full_range_test() {
+		let bits = create(&[1, 0, 1]);
+		let range = bits.get_range(..);
+		assert_eq!(range, bits);
+	}
+
+	#[test]
+	fn bug_when_start_from_0() {
+		let bits = create(&[1, 1, 1, 1]);
+		let range = bits.get_range(..3);
+		assert_eq!(range, create(&[1, 1, 1]));
+	}
+}
