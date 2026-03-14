@@ -4,18 +4,40 @@ use bits::Bits;
 
 use crate::CNot;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
+pub enum Basis {
+	#[default]
+	Standard,
+	Hadamard,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct ParityMatrix {
 	rows: Vec<Bits>,
+	basis: Basis,
 }
 
 impl ParityMatrix {
-	pub fn new() -> Self {
-		Self::default()
+	pub fn standard_basis() -> Self {
+		Self {
+			rows: Vec::new(),
+			basis: Basis::Standard,
+		}
+	}
+
+	pub fn hadamard_basis() -> Self {
+		Self {
+			rows: Vec::new(),
+			basis: Basis::Hadamard,
+		}
+	}
+
+	pub fn basis(&self) -> Basis {
+		self.basis
 	}
 
 	pub fn get(&self, row: usize, col: usize) -> bool {
-		self.rows.get(row).map(|row| row.get(col)).unwrap_or(false)
+		self.rows.get(row).unwrap_or(&Bits::with_one(row)).get(col)
 	}
 
 	pub fn get_section<T: RangeBounds<usize>>(&self, row: usize, cols: Range<usize>) -> Bits {
@@ -23,6 +45,13 @@ impl ParityMatrix {
 			.get(row)
 			.unwrap_or(&Bits::with_one(row))
 			.get_range(cols)
+	}
+
+	pub fn insert_cnot(&mut self, cnot: CNot) {
+		match self.basis {
+			Basis::Standard => self.add_row(cnot.control, cnot.target),
+			Basis::Hadamard => self.add_row(cnot.target, cnot.control),
+		};
 	}
 
 	pub fn add_row(&mut self, source: usize, target: usize) -> CNot {
@@ -40,15 +69,23 @@ impl ParityMatrix {
 			target.set(source, !target.get(source));
 		}
 
-		CNot {
-			control: source,
-			target,
+		match self.basis {
+			Basis::Standard => CNot {
+				control: source,
+				target,
+			},
+			Basis::Hadamard => CNot {
+				control: target,
+				target: source,
+			},
 		}
 	}
 
 	pub fn transpose(&self) -> Self {
+		let size = self.size();
 		let mut transpose = ParityMatrix {
-			rows: vec![Bits::default(); self.size()],
+			rows: vec![Bits::default(); size],
+			basis: self.basis,
 		};
 		for (i, row) in self.rows.iter().enumerate().rev() {
 			for j in row.iter_ones() {
@@ -59,12 +96,23 @@ impl ParityMatrix {
 					.set(i, true);
 			}
 		}
+
+		if size > self.rows.len() {
+			for i in self.rows.len()..size {
+				transpose
+					.rows
+					.get_mut(i)
+					.expect("Size function failed?")
+					.set(i, true);
+			}
+		}
+
 		transpose
 	}
 
 	pub fn size(&self) -> usize {
 		let mut size = 0;
-		for (i, row) in self.rows.iter().enumerate().rev() {
+		for (i, row) in self.rows.iter().enumerate() {
 			size = size.max(
 				row.last_one()
 					.expect("Should not be able to have empty rows")

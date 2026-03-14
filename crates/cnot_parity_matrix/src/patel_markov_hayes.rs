@@ -124,11 +124,11 @@ mod test {
 
 		let mut partiy_matrix = ParityMatrix::default();
 		for cnot in answer.iter() {
-			partiy_matrix.add_row(cnot.control, cnot.target);
+			partiy_matrix.insert_cnot(*cnot);
 		}
 
 		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(2).unwrap());
-		let output = cnot_synth.compile(partiy_matrix);
+		let output = cnot_synth.compile(partiy_matrix.clone());
 		assert_eq!(answer, output);
 	}
 
@@ -136,7 +136,7 @@ mod test {
 	fn random_test() {
 		const TEST_COUNT: usize = 100;
 		const QUBIT_COUNT: usize = 100;
-		const CNOT_COUNT: usize = QUBIT_COUNT * 10;
+		const CNOT_COUNT: usize = QUBIT_COUNT * 100;
 
 		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
 		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(m.max(1)).unwrap());
@@ -147,13 +147,67 @@ mod test {
 				.map(|_| CNot::random(QUBIT_COUNT, &mut rng))
 				.collect();
 
-			let mut partiy_matrix = ParityMatrix::default();
+			let mut parity_matrix = ParityMatrix::default();
 			for cnot in cnots {
-				partiy_matrix.add_row(cnot.control, cnot.target);
+				parity_matrix.insert_cnot(cnot);
 			}
 
-			// This will crash if it fails
-			cnot_synth.compile(partiy_matrix);
+			let out = cnot_synth.compile(parity_matrix.clone());
+
+			for cnot in out.iter().rev() {
+				parity_matrix.insert_cnot(*cnot);
+			}
+
+			assert!(parity_matrix.is_identity());
+		}
+	}
+
+	#[test]
+	fn same_circuit_different_basis_test() {
+		const TEST_COUNT: usize = 100;
+		const QUBIT_COUNT: usize = 100;
+		const CNOT_COUNT: usize = QUBIT_COUNT;
+
+		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
+		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(m.max(1)).unwrap());
+		let mut rng = ChaCha8Rng::seed_from_u64(2);
+
+		for _ in 0..TEST_COUNT {
+			let cnots: Vec<_> = (0..CNOT_COUNT)
+				.map(|_| CNot::random(QUBIT_COUNT, &mut rng))
+				.collect();
+
+			let (standard_out, mut standard_matrix) = {
+				let mut parity_matrix = ParityMatrix::default();
+				for cnot in cnots.iter() {
+					parity_matrix.insert_cnot(*cnot);
+				}
+
+				// This will crash if it fails
+				let out = cnot_synth.compile(parity_matrix.clone());
+				(out, parity_matrix)
+			};
+
+			let (hadamard_out, mut hadamard_matrix) = {
+				let mut parity_matrix = ParityMatrix::hadamard_basis();
+				for cnot in cnots.iter() {
+					parity_matrix.insert_cnot(*cnot);
+				}
+
+				// This will crash if it fails
+				let out = cnot_synth.compile(parity_matrix.clone());
+				(out, parity_matrix)
+			};
+
+			for cnot in standard_out.into_iter().rev() {
+				hadamard_matrix.insert_cnot(cnot);
+			}
+			assert!(hadamard_matrix.is_identity());
+
+			for cnot in hadamard_out.into_iter().rev() {
+				standard_matrix.insert_cnot(cnot);
+			}
+			assert!(standard_matrix.is_identity());
 		}
 	}
 }
