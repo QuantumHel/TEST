@@ -24,7 +24,6 @@ impl CNot {
 		}
 	}
 
-	#[cfg(test)]
 	pub fn random<R: rand::prelude::Rng>(qubits: usize, rng: &mut R) -> Self {
 		use rand::RngExt;
 

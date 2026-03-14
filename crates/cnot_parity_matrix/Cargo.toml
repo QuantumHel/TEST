@@ -6,7 +6,5 @@ edition = "2024"
 [dependencies]
 bits = { path = "../bits" }
 test_core = { path = "../core" }
-
-[dev-dependencies]
 rand = "0.10.0"
 rand_chacha = "0.10.0"

@@ -166,7 +166,7 @@ mod test {
 	fn same_circuit_different_basis_test() {
 		const TEST_COUNT: usize = 100;
 		const QUBIT_COUNT: usize = 100;
-		const CNOT_COUNT: usize = QUBIT_COUNT;
+		const CNOT_COUNT: usize = QUBIT_COUNT * 100;
 
 		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
 		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(m.max(1)).unwrap());
