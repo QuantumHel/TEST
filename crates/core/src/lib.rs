@@ -1,7 +1,11 @@
+pub mod connectivity;
+mod disjoint_set_forest;
+
 pub mod prelude {
 	pub use super::Compiler;
 	pub use super::CompilerExt;
 	pub use super::CompilerStack;
+	pub use super::connectivity::{Connectivity, ConnectivityEdge};
 }
 
 pub trait Compiler: Sized {
