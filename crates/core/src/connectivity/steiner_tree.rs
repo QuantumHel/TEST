@@ -1,7 +1,7 @@
 use std::collections::{BinaryHeap, HashSet};
 
 use crate::{
-	connectivity::{Connectivity, ConnectivityEdge, SubEdge, SubGraph, SubNode},
+	connectivity::{Connectivity, ConnectivityEdge, Subedge, Subgraph, Subnode},
 	disjoint_set_forest::DisjointSetForest,
 };
 
@@ -64,12 +64,12 @@ struct MSTEdge {
 impl<T: ConnectivityEdge> Connectivity<T> {
 	/// # Panics:
 	/// 	if a terminal is not contained in connectivity.
-	pub fn steiner_tree(&self, terminals: &[usize]) -> SubGraph<'_, T> {
+	pub fn steiner_tree(&self, terminals: &[usize]) -> Subgraph<'_, T> {
 		// Step 1.
 		// immediate predecessor
-		let mut pred: Vec<Option<Previous>> = vec![None; self.qubits.len()];
-		let mut source: Vec<Option<usize>> = vec![None; self.qubits.len()];
-		let mut length: Vec<f64> = vec![f64::INFINITY; self.qubits.len()];
+		let mut pred: Vec<Option<Previous>> = vec![None; self.nodes.len()];
+		let mut source: Vec<Option<usize>> = vec![None; self.nodes.len()];
+		let mut length: Vec<f64> = vec![f64::INFINITY; self.nodes.len()];
 
 		for qubit in terminals.iter() {
 			source[*qubit] = Some(*qubit);
@@ -80,13 +80,13 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 		let mut q: BinaryHeap<Tuple> = BinaryHeap::new();
 
 		for s in terminals.iter() {
-			for (t, d, edge) in self.qubits[*s]
+			for (t, d, edge) in self.nodes[*s]
 				.edges
 				.iter()
 				.flat_map(|e| {
 					let edge = self.edges.get(*e).unwrap();
 					let weight = edge.weight();
-					edge.qubits().into_iter().map(move |r| (r, weight, *e))
+					edge.nodes().into_iter().map(move |r| (r, weight, *e))
 				})
 				.filter(|(r, _, _)| !(terminals.contains(r) && r <= s))
 			{
@@ -108,7 +108,7 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 		// Step 3.
 		// This maps terminals to sets
 		let terminal_to_set = {
-			let mut terminals_to_set = vec![0; self.qubits.len()];
+			let mut terminals_to_set = vec![0; self.nodes.len()];
 			for (i, terminal) in terminals.iter().enumerate() {
 				terminals_to_set[*terminal] = i;
 			}
@@ -131,9 +131,9 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 				}
 				length[tuple.t] = tuple.d;
 
-				for edge_index in self.qubits[tuple.t].edges.iter() {
+				for edge_index in self.nodes[tuple.t].edges.iter() {
 					let edge = self.edges.get(*edge_index).unwrap();
-					for r in edge.qubits() {
+					for r in edge.nodes() {
 						if source[r].is_none() {
 							q.push(Tuple {
 								t: r,
@@ -202,29 +202,31 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 			add_edge(edge.header.1, terminals, &mut edges, &mut nodes, &pred);
 		}
 
-		let mut sub_graph = SubGraph::empty(&self);
+		let mut sub_graph = Subgraph::empty(&self);
 
 		for edge in edges.iter() {
-			sub_graph.edges[*edge] = Some(SubEdge {
+			sub_graph.edges[*edge] = Some(Subedge {
 				original: self.edges.get(*edge).unwrap(),
-				qubits: Vec::new(),
+				nodes: Vec::new(),
 			})
 		}
 
 		for node in nodes.iter() {
-			sub_graph.qubits[*node] = Some(SubNode {
-				original: &self.qubits.get(*node).unwrap().edges,
+			sub_graph.nodes[*node] = Some(Subnode {
+				original: &self.nodes.get(*node).unwrap().edges,
 				edges: Vec::new(),
 			});
 
 			// inset node into edges, and edge into node
-			for edge in self.qubits.get(*node).unwrap().edges.iter() {
+			for edge in self.nodes.get(*node).unwrap().edges.iter() {
 				if let Some(Some(sub_edge)) = sub_graph.edges.get_mut(*edge) {
-					sub_edge.qubits.push(*node); // ??
-					sub_graph.qubits[*node].as_mut().unwrap().edges.push(*edge);
+					sub_edge.nodes.push(*node); // ??
+					sub_graph.nodes[*node].as_mut().unwrap().edges.push(*edge);
 				}
 			}
 		}
+
+		assert!(sub_graph.is_tree_with(terminals));
 
 		sub_graph
 	}
@@ -242,7 +244,7 @@ mod tests {
 	}
 
 	impl ConnectivityEdge for TestEdge {
-		fn qubits(&self) -> Vec<usize> {
+		fn nodes(&self) -> Vec<usize> {
 			vec![self.a, self.b]
 		}
 
@@ -268,7 +270,12 @@ mod tests {
         graph.add_edge(TestEdge { a: 6, b: 7, weight: 0.5 }); // V7 - V8 10
         graph.add_edge(TestEdge { a: 7, b: 8, weight: 0.5 }); // V8 - V9 11
 
+		let full_sub = graph.create_subgraph();
+		assert!(!full_sub.is_tree());
+
 		let tree = graph.steiner_tree(&[0, 1, 2, 3]);
+		assert!(tree.is_tree());
+		assert!(tree.is_tree_with(&[0, 1, 2, 3]));
 		dbg!(tree);
 	}
 
@@ -279,7 +286,7 @@ mod tests {
 	}
 
 	impl ConnectivityEdge for HyperEdge {
-		fn qubits(&self) -> Vec<usize> {
+		fn nodes(&self) -> Vec<usize> {
 			self.nodes.clone()
 		}
 
@@ -321,6 +328,9 @@ mod tests {
 		graph.add_edge(HyperEdge { nodes: vec![10, 12], weight: 1. });
 
 		let tree = graph.steiner_tree(&[3, 10, 0]);
+		assert!(tree.is_tree());
+		assert!(tree.is_tree_with(&[3, 10, 0]));
+
 		dbg!(tree);
 	}
 
