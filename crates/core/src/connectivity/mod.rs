@@ -1,26 +1,39 @@
+mod graph;
 mod steiner_tree;
 mod subgraph;
 
+use std::collections::{HashSet, VecDeque};
+
+pub use graph::Graph;
+pub use steiner_tree::steiner_tree;
 pub use subgraph::{Subedge, Subgraph, Subnode};
 
-pub trait ConnectivityEdge {
-	fn weight(&self) -> f64;
-
-	fn nodes(&self) -> Vec<usize>;
-}
+pub use crate::connectivity::graph::{Edge, Node};
 
 #[derive(Debug, Default)]
 pub struct ConnectivityNode {
 	pub edges: Vec<usize>,
 }
 
+impl Node for ConnectivityNode {
+	fn edges(&self) -> Vec<usize> {
+		self.edges.clone()
+	}
+}
+
+/// This is still missing many checks, for example edges that have same elements
+/// with each other are accepted, but break things. This means that the user
+/// needs to manage this case for now. Later this will give an error.
+///
+/// I think that I solution could be that edges contain the qubits that they act
+/// on and a list of the specific gates for said qubit.
 #[derive(Debug)]
-pub struct Connectivity<T: ConnectivityEdge> {
+pub struct Connectivity<T: Edge> {
 	edges: Vec<T>,
 	nodes: Vec<ConnectivityNode>,
 }
 
-impl<T: ConnectivityEdge> Default for Connectivity<T> {
+impl<T: Edge> Default for Connectivity<T> {
 	fn default() -> Self {
 		Self {
 			edges: Vec::new(),
@@ -29,7 +42,7 @@ impl<T: ConnectivityEdge> Default for Connectivity<T> {
 	}
 }
 
-impl<T: ConnectivityEdge> Connectivity<T> {
+impl<T: Edge> Connectivity<T> {
 	/// Need to make later a Connectivitybuilder, so that we can assume all
 	/// connectivity graphs to be valid in that all qubits are connected
 	/// somehow.
@@ -38,7 +51,7 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 	}
 
 	/// Creates an identical [Subgraph]
-	pub fn create_subgraph(&self) -> Subgraph<'_, T> {
+	pub fn create_subgraph(&self) -> Subgraph<'_, ConnectivityNode, T> {
 		Subgraph {
 			edges: self
 				.edges
@@ -56,7 +69,7 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 				.map(|original| {
 					Some(Subnode {
 						edges: original.edges.clone(),
-						original: &original.edges,
+						original,
 					})
 				})
 				.collect(),
@@ -94,5 +107,58 @@ impl<T: ConnectivityEdge> Connectivity<T> {
 			})
 			.filter(|i| qubit != *i)
 			.collect()
+	}
+
+	pub fn is_fully_connected(&self) -> bool {
+		let mut visited: HashSet<usize> = HashSet::new();
+		let mut used_edges: HashSet<usize> = HashSet::new();
+		let mut to_visit: VecDeque<usize> = VecDeque::new();
+
+		match self.nodes.first() {
+			Some(_) => {
+				to_visit.push_front(0);
+				visited.insert(0);
+			}
+			None => {
+				return true;
+			}
+		};
+
+		while let Some(node) = to_visit.pop_back() {
+			for edge in self.nodes[node].edges.iter() {
+				if used_edges.contains(edge) {
+					continue;
+				}
+
+				for neighbor in self.edges[*edge].nodes().iter() {
+					if *neighbor == node {
+						continue;
+					}
+
+					if !visited.contains(neighbor) {
+						visited.insert(*neighbor);
+						to_visit.push_front(*neighbor);
+					}
+				}
+
+				used_edges.insert(*edge);
+			}
+		}
+
+		visited.len() == self.nodes.len()
+	}
+
+	pub fn no_duplicates(&self) -> bool {
+		let mut edges: HashSet<Vec<usize>> = HashSet::new();
+
+		for edge in self.edges.iter() {
+			let mut nodes = edge.nodes();
+			nodes.sort();
+			if !edges.insert(nodes) {
+				return false;
+			}
+		}
+
+		true
 	}
 }

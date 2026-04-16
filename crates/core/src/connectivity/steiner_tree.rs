@@ -1,7 +1,7 @@
 use std::collections::{BinaryHeap, HashSet};
 
 use crate::{
-	connectivity::{Connectivity, ConnectivityEdge, Subedge, Subgraph, Subnode},
+	connectivity::{Edge, Graph, Node, Subedge, Subgraph, Subnode},
 	disjoint_set_forest::DisjointSetForest,
 };
 
@@ -61,180 +61,183 @@ struct MSTEdge {
 	header: (usize, usize),
 }
 
-impl<T: ConnectivityEdge> Connectivity<T> {
-	/// # Panics:
-	/// 	if a terminal is not contained in connectivity.
-	pub fn steiner_tree(&self, terminals: &[usize]) -> Subgraph<'_, T> {
-		// Step 1.
-		// immediate predecessor
-		let mut pred: Vec<Option<Previous>> = vec![None; self.nodes.len()];
-		let mut source: Vec<Option<usize>> = vec![None; self.nodes.len()];
-		let mut length: Vec<f64> = vec![f64::INFINITY; self.nodes.len()];
+/// # Panics:
+/// 	if a terminal is not contained in connectivity.
+pub fn steiner_tree<'a: 'c, 'b: 'c, 'c, G: Graph<N, E>, N: Node, E: Edge>(
+	graph: &'a G,
+	terminals: &'b [usize],
+) -> Subgraph<'c, N, E> {
+	// Step 1.
+	// immediate predecessor
+	let mut pred: Vec<Option<Previous>> = vec![None; graph.node_storage_size()];
+	let mut source: Vec<Option<usize>> = vec![None; graph.node_storage_size()];
+	let mut length: Vec<f64> = vec![f64::INFINITY; graph.node_storage_size()];
 
-		for qubit in terminals.iter() {
-			source[*qubit] = Some(*qubit);
-			length[*qubit] = 0.;
+	for qubit in terminals.iter() {
+		source[*qubit] = Some(*qubit);
+		length[*qubit] = 0.;
+	}
+
+	// Step 2.
+	let mut q: BinaryHeap<Tuple> = BinaryHeap::new();
+
+	for s in terminals.iter() {
+		for (t, d, edge) in graph
+			.get_node(*s)
+			.unwrap()
+			.edges()
+			.iter()
+			.flat_map(|e| {
+				let edge = graph.get_edge(*e).unwrap();
+				let weight = edge.weight();
+				edge.nodes().into_iter().map(move |r| (r, weight, *e))
+			})
+			.filter(|(r, _, _)| !(terminals.contains(r) && r <= s))
+		{
+			q.push(Tuple {
+				t,
+				d,
+				s: *s,
+				p1: *s,
+				edge: Some(edge),
+				p2: if terminals.contains(&t) {
+					Some(t)
+				} else {
+					None
+				},
+			});
 		}
+	}
 
-		// Step 2.
-		let mut q: BinaryHeap<Tuple> = BinaryHeap::new();
+	// Step 3.
+	// This maps terminals to sets
+	let terminal_to_set = {
+		let mut terminals_to_set = vec![0; graph.node_storage_size()];
+		for (i, terminal) in terminals.iter().enumerate() {
+			terminals_to_set[*terminal] = i;
+		}
+		terminals_to_set
+	};
+	let mut sets = DisjointSetForest::new(terminals.len());
 
-		for s in terminals.iter() {
-			for (t, d, edge) in self.nodes[*s]
-				.edges
-				.iter()
-				.flat_map(|e| {
-					let edge = self.edges.get(*e).unwrap();
-					let weight = edge.weight();
-					edge.nodes().into_iter().map(move |r| (r, weight, *e))
-				})
-				.filter(|(r, _, _)| !(terminals.contains(r) && r <= s))
-			{
+	// Step 4.
+	let mut mst_edges = Vec::new();
+
+	while sets.n_trees() > 1 {
+		let tuple = q.pop().expect("Should not be none");
+		if source[tuple.t].is_none() {
+			source[tuple.t] = Some(tuple.s);
+			if let Some(edge) = tuple.edge {
+				pred[tuple.t] = Some(Previous {
+					node: tuple.p1,
+					edge,
+				});
+			}
+			length[tuple.t] = tuple.d;
+
+			for edge_index in graph.get_node(tuple.t).unwrap().edges().iter() {
+				let edge = graph.get_edge(*edge_index).unwrap();
+				for r in edge.nodes() {
+					if source[r].is_none() {
+						q.push(Tuple {
+							t: r,
+							d: tuple.d + edge.weight(),
+							s: tuple.s,
+							p1: tuple.t,
+							edge: Some(*edge_index),
+							p2: None,
+						});
+					}
+				}
+			}
+		} else if sets.find(terminal_to_set[source[tuple.t].unwrap()])
+			!= sets.find(terminal_to_set[tuple.s])
+		{
+			if let Some(p2) = tuple.p2 {
+				assert!(terminals.contains(&tuple.t));
+				// Case 3.1.
+				// There is an MST edge between s and t
+				sets.union(terminal_to_set[tuple.s], terminal_to_set[tuple.t]);
+
+				// TODO: edge between headers is missing
+				mst_edges.push(MSTEdge {
+					#[cfg(debug_assertions)]
+					mst_edge: (tuple.s, tuple.t),
+					header_edge: tuple.edge.unwrap(),
+					header: (tuple.p1, p2),
+				});
+			} else {
+				assert!(!terminals.contains(&tuple.t));
+				// Case 3.2.
 				q.push(Tuple {
-					t,
-					d,
-					s: *s,
-					p1: *s,
-					edge: Some(edge),
-					p2: if terminals.contains(&t) {
-						Some(t)
-					} else {
-						None
-					},
+					t: source[tuple.t].unwrap(),
+					d: tuple.d + length[tuple.t],
+					s: tuple.s,
+					p1: tuple.p1,
+					edge: tuple.edge,
+					p2: Some(tuple.t),
 				});
 			}
 		}
-
-		// Step 3.
-		// This maps terminals to sets
-		let terminal_to_set = {
-			let mut terminals_to_set = vec![0; self.nodes.len()];
-			for (i, terminal) in terminals.iter().enumerate() {
-				terminals_to_set[*terminal] = i;
-			}
-			terminals_to_set
-		};
-		let mut sets = DisjointSetForest::new(terminals.len());
-
-		// Step 4.
-		let mut mst_edges = Vec::new();
-
-		while sets.n_trees() > 1 {
-			let tuple = q.pop().expect("Should not be none");
-			if source[tuple.t].is_none() {
-				source[tuple.t] = Some(tuple.s);
-				if let Some(edge) = tuple.edge {
-					pred[tuple.t] = Some(Previous {
-						node: tuple.p1,
-						edge,
-					});
-				}
-				length[tuple.t] = tuple.d;
-
-				for edge_index in self.nodes[tuple.t].edges.iter() {
-					let edge = self.edges.get(*edge_index).unwrap();
-					for r in edge.nodes() {
-						if source[r].is_none() {
-							q.push(Tuple {
-								t: r,
-								d: tuple.d + edge.weight(),
-								s: tuple.s,
-								p1: tuple.t,
-								edge: Some(*edge_index),
-								p2: None,
-							});
-						}
-					}
-				}
-			} else if sets.find(terminal_to_set[source[tuple.t].unwrap()])
-				!= sets.find(terminal_to_set[tuple.s])
-			{
-				if let Some(p2) = tuple.p2 {
-					assert!(terminals.contains(&tuple.t));
-					// Case 3.1.
-					// There is an MST edge between s and t
-					sets.union(terminal_to_set[tuple.s], terminal_to_set[tuple.t]);
-
-					// TODO: edge between headers is missing
-					mst_edges.push(MSTEdge {
-						#[cfg(debug_assertions)]
-						mst_edge: (tuple.s, tuple.t),
-						header_edge: tuple.edge.unwrap(),
-						header: (tuple.p1, p2),
-					});
-				} else {
-					assert!(!terminals.contains(&tuple.t));
-					// Case 3.2.
-					q.push(Tuple {
-						t: source[tuple.t].unwrap(),
-						d: tuple.d + length[tuple.t],
-						s: tuple.s,
-						p1: tuple.p1,
-						edge: tuple.edge,
-						p2: Some(tuple.t),
-					});
-				}
-			}
-		}
-
-		// Step 5.
-		// Resolving found paths to hyperedges
-		let mut edges: HashSet<usize> = HashSet::new();
-		let mut nodes: HashSet<usize> = HashSet::new();
-
-		fn add_edge(
-			node: usize,
-			terminals: &[usize],
-			edges: &mut HashSet<usize>,
-			nodes: &mut HashSet<usize>,
-			pred: &Vec<Option<Previous>>,
-		) {
-			nodes.insert(node);
-			if let Some(previous) = pred[node] {
-				edges.insert(previous.edge);
-				add_edge(previous.node, terminals, edges, nodes, pred);
-			}
-		}
-
-		for edge in mst_edges.iter() {
-			edges.insert(edge.header_edge);
-			add_edge(edge.header.0, terminals, &mut edges, &mut nodes, &pred);
-			add_edge(edge.header.1, terminals, &mut edges, &mut nodes, &pred);
-		}
-
-		let mut sub_graph = Subgraph::empty(&self);
-
-		for edge in edges.iter() {
-			sub_graph.edges[*edge] = Some(Subedge {
-				original: self.edges.get(*edge).unwrap(),
-				nodes: Vec::new(),
-			})
-		}
-
-		for node in nodes.iter() {
-			sub_graph.nodes[*node] = Some(Subnode {
-				original: &self.nodes.get(*node).unwrap().edges,
-				edges: Vec::new(),
-			});
-
-			// inset node into edges, and edge into node
-			for edge in self.nodes.get(*node).unwrap().edges.iter() {
-				if let Some(Some(sub_edge)) = sub_graph.edges.get_mut(*edge) {
-					sub_edge.nodes.push(*node); // ??
-					sub_graph.nodes[*node].as_mut().unwrap().edges.push(*edge);
-				}
-			}
-		}
-
-		assert!(sub_graph.is_tree_with(terminals));
-
-		sub_graph
 	}
+
+	// Step 5.
+	// Resolving found paths to hyperedges
+	let mut edges: HashSet<usize> = HashSet::new();
+	let mut nodes: HashSet<usize> = HashSet::new();
+
+	fn add_edge(
+		node: usize,
+		terminals: &[usize],
+		edges: &mut HashSet<usize>,
+		nodes: &mut HashSet<usize>,
+		pred: &Vec<Option<Previous>>,
+	) {
+		nodes.insert(node);
+		if let Some(previous) = pred[node] {
+			edges.insert(previous.edge);
+			add_edge(previous.node, terminals, edges, nodes, pred);
+		}
+	}
+
+	for edge in mst_edges.iter() {
+		edges.insert(edge.header_edge);
+		add_edge(edge.header.0, terminals, &mut edges, &mut nodes, &pred);
+		add_edge(edge.header.1, terminals, &mut edges, &mut nodes, &pred);
+	}
+
+	let mut sub_graph = Subgraph::empty(graph);
+
+	for edge in edges.iter() {
+		sub_graph.edges[*edge] = Some(Subedge {
+			original: graph.get_edge(*edge).unwrap(),
+			nodes: Vec::new(),
+		})
+	}
+
+	for node in nodes.iter() {
+		sub_graph.nodes[*node] = Some(Subnode {
+			original: graph.get_node(*node).unwrap(),
+			edges: Vec::new(),
+		});
+
+		// inset node into edges, and edge into node
+		for edge in graph.get_node(*node).unwrap().edges().iter() {
+			if let Some(Some(sub_edge)) = sub_graph.edges.get_mut(*edge) {
+				sub_edge.nodes.push(*node); // ??
+				sub_graph.nodes[*node].as_mut().unwrap().edges.push(*edge);
+			}
+		}
+	}
+
+	assert!(sub_graph.is_tree_with(terminals));
+
+	sub_graph
 }
 
 #[cfg(test)]
 mod tests {
-	use crate::connectivity::{Connectivity, ConnectivityEdge};
+	use crate::connectivity::{Connectivity, Edge, steiner_tree::steiner_tree};
 
 	#[derive(Debug)]
 	struct TestEdge {
@@ -243,7 +246,7 @@ mod tests {
 		weight: f64,
 	}
 
-	impl ConnectivityEdge for TestEdge {
+	impl Edge for TestEdge {
 		fn nodes(&self) -> Vec<usize> {
 			vec![self.a, self.b]
 		}
@@ -273,7 +276,7 @@ mod tests {
 		let full_sub = graph.create_subgraph();
 		assert!(!full_sub.is_tree());
 
-		let tree = graph.steiner_tree(&[0, 1, 2, 3]);
+		let tree = steiner_tree(&graph, &[0, 1, 2, 3]);
 		assert!(tree.is_tree());
 		assert!(tree.is_tree_with(&[0, 1, 2, 3]));
 		dbg!(tree);
@@ -285,7 +288,7 @@ mod tests {
 		weight: f64,
 	}
 
-	impl ConnectivityEdge for HyperEdge {
+	impl Edge for HyperEdge {
 		fn nodes(&self) -> Vec<usize> {
 			self.nodes.clone()
 		}
@@ -327,7 +330,7 @@ mod tests {
 		// AAAAAAAAAAAAAAAAAAAAAAAAAAAA (Nodes 11, 13)
 		graph.add_edge(HyperEdge { nodes: vec![10, 12], weight: 1. });
 
-		let tree = graph.steiner_tree(&[3, 10, 0]);
+		let tree = steiner_tree(&graph, &[3, 10, 0]);
 		assert!(tree.is_tree());
 		assert!(tree.is_tree_with(&[3, 10, 0]));
 

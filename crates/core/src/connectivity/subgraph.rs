@@ -3,58 +3,86 @@ use std::{
 	usize,
 };
 
-use crate::connectivity::{Connectivity, ConnectivityEdge};
+use crate::connectivity::{Edge, Graph, Node};
 
 #[derive(Debug)]
-pub struct Subedge<'a, T: ConnectivityEdge> {
+pub struct Subedge<'a, T: Edge> {
 	pub original: &'a T,
 	pub(super) nodes: Vec<usize>,
 }
 
-impl<'a, T: ConnectivityEdge> Subedge<'a, T> {
+impl<'a, E: Edge> Edge for Subedge<'a, E> {
+	fn weight(&self) -> f64 {
+		self.original.weight()
+	}
+
+	fn nodes(&self) -> Vec<usize> {
+		self.nodes.clone()
+	}
+}
+
+impl<'a, T: Edge> Subedge<'a, T> {
 	pub fn nodes(&self) -> &[usize] {
 		&self.nodes
 	}
 }
 
 #[derive(Debug)]
-pub struct Subnode<'a> {
-	pub original: &'a Vec<usize>,
+pub struct Subnode<'a, N: Node> {
+	pub original: &'a N,
 	pub(super) edges: Vec<usize>,
 }
 
-impl<'a> Subnode<'a> {
+impl<'a, N: Node> Node for Subnode<'a, N> {
+	fn edges(&self) -> Vec<usize> {
+		self.edges.clone()
+	}
+}
+
+impl<'a, N: Node> Subnode<'a, N> {
+	pub fn is_leaf(&self) -> bool {
+		self.edges.len() == 1
+	}
+
 	pub fn edges(&self) -> &[usize] {
 		&self.edges
 	}
 }
 
 #[derive(Debug)]
-pub struct Subgraph<'a, T: ConnectivityEdge> {
+pub struct Subgraph<'a, N: Node, T: Edge> {
 	/// Indexes for the edges in the original graph
 	pub(super) edges: Vec<Option<Subedge<'a, T>>>,
 	/// Indexes for the qubits in the original graph
-	pub(super) nodes: Vec<Option<Subnode<'a>>>,
+	pub(super) nodes: Vec<Option<Subnode<'a, N>>>,
 }
 
-impl<'a, T: ConnectivityEdge> Subgraph<'a, T> {
-	pub(super) fn empty(connectivity: &'a Connectivity<T>) -> Self {
-		let mut edges: Vec<Option<Subedge<'a, T>>> = Vec::with_capacity(connectivity.edges.len());
-		edges.resize_with(connectivity.edges.len(), || None);
-		let mut nodes: Vec<Option<Subnode<'a>>> = Vec::with_capacity(connectivity.nodes.len());
-		nodes.resize_with(connectivity.nodes.len(), || None);
+impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
+	pub(super) fn empty<G: Graph<N, T>>(graph: &'a G) -> Self {
+		let mut edges: Vec<Option<Subedge<'a, T>>> = Vec::with_capacity(graph.edge_storage_size());
+		edges.resize_with(graph.edge_storage_size(), || None);
+		let mut nodes: Vec<Option<Subnode<'a, N>>> = Vec::with_capacity(graph.node_storage_size());
+		nodes.resize_with(graph.node_storage_size(), || None);
 
 		Self { edges, nodes }
+	}
+
+	pub fn get_edge(&self, index: usize) -> Option<&Subedge<'a, T>> {
+		self.edges.get(index).map(Option::as_ref).flatten()
+	}
+
+	pub fn get_node(&self, index: usize) -> Option<&Subnode<'a, N>> {
+		self.nodes.get(index).map(Option::as_ref).flatten()
 	}
 
 	pub fn remove_node(&mut self, nodes: usize) {
 		if let Some(target) = self.nodes.get_mut(nodes).map(|a| a.take()).flatten() {
 			for edge_index in target.edges {
 				let edge = self.edges[edge_index].as_mut().unwrap();
-				let index = edge.nodes.iter().find(|a| **a == nodes).unwrap();
-				edge.nodes.swap_remove(*index);
-				if edge.nodes.is_empty() {
-					self.edges[edge_index] = None;
+				let index = edge.nodes.iter().position(|a| *a == nodes).unwrap();
+				edge.nodes.swap_remove(index);
+				if edge.nodes.len() < 2 {
+					self.remove_edge(edge_index);
 				}
 			}
 		}
@@ -64,8 +92,8 @@ impl<'a, T: ConnectivityEdge> Subgraph<'a, T> {
 		if let Some(target) = self.edges.get_mut(edge).map(|a| a.take()).flatten() {
 			for qubit_index in target.nodes {
 				let qubit = self.nodes[qubit_index].as_mut().unwrap();
-				let index = qubit.edges.iter().find(|a| **a == edge).unwrap();
-				qubit.edges.swap_remove(*index);
+				let index = qubit.edges.iter().position(|a| *a == edge).unwrap();
+				qubit.edges.swap_remove(index);
 				if qubit.edges.is_empty() {
 					self.nodes[qubit_index] = None;
 				}
@@ -74,7 +102,7 @@ impl<'a, T: ConnectivityEdge> Subgraph<'a, T> {
 	}
 
 	/// qubits that belong to only one edge
-	pub fn leaf_nodes(&self) -> Vec<(usize, &Subnode<'_>)> {
+	pub fn leaf_nodes(&self) -> Vec<(usize, &Subnode<'_, N>)> {
 		self.nodes
 			.iter()
 			.map(Option::as_ref)
@@ -93,7 +121,7 @@ impl<'a, T: ConnectivityEdge> Subgraph<'a, T> {
 			.collect()
 	}
 
-	pub fn nodes(&self) -> Vec<(usize, &Subnode<'_>)> {
+	pub fn nodes(&self) -> Vec<(usize, &Subnode<'_, N>)> {
 		self.nodes
 			.iter()
 			.map(Option::as_ref)

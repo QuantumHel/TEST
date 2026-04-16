@@ -5,7 +5,9 @@ pub mod prelude {
 	pub use super::Compiler;
 	pub use super::CompilerExt;
 	pub use super::CompilerStack;
-	pub use super::connectivity::{Connectivity, ConnectivityEdge};
+	pub use super::connectivity::{
+		Connectivity, Edge, Graph, Node, Subedge, Subgraph, steiner_tree,
+	};
 }
 
 pub trait Compiler: Sized {
