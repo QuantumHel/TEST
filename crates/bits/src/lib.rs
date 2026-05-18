@@ -2,6 +2,7 @@
 
 use std::{
 	fmt::{Binary, Debug},
+	hash::Hash,
 	ops::{Bound, RangeBounds},
 };
 
@@ -41,7 +42,7 @@ impl Iterator for IterOnes<'_> {
 }
 
 /// A collection of bits that behaves as an "infinite" vector of bits.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialOrd, Ord)]
 pub struct Bits {
 	bits: Vec<BitHolder>,
 }
@@ -130,6 +131,16 @@ impl Bits {
 			let pos = BITS_PER - bits.leading_zeros() as usize;
 			if pos > 0 {
 				return Some(pos - 1 + index * BITS_PER);
+			}
+		}
+		None
+	}
+
+	/// Returns the index of the first '1' bit.
+	pub fn first_one(&self) -> Option<usize> {
+		for (index, bits) in self.bits.iter().enumerate() {
+			if let Some(pos) = bits.lowest_one() {
+				return Some(pos as usize + index * BITS_PER);
 			}
 		}
 		None
@@ -290,6 +301,22 @@ impl PartialEq for Bits {
 
 impl Eq for Bits {}
 
+impl Hash for Bits {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		let rev: Vec<_> = self
+			.bits
+			.iter()
+			.copied()
+			.rev()
+			.skip_while(|i| *i == 0)
+			.collect();
+
+		for i in rev.iter().rev() {
+			i.hash(state);
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
 	use crate::Bits;
@@ -393,5 +420,16 @@ mod test {
 		]);
 		let range = bits.get_range(63..66);
 		assert_eq!(range, Bits::with_one(0));
+	}
+
+	#[test]
+	fn test_first_one() {
+		assert_eq!(create(&[1, 1, 1, 1]).first_one(), Some(0));
+		assert_eq!(create(&[0, 1, 1, 1]).first_one(), Some(1));
+		assert_eq!(create(&[1, 0, 0, 1]).first_one(), Some(0));
+		assert_eq!(Bits::with_one(123).first_one(), Some(123));
+		let mut bits = Bits::with_one(123);
+		bits.set(125, true);
+		assert_eq!(bits.first_one(), Some(123));
 	}
 }
