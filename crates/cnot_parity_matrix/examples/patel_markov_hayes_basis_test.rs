@@ -11,7 +11,7 @@ const QUBIT_COUNT: usize = 100;
 fn main() {
 	let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
 
-	for cnot_count in 1..40 {
+	for cnot_count in 1..=40 {
 		let cnot_count = cnot_count * 10;
 		let mut bonus = 0;
 		let mut bonus_percentage = 0.;

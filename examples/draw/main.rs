@@ -1,11 +1,7 @@
 use std::fs::File;
 use std::io::Write;
+use test_transpiler::draw::ImageSize;
 use test_transpiler::draw::{VisualRow, VisualText, draw_rows};
-use test_transpiler::{
-	draw::ImageSize,
-	pauli::{PauliAngle, PauliExp},
-	pauli_string,
-};
 
 fn main() {
 	let size = ImageSize::FixedWidth(500);

@@ -1,5 +1,6 @@
 {
 	"editor.insertSpaces": false,
 	"rust-analyzer.check.command": "clippy",
+	"rust-analyzer.imports.prefix": "self",
 	"editor.formatOnSave": true,
 }
