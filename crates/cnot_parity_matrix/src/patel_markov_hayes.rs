@@ -85,7 +85,7 @@ impl PatelMarkovHayes {
 			}
 		}
 
-		return circuit.into_iter().rev().collect();
+		circuit.into_iter().rev().collect()
 	}
 }
 

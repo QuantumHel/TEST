@@ -63,9 +63,9 @@ struct MSTEdge {
 
 /// # Panics:
 /// 	if a terminal is not contained in connectivity.
-pub fn steiner_tree<'a: 'c, 'b: 'c, 'c, G: Graph<N, E>, N: Node, E: Edge>(
-	graph: &'a G,
-	terminals: &'b [usize],
+pub fn steiner_tree<'a, 'b: 'c, 'c, G: Graph<N, E>, N: Node, E: Edge>(
+	terminals: &'a [usize],
+	graph: &'b G,
 ) -> Subgraph<'c, N, E> {
 	// Step 1.
 	// immediate predecessor
@@ -276,7 +276,7 @@ mod tests {
 		let full_sub = graph.create_subgraph();
 		assert!(!full_sub.is_tree());
 
-		let tree = steiner_tree(&graph, &[0, 1, 2, 3]);
+		let tree = steiner_tree(&[0, 1, 2, 3], &graph);
 		assert!(tree.is_tree());
 		assert!(tree.is_tree_with(&[0, 1, 2, 3]));
 		dbg!(tree);
@@ -330,7 +330,7 @@ mod tests {
 		// AAAAAAAAAAAAAAAAAAAAAAAAAAAA (Nodes 11, 13)
 		graph.add_edge(HyperEdge { nodes: vec![10, 12], weight: 1. });
 
-		let tree = steiner_tree(&graph, &[3, 10, 0]);
+		let tree = steiner_tree(&[3, 10, 0], &graph);
 		assert!(tree.is_tree());
 		assert!(tree.is_tree_with(&[3, 10, 0]));
 

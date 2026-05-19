@@ -25,10 +25,24 @@ impl ParityMatrix {
 		}
 	}
 
+	pub fn standard_from_rows(rows: Vec<Bits>) -> Self {
+		Self {
+			rows,
+			basis: Basis::Standard,
+		}
+	}
+
 	pub fn hadamard_basis() -> Self {
 		Self {
 			rows: Vec::new(),
 			basis: Basis::Hadamard,
+		}
+	}
+
+	pub fn hadamard_from_rows(rows: Vec<Bits>) -> Self {
+		Self {
+			rows,
+			basis: Basis::Standard,
 		}
 	}
 
@@ -38,6 +52,10 @@ impl ParityMatrix {
 
 	pub fn get(&self, row: usize, col: usize) -> bool {
 		self.rows.get(row).unwrap_or(&Bits::with_one(row)).get(col)
+	}
+
+	pub fn get_row(&self, row: usize) -> Bits {
+		self.rows.get(row).unwrap_or(&Bits::with_one(row)).clone()
 	}
 
 	pub fn get_section<T: RangeBounds<usize>>(&self, row: usize, cols: Range<usize>) -> Bits {
