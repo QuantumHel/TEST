@@ -1,6 +1,7 @@
 //! This crate contains [Bits], a collection of bits that behaves as an "infinite" vector of bits.
 
 use std::{
+	cmp::Ordering,
 	fmt::{Binary, Debug},
 	hash::Hash,
 	ops::{Bound, RangeBounds},
@@ -42,7 +43,7 @@ impl Iterator for IterOnes<'_> {
 }
 
 /// A collection of bits that behaves as an "infinite" vector of bits.
-#[derive(Default, Clone, PartialOrd, Ord)]
+#[derive(Default, Clone)]
 pub struct Bits {
 	bits: Vec<BitHolder>,
 }
@@ -317,8 +318,46 @@ impl Hash for Bits {
 	}
 }
 
+impl PartialOrd for Bits {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for Bits {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		let mut this = self.bits.iter();
+		let mut that = other.bits.iter();
+		let mut ordering = Ordering::Equal;
+		loop {
+			match (this.next(), that.next()) {
+				(Some(this), Some(that)) => {
+					if this != that {
+						ordering = this.cmp(that);
+					}
+				}
+				(Some(this), None) => {
+					if *this != 0 {
+						ordering = Ordering::Greater;
+					}
+				}
+				(None, Some(that)) => {
+					if *that != 0 {
+						ordering = Ordering::Less;
+					}
+				}
+				(None, None) => break,
+			}
+		}
+
+		ordering
+	}
+}
+
 #[cfg(test)]
 mod test {
+	use std::cmp::Ordering;
+
 	use crate::Bits;
 
 	fn create(bits: &[usize]) -> Bits {
@@ -431,5 +470,15 @@ mod test {
 		let mut bits = Bits::with_one(123);
 		bits.set(125, true);
 		assert_eq!(bits.first_one(), Some(123));
+	}
+
+	#[test]
+	fn test_ordering() {
+		let a = Bits { bits: vec![0] };
+		let b = Bits { bits: vec![0, 0] };
+		assert_eq!(a.cmp(&b), Ordering::Equal);
+		assert_eq!(create(&[1]).cmp(&create(&[0, 1])), Ordering::Less);
+
+		assert_eq!(Bits::with_one(100).cmp(&create(&[0, 1])), Ordering::Greater);
 	}
 }
