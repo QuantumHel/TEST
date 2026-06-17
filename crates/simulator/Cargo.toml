@@ -1,8 +1,7 @@
 [package]
-name = "circuit"
+name = "simulator"
 version = "0.0.1"
 edition = "2024"
 
 [dependencies]
 rand.workspace = true
-rand_chacha.workspace = true

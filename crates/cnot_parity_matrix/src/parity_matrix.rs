@@ -2,7 +2,7 @@ use std::ops::{Range, RangeBounds};
 
 use bits::Bits;
 
-use crate::CNot;
+use circuit::gates::CNot;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum Basis {
@@ -67,8 +67,8 @@ impl ParityMatrix {
 
 	pub fn insert_cnot(&mut self, cnot: CNot) {
 		match self.basis {
-			Basis::Standard => self.add_row(cnot.control, cnot.target),
-			Basis::Hadamard => self.add_row(cnot.target, cnot.control),
+			Basis::Standard => self.add_row(cnot.control(), cnot.target()),
+			Basis::Hadamard => self.add_row(cnot.target(), cnot.control()),
 		};
 	}
 
@@ -88,14 +88,8 @@ impl ParityMatrix {
 		}
 
 		match self.basis {
-			Basis::Standard => CNot {
-				control: source,
-				target,
-			},
-			Basis::Hadamard => CNot {
-				control: target,
-				target: source,
-			},
+			Basis::Standard => CNot::new(source, target).unwrap(),
+			Basis::Hadamard => CNot::new(target, source).unwrap(),
 		}
 	}
 
@@ -187,31 +181,33 @@ impl std::fmt::Display for ParityMatrix {
 
 #[cfg(test)]
 mod test {
-	use crate::{CNot, ParityMatrix};
+	use circuit::gates::CNot;
+
+	use crate::ParityMatrix;
 
 	#[test]
 	fn manual_testing() {
 		let answer = vec![
-			CNot::new(4, 3), // Leftmost
-			CNot::new(1, 0),
-			CNot::new(3, 1),
-			CNot::new(5, 2),
-			CNot::new(4, 2),
-			CNot::new(4, 3),
-			CNot::new(5, 4),
-			CNot::new(2, 3), // Start of dashed box
-			CNot::new(3, 2),
-			CNot::new(3, 5),
-			CNot::new(2, 4),
-			CNot::new(1, 2),
-			CNot::new(0, 1),
-			CNot::new(0, 4),
-			CNot::new(0, 3),
+			CNot::new(4, 3).unwrap(), // Leftmost
+			CNot::new(1, 0).unwrap(),
+			CNot::new(3, 1).unwrap(),
+			CNot::new(5, 2).unwrap(),
+			CNot::new(4, 2).unwrap(),
+			CNot::new(4, 3).unwrap(),
+			CNot::new(5, 4).unwrap(),
+			CNot::new(2, 3).unwrap(), // Start of dashed box
+			CNot::new(3, 2).unwrap(),
+			CNot::new(3, 5).unwrap(),
+			CNot::new(2, 4).unwrap(),
+			CNot::new(1, 2).unwrap(),
+			CNot::new(0, 1).unwrap(),
+			CNot::new(0, 4).unwrap(),
+			CNot::new(0, 3).unwrap(),
 		];
 
 		let mut partiy_matrix = ParityMatrix::default();
 		for cnot in answer.iter() {
-			partiy_matrix.add_row(cnot.control, cnot.target);
+			partiy_matrix.add_row(cnot.control(), cnot.target());
 		}
 		println!("{partiy_matrix}");
 	}

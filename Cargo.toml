@@ -8,11 +8,15 @@ members = ["crates/*"]
 
 [lib]
 
+[workspace.dependencies]
+rand = "0.10.1"
+rand_chacha = "0.10.0"
+
 [dependencies]
 bits = { path = "crates/bits" }
 petgraph = "0.8.3"
-rand = "0.9.1"
-rand_chacha = "0.9.0"
+rand.workspace = true
+rand_chacha.workspace = true
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-in-header", "./doc_header.html"]
@@ -21,9 +25,6 @@ rustdoc-args = ["--html-in-header", "./doc_header.html"]
 default = []
 # Synthesize returns the original exponentials in the order selected during synthesize
 return_ordered = []
-
-[lints.clippy]
-tabs_in_doc_comments = "allow"
 
 [[example]]
 name = "correctness_test"

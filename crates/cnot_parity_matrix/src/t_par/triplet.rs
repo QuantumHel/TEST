@@ -1,10 +1,16 @@
-use crate::{Angle, CNot, CNotRzXYH, H, Rz, X, Y};
 use std::collections::BTreeMap;
 
-use super::{HadamardTransform, parity::Parity, state::State};
+use circuit::gates::{H, Rz, X, Y};
+
+use super::{
+	HadamardTransform,
+	gateset::{CNotRzXYH, QuarterPi},
+	parity::Parity,
+	state::State,
+};
 
 pub struct Triplet {
-	pub s: BTreeMap<Parity, Angle>,
+	pub s: BTreeMap<Parity, QuarterPi>,
 	pub q: State,
 	pub h: Vec<HadamardTransform>,
 }
@@ -20,14 +26,14 @@ impl Triplet {
 
 	pub fn add_gate(&mut self, gate: CNotRzXYH) {
 		match gate {
-			CNotRzXYH::CNot(CNot { control, target }) => {
-				self.q.apply_cnot(control, target);
+			CNotRzXYH::CNot(cnot) => {
+				self.q.apply_cnot(cnot.control(), cnot.target());
 			}
 			CNotRzXYH::Rz(Rz { angle, target }) => {
 				let parity = self.q.get_cloned(target);
-				let current = self.s.entry(parity).or_insert(Angle::QuarterPi(0));
+				let current = self.s.entry(parity).or_insert(QuarterPi(0));
 				*current += angle;
-				if current.is_zero() {
+				if current.0 == 0 {
 					self.s.remove(&self.q.get_cloned(target));
 				}
 			}
@@ -37,7 +43,7 @@ impl Triplet {
 			CNotRzXYH::Y(Y { target }) => {
 				self.add_gate(CNotRzXYH::X(X { target }));
 				self.add_gate(CNotRzXYH::Rz(Rz {
-					angle: Angle::QuarterPi(4),
+					angle: QuarterPi(4),
 					target,
 				}));
 			}

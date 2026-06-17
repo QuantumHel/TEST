@@ -4,8 +4,9 @@ use std::{
 };
 
 use bits::Bits;
+use circuit::gates::CNot;
 
-use crate::{CNot, t_par::ParityVisitor};
+use crate::t_par::ParityVisitor;
 
 #[derive(Debug, Clone)]
 pub struct QueueItem {
@@ -116,10 +117,7 @@ fn find_path(unsolved: &BTreeSet<usize>, item: QueueItem) -> (usize, QueueItem) 
 					continue;
 				}
 
-				let cnot = CNot {
-					target: *target,
-					control: *control,
-				};
+				let cnot = CNot::new(*control, *target).unwrap();
 				if let Some(previous) = item.cnots.last()
 					&& *previous == cnot
 				{
@@ -131,8 +129,8 @@ fn find_path(unsolved: &BTreeSet<usize>, item: QueueItem) -> (usize, QueueItem) 
 					.iter()
 					.map(|bits| {
 						let mut new_bits = bits.clone();
-						if bits.get(cnot.target) {
-							new_bits.set(cnot.control, !bits.get(cnot.control));
+						if bits.get(cnot.target()) {
+							new_bits.set(cnot.control(), !bits.get(cnot.control()));
 						}
 						new_bits
 					})
@@ -144,8 +142,8 @@ fn find_path(unsolved: &BTreeSet<usize>, item: QueueItem) -> (usize, QueueItem) 
 					.iter()
 					.map(|bits| {
 						let mut new_bits = bits.clone();
-						if bits.get(cnot.target) {
-							new_bits.set(cnot.control, !bits.get(cnot.control));
+						if bits.get(cnot.target()) {
+							new_bits.set(cnot.control(), !bits.get(cnot.control()));
 						}
 						new_bits
 					})
@@ -202,64 +200,3 @@ impl ParityVisitor for GrayStar {
 		result
 	}
 }
-
-#[cfg(test)]
-mod tests {
-	use crate::{
-		Angle, CNot, CNotRz, PhasePolynomial, Rz, gra_star_synth::GrayStar, t_par::ParityVisitor,
-	};
-
-	#[test]
-	#[allow(clippy::vec_init_then_push)] // AI generated pushing
-	fn testing() {
-		let mut input: Vec<CNotRz> = Vec::new();
-		input.push(CNotRz::CNot(CNot {
-			control: 2,
-			target: 0,
-		}));
-		input.push(CNotRz::CNot(CNot {
-			control: 1,
-			target: 2,
-		}));
-		input.push(CNotRz::Rz(Rz {
-			angle: Angle::Free(2. / 3.),
-			target: 2,
-		}));
-		input.push(CNotRz::CNot(CNot {
-			control: 1,
-			target: 0,
-		}));
-		input.push(CNotRz::Rz(Rz {
-			angle: Angle::Free(1. / 3.),
-			target: 0,
-		}));
-		input.push(CNotRz::CNot(CNot {
-			control: 1,
-			target: 2,
-		}));
-		input.push(CNotRz::CNot(CNot {
-			control: 2,
-			target: 0,
-		}));
-		input.push(CNotRz::CNot(CNot {
-			control: 1,
-			target: 0,
-		}));
-
-		let polynomial = PhasePolynomial::new(&input);
-		let required: Vec<_> = polynomial.sum_over_paths.into_keys().collect();
-		let output = GrayStar.visit(required, Vec::new());
-		dbg!(output);
-	}
-}
-
-/*
-
-CNot(2, 1)
-Rz(2, 0.6666667)
-CNot(2, 0)
-Rz(2, 0.33333334)
-CNot(2, 0)
-CNot(2, 1)
-
-*/

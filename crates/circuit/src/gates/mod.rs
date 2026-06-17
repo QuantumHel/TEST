@@ -1,7 +1,26 @@
+use rand::{
+	RngExt,
+	distr::{Distribution, StandardUniform},
+};
+
+use crate::RandomGate;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rz<T> {
 	pub angle: T,
 	pub target: usize,
+}
+
+impl<T> RandomGate for Rz<T>
+where
+	StandardUniform: Distribution<T>,
+{
+	fn random<R: rand::prelude::Rng>(n_qubits: usize, rng: &mut R) -> Self {
+		Self {
+			angle: rng.random(),
+			target: rng.random_range(..n_qubits),
+		}
+	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -9,14 +28,38 @@ pub struct X {
 	pub target: usize,
 }
 
+impl RandomGate for X {
+	fn random<R: rand::prelude::Rng>(n_qubits: usize, rng: &mut R) -> Self {
+		Self {
+			target: rng.random_range(..n_qubits),
+		}
+	}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Y {
 	pub target: usize,
 }
 
+impl RandomGate for Y {
+	fn random<R: rand::prelude::Rng>(n_qubits: usize, rng: &mut R) -> Self {
+		Self {
+			target: rng.random_range(..n_qubits),
+		}
+	}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct H {
 	pub target: usize,
+}
+
+impl RandomGate for H {
+	fn random<R: rand::prelude::Rng>(n_qubits: usize, rng: &mut R) -> Self {
+		Self {
+			target: rng.random_range(..n_qubits),
+		}
+	}
 }
 
 /// # Attention
@@ -25,6 +68,18 @@ pub struct H {
 pub struct CNot {
 	control: usize,
 	target: usize,
+}
+
+impl RandomGate for CNot {
+	fn random<R: rand::prelude::Rng>(n_qubits: usize, rng: &mut R) -> Self {
+		let control = rng.random_range(..n_qubits);
+		let mut target = rng.random_range(..(n_qubits - 1));
+		if target >= control {
+			target += 1;
+		}
+
+		Self { control, target }
+	}
 }
 
 impl CNot {

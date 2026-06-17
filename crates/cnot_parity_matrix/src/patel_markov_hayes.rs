@@ -1,6 +1,7 @@
+use circuit::{Circuit, gates::CNot};
 use test_core::Compiler;
 
-use crate::{CNot, ParityMatrix};
+use crate::ParityMatrix;
 use std::{num::NonZero, ops::Range};
 
 /// # Patel Markov Hayes
@@ -14,7 +15,7 @@ pub struct PatelMarkovHayes {
 
 impl Compiler for PatelMarkovHayes {
 	type Input = ParityMatrix;
-	type Output = Vec<CNot>;
+	type Output = Circuit<CNot>;
 
 	fn compile(&self, mut input: Self::Input) -> Self::Output {
 		let mut circuit_l = self.lwr_cnot_synth(&mut input);
@@ -29,7 +30,7 @@ impl Compiler for PatelMarkovHayes {
 			.collect::<Vec<CNot>>();
 		circuit.append(&mut circuit_l);
 
-		circuit
+		Circuit { gates: circuit }
 	}
 }
 
@@ -91,12 +92,13 @@ impl PatelMarkovHayes {
 
 #[cfg(test)]
 mod test {
+	use circuit::{Circuit, gates::CNot};
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 	use std::num::NonZeroU32;
 	use test_core::Compiler;
 
-	use crate::{CNot, ParityMatrix, PatelMarkovHayes};
+	use crate::{ParityMatrix, PatelMarkovHayes};
 
 	/// This is the example given in the original paper.
 	///
@@ -104,23 +106,24 @@ mod test {
 	/// the exact same decomposition.
 	#[test]
 	fn paper_example() {
-		let answer = vec![
-			CNot::new(4, 3), // Leftmost
-			CNot::new(1, 0),
-			CNot::new(3, 1),
-			CNot::new(5, 2),
-			CNot::new(4, 2),
-			CNot::new(4, 3),
-			CNot::new(5, 4),
-			CNot::new(2, 3), // Start of dashed box
-			CNot::new(3, 2),
-			CNot::new(3, 5),
-			CNot::new(2, 4),
-			CNot::new(1, 2),
-			CNot::new(0, 1),
-			CNot::new(0, 4),
-			CNot::new(0, 3),
+		let gates = vec![
+			CNot::new(4, 3).unwrap(), // Leftmost
+			CNot::new(1, 0).unwrap(),
+			CNot::new(3, 1).unwrap(),
+			CNot::new(5, 2).unwrap(),
+			CNot::new(4, 2).unwrap(),
+			CNot::new(4, 3).unwrap(),
+			CNot::new(5, 4).unwrap(),
+			CNot::new(2, 3).unwrap(), // Start of dashed box
+			CNot::new(3, 2).unwrap(),
+			CNot::new(3, 5).unwrap(),
+			CNot::new(2, 4).unwrap(),
+			CNot::new(1, 2).unwrap(),
+			CNot::new(0, 1).unwrap(),
+			CNot::new(0, 4).unwrap(),
+			CNot::new(0, 3).unwrap(),
 		];
+		let answer = Circuit { gates };
 
 		let mut partiy_matrix = ParityMatrix::default();
 		for cnot in answer.iter() {

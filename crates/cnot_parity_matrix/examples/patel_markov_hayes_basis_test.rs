@@ -1,6 +1,7 @@
 use std::num::NonZeroU32;
 
-use cnot_parity_matrix::{CNot, ParityMatrix, PatelMarkovHayes};
+use circuit::gates::CNot;
+use cnot_parity_matrix::{ParityMatrix, PatelMarkovHayes};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 use test_core::Compiler;
