@@ -31,6 +31,7 @@ impl ControlBit {
 	}
 }
 
+#[derive(Debug)]
 pub struct XorSpan {
 	rows: BTreeMap<ControlBit, Row>,
 }

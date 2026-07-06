@@ -37,6 +37,19 @@ pub enum CNotRzXYH {
 	H(H),
 }
 
+impl CNotRzXYH {
+	/// Returns the index of the highest used qubit + 1
+	pub fn n_required_qubits(&self) -> usize {
+		1 + match self {
+			Self::CNot(cnot) => cnot.target().max(cnot.control()),
+			Self::Rz(rz) => rz.target,
+			Self::X(x) => x.target,
+			Self::Y(y) => y.target,
+			Self::H(h) => h.target,
+		}
+	}
+}
+
 impl Simulatable<Squirrel> for CNotRzXYH {
 	fn matrix(&self) -> [Complex<Squirrel>; 4] {
 		match &self {

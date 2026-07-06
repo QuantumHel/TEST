@@ -52,13 +52,7 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 	fn compile(&self, input: Self::Input) -> Self::Output {
 		let n = input
 			.iter()
-			.filter_map(|gate| {
-				if let CNotRzXYH::Rz(Rz { target, .. }) = gate {
-					Some(target + 1)
-				} else {
-					None
-				}
-			})
+			.map(|gate| gate.n_required_qubits())
 			.max()
 			.unwrap_or_default();
 
@@ -259,14 +253,13 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 					});
 				}
 			}
-			// HERE
 			assert!(S.is_empty(), "Visitor does not visit all required parities");
 
 			let state_span = state.create_span();
 			let parity_rows: Vec<_> = Q
 				.parities()
 				.iter()
-				.map(|parity| parity.using_span(&state_span).unwrap()) // What here
+				.map(|parity| parity.using_span(&state_span).unwrap())
 				.collect();
 			let parity_matrix = ParityMatrix::standard_from_rows(parity_rows);
 			for cnot in self.parity_solver.compile(parity_matrix).into_iter().rev() {
