@@ -3,7 +3,7 @@ use std::{
 	ops::{Add, Div, Mul, Neg, Sub},
 };
 
-const TWO: NonZero<i32> = NonZero::new(2).unwrap();
+const TWO: NonZero<i64> = NonZero::new(2).unwrap();
 
 /// This structure stores a value where given two real values A and B, the value
 /// is A + B/sqrt(2).
@@ -148,8 +148,8 @@ impl Eq for Squirrel {}
 // TODO: function to simplify
 #[derive(Clone, Copy, Debug)]
 pub struct Rational {
-	numerator: i32,
-	denominator: NonZero<i32>,
+	numerator: i64,
+	denominator: NonZero<i64>,
 }
 
 impl Rational {
@@ -160,7 +160,7 @@ impl Rational {
 		self.denominator = NonZero::new(self.denominator.get() / gcd).unwrap();
 	}
 
-	pub fn gcd(&self) -> i32 {
+	pub fn gcd(&self) -> i64 {
 		let mut a = self.numerator;
 		let mut b = self.denominator.get();
 		while b != 0 {
@@ -175,7 +175,7 @@ impl Rational {
 impl From<i32> for Rational {
 	fn from(value: i32) -> Self {
 		Self {
-			numerator: value,
+			numerator: value as i64,
 			denominator: NonZero::new(1).unwrap(),
 		}
 	}
@@ -222,10 +222,10 @@ impl Sub for Rational {
 	}
 }
 
-impl Div<NonZero<i32>> for Rational {
+impl Div<NonZero<i64>> for Rational {
 	type Output = Self;
 
-	fn div(self, rhs: NonZero<i32>) -> Self::Output {
+	fn div(self, rhs: NonZero<i64>) -> Self::Output {
 		#[allow(clippy::suspicious_arithmetic_impl)]
 		let mut res = Self {
 			numerator: self.numerator,
@@ -280,14 +280,14 @@ mod tests {
 
 	#[test]
 	fn squirrel_statevector_eq_test() {
-		fn rat(n: i32, d: i32) -> super::Rational {
+		fn rat(n: i64, d: i64) -> super::Rational {
 			super::Rational {
 				numerator: n,
 				denominator: std::num::NonZero::new(d).unwrap(),
 			}
 		}
 
-		fn sq(rn: i32, rd: i32, sn: i32, sd: i32) -> Squirrel {
+		fn sq(rn: i64, rd: i64, sn: i64, sd: i64) -> Squirrel {
 			Squirrel {
 				normal: rat(rn, rd),
 				divided_by_sqrt_2: rat(sn, sd),
