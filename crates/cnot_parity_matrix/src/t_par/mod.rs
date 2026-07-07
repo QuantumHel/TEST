@@ -425,27 +425,45 @@ mod tests {
 		dbg!(res);
 	}
 
+	fn random_tpar_test(qubits: usize, gates: usize, rounds: usize) {
+		for round in 1..=rounds {
+			let mut rng = rand::rng();
+			let tpar = TPar::new(GrayStar, PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()));
+
+			let circuit: Circuit<CNotRzXYH> = Circuit::random(gates, qubits, &mut rng);
+			let compiled = tpar.compile(circuit.clone());
+
+			let mut original: Statevector<Squirrel> = Statevector::new(qubits);
+			for gate in circuit.iter() {
+				original.apply(gate);
+			}
+
+			let mut new: Statevector<Squirrel> = Statevector::new(qubits);
+			for gate in compiled.iter() {
+				new.apply(gate);
+			}
+
+			assert_eq!(original, new);
+			println!("Success in round:\t{round}")
+		}
+	}
+
 	#[test]
-	fn random_tpar_test() {
-		const QUBITS: usize = 4;
-		const GATES: usize = 5;
+	fn short_random_tpar_test() {
+		const QUBITS: usize = 10;
+		const GATES: usize = 100;
+		const ROUNDS: usize = 10;
 
-		let mut rng = rand::rng();
-		let tpar = TPar::new(GrayStar, PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()));
+		random_tpar_test(QUBITS, GATES, ROUNDS);
+	}
 
-		let circuit: Circuit<CNotRzXYH> = Circuit::random(GATES, QUBITS, &mut rng);
-		let compiled = tpar.compile(circuit.clone());
+	#[test]
+	#[ignore = "takes too long for normal test runs"]
+	fn long_random_tpar_test() {
+		const QUBITS: usize = 15;
+		const GATES: usize = 100;
+		const ROUNDS: usize = 100;
 
-		let mut original: Statevector<Squirrel> = Statevector::new(QUBITS);
-		for gate in circuit.iter() {
-			original.apply(gate);
-		}
-
-		let mut new: Statevector<Squirrel> = Statevector::new(QUBITS);
-		for gate in compiled.iter() {
-			new.apply(gate);
-		}
-
-		assert_eq!(original, new);
+		random_tpar_test(QUBITS, GATES, ROUNDS);
 	}
 }
