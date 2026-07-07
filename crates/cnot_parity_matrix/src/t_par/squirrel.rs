@@ -269,6 +269,7 @@ impl PartialEq for Rational {
 
 impl Eq for Rational {}
 
+#[cfg(test)]
 mod tests {
 	use std::num::NonZero;
 
