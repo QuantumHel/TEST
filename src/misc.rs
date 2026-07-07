@@ -39,29 +39,6 @@ impl NonZeroEvenUsize {
 	}
 }
 
-pub mod generic_bounds {
-	//! This module is used to force bounds on generic constants. This module
-	//! require the use of `#![feature(generic_const_exprs)]`.
-	//!
-	//! # Example
-	//! Asserting that N >= P
-	//! ```rust
-	//! impl<const N: usize> Connectivity<N> {
-	//! 	pub fn something<const P: usize>(string: PauliString<P>)
-	//! 	where Assert<{ N >= P}>: IsTrue
-	//! 	{
-	//! 		todo!()
-	//! 	}
-	//! }
-	//! ```
-
-	pub enum Assert<const C: bool> {}
-
-	pub trait IsTrue {}
-
-	impl IsTrue for Assert<true> {}
-}
-
 pub fn enforced_fixed_steiner_tree<N, E, Ix>(
 	graph: &UnGraph<N, E, Ix>,
 	terminals: &[NodeIndex<Ix>],
