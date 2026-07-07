@@ -159,7 +159,7 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 				.map(|parity| parity.using_span(&state_span).unwrap())
 				.collect();
 			let parity_matrix = ParityMatrix::standard_from_rows(parity_rows);
-			for cnot in self.parity_solver.compile(parity_matrix).into_iter().rev() {
+			for cnot in self.parity_solver.compile(parity_matrix).into_iter() {
 				state.apply_cnot(cnot.control(), cnot.target());
 				output.push(cnot);
 
@@ -262,7 +262,7 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 				.map(|parity| parity.using_span(&state_span).unwrap())
 				.collect();
 			let parity_matrix = ParityMatrix::standard_from_rows(parity_rows);
-			for cnot in self.parity_solver.compile(parity_matrix).into_iter().rev() {
+			for cnot in self.parity_solver.compile(parity_matrix).into_iter() {
 				state.apply_cnot(cnot.control(), cnot.target());
 				output.push(cnot);
 			}
