@@ -114,7 +114,7 @@ impl Div for Squirrel {
 	type Output = Self;
 
 	fn div(self, rhs: Self) -> Self::Output {
-		let div = rhs.normal * rhs.normal + rhs.divided_by_sqrt_2 * rhs.divided_by_sqrt_2 / TWO;
+		let div = rhs.normal * rhs.normal - rhs.divided_by_sqrt_2 * rhs.divided_by_sqrt_2 / TWO;
 		Self {
 			normal: (self.normal * rhs.normal
 				- self.divided_by_sqrt_2 * rhs.divided_by_sqrt_2 / TWO)
@@ -268,3 +268,134 @@ impl PartialEq for Rational {
 }
 
 impl Eq for Rational {}
+
+mod tests {
+	use std::num::NonZero;
+
+	use crate::t_par::squirrel::Rational;
+
+	use super::Squirrel;
+	use simulator::{Complex, Statevector};
+
+	#[test]
+	fn squirrel_statevector_eq_test() {
+		fn rat(n: i32, d: i32) -> super::Rational {
+			super::Rational {
+				numerator: n,
+				denominator: std::num::NonZero::new(d).unwrap(),
+			}
+		}
+
+		fn sq(rn: i32, rd: i32, sn: i32, sd: i32) -> Squirrel {
+			Squirrel {
+				normal: rat(rn, rd),
+				divided_by_sqrt_2: rat(sn, sd),
+			}
+		}
+
+		let statevector: Statevector<Squirrel> = Statevector {
+			values: vec![
+				Complex {
+					re: sq(1, -8, 1, 8),
+					im: sq(0, 1, 1, 8),
+				},
+				Complex {
+					re: sq(1, -8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, -8, 3, 8),
+					im: sq(1, -4, 1, -8),
+				},
+				Complex {
+					re: sq(1, -8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, 8, 3, -8),
+					im: sq(1, 4, 1, 8),
+				},
+				Complex {
+					re: sq(1, -8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, 8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, -8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, -8, 3, -8),
+					im: sq(1, -4, 1, 8),
+				},
+				Complex {
+					re: sq(1, 8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, -8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, 8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, 8, 1, 8),
+					im: sq(0, 1, 1, 8),
+				},
+				Complex {
+					re: sq(1, 8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+				Complex {
+					re: sq(1, 8, 3, 8),
+					im: sq(1, 4, 1, -8),
+				},
+				Complex {
+					re: sq(1, 8, 1, -8),
+					im: sq(0, 1, 1, -8),
+				},
+			],
+			n_qubits: 4,
+		};
+		assert_eq!(statevector.clone(), statevector)
+	}
+
+	#[test]
+	fn squirrel_complex_number_division_test() {
+		let a = Complex {
+			re: Squirrel {
+				normal: Rational {
+					numerator: 1,
+					denominator: NonZero::new(-8).unwrap(),
+				},
+				divided_by_sqrt_2: Rational {
+					numerator: 1,
+					denominator: NonZero::new(8).unwrap(),
+				},
+			},
+			im: Squirrel {
+				normal: Rational {
+					numerator: 0,
+					denominator: NonZero::new(1).unwrap(),
+				},
+				divided_by_sqrt_2: Rational {
+					numerator: 1,
+					denominator: NonZero::new(8).unwrap(),
+				},
+			},
+		};
+		let b = a;
+		assert_eq!(
+			Complex {
+				re: Squirrel::from(1),
+				im: Squirrel::from(0)
+			},
+			a / b
+		);
+	}
+}
