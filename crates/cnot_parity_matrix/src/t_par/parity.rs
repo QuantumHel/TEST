@@ -2,13 +2,40 @@ use std::ops::BitXorAssign;
 
 use bits::Bits;
 
-use super::xor_span::XorSpan;
+use crate::xor_span::{XorSpaceElement, XorSpan};
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub enum ControlBit {
+	Qubit(usize),
+	Hadamard(usize),
+}
+
+impl ControlBit {
+	fn new(parity: &Parity) -> Option<Self> {
+		#[allow(clippy::manual_map)]
+		if let Some(i) = parity.qubits.first_one() {
+			Some(ControlBit::Qubit(i))
+		} else if let Some(i) = parity.hadamards.first_one() {
+			Some(ControlBit::Hadamard(i))
+		} else {
+			None
+		}
+	}
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Parity {
 	pub bit_flip: bool,
 	pub qubits: Bits,
 	pub hadamards: Bits,
+}
+
+impl XorSpaceElement for Parity {
+	type ControlBit = ControlBit;
+
+	fn control_bit(&self) -> Option<Self::ControlBit> {
+		ControlBit::new(self)
+	}
 }
 
 impl Parity {
@@ -28,8 +55,8 @@ impl Parity {
 		}
 	}
 
-	pub fn using_span(&self, xor_span: &XorSpan) -> Option<Bits> {
-		xor_span.span_parity(self)
+	pub fn using_span(&self, xor_span: &XorSpan<Self>) -> Option<Bits> {
+		xor_span.span_element(self)
 	}
 
 	pub fn not(self) -> Self {

@@ -4,6 +4,8 @@ use bits::Bits;
 
 use circuit::gates::CNot;
 
+use crate::xor_span::XorSpan;
+
 #[derive(Debug, Default, Clone, Copy)]
 pub enum Basis {
 	#[default]
@@ -157,6 +159,12 @@ impl ParityMatrix {
 				return;
 			}
 		}
+	}
+
+	pub fn span_bits(&self, bits: &Bits) -> Option<Bits> {
+		// fix this
+		let span = XorSpan::new(&self.rows);
+		span.span_element(bits)
 	}
 }
 

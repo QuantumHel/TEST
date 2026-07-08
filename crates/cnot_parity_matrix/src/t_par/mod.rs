@@ -3,7 +3,6 @@ mod parity;
 mod squirrel;
 mod state;
 mod triplet;
-mod xor_span;
 
 use std::collections::BTreeSet;
 

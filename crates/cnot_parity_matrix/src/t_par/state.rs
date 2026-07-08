@@ -1,4 +1,6 @@
-use super::{parity::Parity, xor_span::XorSpan};
+use crate::xor_span::XorSpan;
+
+use super::Parity;
 
 #[derive(Default, Clone, Debug)]
 pub struct State {
@@ -36,8 +38,8 @@ impl State {
 			.unwrap_or(Parity::for_qubit(qubit))
 	}
 
-	pub fn create_span(&self) -> XorSpan {
-		XorSpan::new(self)
+	pub fn create_span(&self) -> XorSpan<Parity> {
+		XorSpan::new(&self.qubit_parities)
 	}
 
 	pub fn apply_cnot(&mut self, control: usize, target: usize) {
