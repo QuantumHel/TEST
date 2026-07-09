@@ -95,7 +95,8 @@ mod test {
 	use std::num::NonZeroU32;
 	use test_core::Compiler;
 
-	use crate::{ParityMatrix, PatelMarkovHayes};
+	use super::PatelMarkovHayes;
+	use crate::ParityMatrix;
 
 	/// This is the example given in the original paper.
 	///

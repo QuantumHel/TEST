@@ -35,6 +35,10 @@ impl<T> Circuit<T> {
 	pub fn iter(&self) -> Iter<'_, T> {
 		self.gates.iter()
 	}
+
+	pub fn reverse(&mut self) {
+		self.gates.reverse();
+	}
 }
 
 impl<T> IntoIterator for Circuit<T> {

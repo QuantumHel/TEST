@@ -336,7 +336,7 @@ mod tests {
 	use test_core::Compiler;
 
 	use crate::{
-		PatelMarkovHayes,
+		algorithm::PatelMarkovHayes,
 		gra_star_synth::GrayStar,
 		t_par::gateset::{CNotRzXYH, QuarterPi},
 	};

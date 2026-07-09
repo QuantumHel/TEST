@@ -1,5 +1,5 @@
 use bits::Bits;
-use circuit::gates::CNot;
+use circuit::{Circuit, gates::CNot};
 use test_core::prelude::*;
 
 use crate::ParityMatrix;
@@ -96,108 +96,113 @@ fn preorder_traversal<G: Graph<N, E>, N: Node, E: Edge>(
 
 /// An implementation of the rowcol algorithm described in
 /// https://doi.org/10.1103/PhysRevResearch.5.013065
-pub fn rowcol(
-	mut matrix: ParityMatrix,
-	n: usize,
-	connectivity: &Connectivity<TwoQubitEdge>,
-) -> Vec<CNot> {
-	let mut result = Vec::new();
-	let mut g = connectivity.create_subgraph();
-	// Change to BFS at some point?
-	let mut total_tree = steiner_tree(&(0..n).collect::<Vec<usize>>(), connectivity);
+pub struct RowCol;
 
-	loop {
-		let leafs = total_tree.leaf_nodes();
-		if leafs.is_empty() {
-			break;
-		}
+impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCol {
+	fn compile(
+		&self,
+		mut matrix: ParityMatrix,
+		connectivity: &Connectivity<TwoQubitEdge>,
+	) -> Circuit<CNot> {
+		let n = connectivity.nodes().len();
+		let mut result = Circuit::new();
+		let mut g = connectivity.create_subgraph();
+		// Change to BFS at some point?
+		let mut total_tree = steiner_tree(&(0..n).collect::<Vec<usize>>(), connectivity);
 
-		// 1
-		for i in leafs.iter().map(|(i, _)| *i).collect::<Vec<_>>() {
-			// 2
-			let s: Vec<_> = (0..n).filter(|j| matrix.get(*j, i)).chain([i]).collect();
-
-			// 3
-			let tree = steiner_tree(&s, &g);
-
-			// 4
-			for (j, k) in postorder_traversal(i, &tree) {
-				if let Some(k) = k
-					&& matrix.get(j, i)
-					&& !matrix.get(k, i)
-				{
-					result.push(matrix.add_row(j, k));
-				}
+		loop {
+			let leafs = total_tree.leaf_nodes();
+			if leafs.is_empty() {
+				break;
 			}
 
-			// 5
-			for (j, k) in postorder_traversal(i, &tree) {
-				for edge in tree.get_node(j).unwrap().edges() {
-					let neighbor: usize = *tree
-						.get_edge(*edge)
-						.unwrap()
-						.nodes()
-						.iter()
-						.find(|n| **n != j)
-						.unwrap();
+			// 1
+			for i in leafs.iter().map(|(i, _)| *i).collect::<Vec<_>>() {
+				// 2
+				let s: Vec<_> = (0..n).filter(|j| matrix.get(*j, i)).chain([i]).collect();
 
+				// 3
+				let tree = steiner_tree(&s, &g);
+
+				// 4
+				for (j, k) in postorder_traversal(i, &tree) {
 					if let Some(k) = k
-						&& neighbor == k
+						&& matrix.get(j, i)
+						&& !matrix.get(k, i)
 					{
-						continue;
+						result.push(matrix.add_row(j, k));
 					}
-
-					result.push(matrix.add_row(j, neighbor));
 				}
-			}
 
-			for j in 0..n {
-				assert_eq!(matrix.get(j, i), j == i);
-			}
+				// 5
+				for (j, k) in postorder_traversal(i, &tree) {
+					for edge in tree.get_node(j).unwrap().edges() {
+						let neighbor: usize = *tree
+							.get_edge(*edge)
+							.unwrap()
+							.nodes()
+							.iter()
+							.find(|n| **n != j)
+							.unwrap();
 
-			// 6
-			let sum_target = {
-				let mut original = matrix.get_row(i);
-				original.set(i, !original.get(i));
-				original
-			};
+						if let Some(k) = k
+							&& neighbor == k
+						{
+							continue;
+						}
 
-			let s_prime: Vec<usize> = matrix
-				.span_bits(&sum_target)
-				.expect("should be impossible")
-				.iter_ones()
-				.collect();
-			let terminals = {
-				let mut terminals: Vec<usize> = s_prime.clone();
-				terminals.push(i);
-				terminals
-			};
-
-			let tree_prime = steiner_tree(&terminals, &g);
-
-			for (j, parent) in preorder_traversal(i, &tree_prime) {
-				if let Some(parent) = parent
-					&& !s_prime.contains(&j)
-				{
-					result.push(matrix.add_row(j, parent));
+						result.push(matrix.add_row(j, neighbor));
+					}
 				}
-			}
 
-			for (j, parent) in postorder_traversal(i, &tree_prime) {
-				if let Some(parent) = parent {
-					result.push(matrix.add_row(j, parent));
+				for j in 0..n {
+					assert_eq!(matrix.get(j, i), j == i);
 				}
+
+				// 6
+				let sum_target = {
+					let mut original = matrix.get_row(i);
+					original.set(i, !original.get(i));
+					original
+				};
+
+				let s_prime: Vec<usize> = matrix
+					.span_bits(&sum_target)
+					.expect("should be impossible")
+					.iter_ones()
+					.collect();
+				let terminals = {
+					let mut terminals: Vec<usize> = s_prime.clone();
+					terminals.push(i);
+					terminals
+				};
+
+				let tree_prime = steiner_tree(&terminals, &g);
+
+				for (j, parent) in preorder_traversal(i, &tree_prime) {
+					if let Some(parent) = parent
+						&& !s_prime.contains(&j)
+					{
+						result.push(matrix.add_row(j, parent));
+					}
+				}
+
+				for (j, parent) in postorder_traversal(i, &tree_prime) {
+					if let Some(parent) = parent {
+						result.push(matrix.add_row(j, parent));
+					}
+				}
+
+				assert_eq!(matrix.get_row(i), Bits::with_one(i));
+
+				g.remove_node(i);
+				total_tree.remove_node(i);
 			}
-
-			assert_eq!(matrix.get_row(i), Bits::with_one(i));
-
-			g.remove_node(i);
-			total_tree.remove_node(i);
 		}
-	}
 
-	result.reverse();
-	result
+		result.reverse();
+		result
+	}
 }
 
 #[cfg(test)]
@@ -228,7 +233,8 @@ mod tests {
 				parity_matrix.insert_cnot(cnot);
 			}
 
-			let out = rowcol(parity_matrix.clone(), n, &g);
+			let compiler = RowCol;
+			let out = compiler.compile(parity_matrix.clone(), &g);
 
 			for cnot in out.iter().rev() {
 				parity_matrix.insert_cnot(*cnot);
