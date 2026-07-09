@@ -165,7 +165,6 @@ fn find_path(unsolved: &BTreeSet<usize>, item: QueueItem) -> (usize, QueueItem) 
 	unreachable!()
 }
 
-#[allow(unused)]
 pub struct GrayStar;
 
 impl ParityVisitor for GrayStar {

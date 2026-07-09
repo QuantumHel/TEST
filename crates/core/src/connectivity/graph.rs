@@ -66,24 +66,18 @@ impl<'a, N: Node, E: Edge> Graph<Subnode<'a, N>, Subedge<'a, E>> for Subgraph<'a
 	}
 
 	fn get_edge(&self, index: usize) -> Option<&Subedge<'a, E>> {
-		self.edges.get(index).map(|edge| edge.as_ref()).flatten()
+		self.edges.get(index).and_then(|edge| edge.as_ref())
 	}
 
 	fn get_node(&self, index: usize) -> Option<&Subnode<'a, N>> {
-		self.nodes.get(index).map(|node| node.as_ref()).flatten()
+		self.nodes.get(index).and_then(|node| node.as_ref())
 	}
 
 	fn get_edge_mut(&mut self, index: usize) -> Option<&mut Subedge<'a, E>> {
-		self.edges
-			.get_mut(index)
-			.map(|edge| edge.as_mut())
-			.flatten()
+		self.edges.get_mut(index).and_then(|edge| edge.as_mut())
 	}
 
 	fn get_node_mut(&mut self, index: usize) -> Option<&mut Subnode<'a, N>> {
-		self.nodes
-			.get_mut(index)
-			.map(|node| node.as_mut())
-			.flatten()
+		self.nodes.get_mut(index).and_then(|node| node.as_mut())
 	}
 }

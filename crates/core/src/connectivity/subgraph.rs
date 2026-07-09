@@ -1,7 +1,4 @@
-use std::{
-	collections::{HashSet, VecDeque},
-	usize,
-};
+use std::collections::{HashSet, VecDeque};
 
 use crate::connectivity::{Edge, Graph, Node};
 
@@ -68,15 +65,15 @@ impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
 	}
 
 	pub fn get_edge(&self, index: usize) -> Option<&Subedge<'a, T>> {
-		self.edges.get(index).map(Option::as_ref).flatten()
+		self.edges.get(index).and_then(Option::as_ref)
 	}
 
 	pub fn get_node(&self, index: usize) -> Option<&Subnode<'a, N>> {
-		self.nodes.get(index).map(Option::as_ref).flatten()
+		self.nodes.get(index).and_then(Option::as_ref)
 	}
 
 	pub fn remove_node(&mut self, nodes: usize) {
-		if let Some(target) = self.nodes.get_mut(nodes).map(|a| a.take()).flatten() {
+		if let Some(target) = self.nodes.get_mut(nodes).and_then(|a| a.take()) {
 			for edge_index in target.edges {
 				let edge = self.edges[edge_index].as_mut().unwrap();
 				let index = edge.nodes.iter().position(|a| *a == nodes).unwrap();
@@ -89,7 +86,7 @@ impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
 	}
 
 	pub fn remove_edge(&mut self, edge: usize) {
-		if let Some(target) = self.edges.get_mut(edge).map(|a| a.take()).flatten() {
+		if let Some(target) = self.edges.get_mut(edge).and_then(|a| a.take()) {
 			for qubit_index in target.nodes {
 				let qubit = self.nodes[qubit_index].as_mut().unwrap();
 				let index = qubit.edges.iter().position(|a| *a == edge).unwrap();
@@ -138,7 +135,7 @@ impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
 		{
 			let mut first: Option<usize> = None;
 			for (i, node) in self.nodes.iter().enumerate() {
-				if let Some(_) = node {
+				if node.is_some() {
 					first = Some(i)
 				}
 			}
@@ -194,6 +191,6 @@ impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
 			return false;
 		}
 
-		return true;
+		true
 	}
 }
