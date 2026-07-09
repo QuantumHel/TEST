@@ -13,11 +13,8 @@ pub struct PatelMarkovHayes {
 	pub m: u32,
 }
 
-impl Compiler for PatelMarkovHayes {
-	type Input = ParityMatrix;
-	type Output = Circuit<CNot>;
-
-	fn compile(&self, mut input: Self::Input) -> Self::Output {
+impl Compiler<ParityMatrix, Circuit<CNot>> for PatelMarkovHayes {
+	fn compile(&self, mut input: ParityMatrix, _: &()) -> Circuit<CNot> {
 		let mut circuit_l = self.lwr_cnot_synth(&mut input);
 		let mut input = input.transpose();
 		let circuit_u = self.lwr_cnot_synth(&mut input);
@@ -131,7 +128,7 @@ mod test {
 		}
 
 		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(2).unwrap());
-		let output = cnot_synth.compile(partiy_matrix.clone());
+		let output = cnot_synth.compile(partiy_matrix.clone(), &());
 		assert_eq!(answer, output);
 	}
 
@@ -155,7 +152,7 @@ mod test {
 				parity_matrix.insert_cnot(cnot);
 			}
 
-			let out = cnot_synth.compile(parity_matrix.clone());
+			let out = cnot_synth.compile(parity_matrix.clone(), &());
 
 			for cnot in out.iter().rev() {
 				parity_matrix.insert_cnot(*cnot);
@@ -187,7 +184,7 @@ mod test {
 				}
 
 				// This will crash if it fails
-				let out = cnot_synth.compile(parity_matrix.clone());
+				let out = cnot_synth.compile(parity_matrix.clone(), &());
 				(out, parity_matrix)
 			};
 
@@ -198,7 +195,7 @@ mod test {
 				}
 
 				// This will crash if it fails
-				let out = cnot_synth.compile(parity_matrix.clone());
+				let out = cnot_synth.compile(parity_matrix.clone(), &());
 				(out, parity_matrix)
 			};
 

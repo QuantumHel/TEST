@@ -31,7 +31,7 @@ fn main() {
 					parity_matrix.insert_cnot(*cnot);
 				}
 
-				cnot_synth.compile(parity_matrix)
+				cnot_synth.compile(parity_matrix, &())
 			};
 
 			let hadamard = {
@@ -40,7 +40,7 @@ fn main() {
 					parity_matrix.insert_cnot(cnot);
 				}
 
-				cnot_synth.compile(parity_matrix)
+				cnot_synth.compile(parity_matrix, &())
 			};
 
 			let diff = standard.len().max(hadamard.len()) - standard.len().min(hadamard.len());

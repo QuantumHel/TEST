@@ -167,8 +167,8 @@ fn find_path(unsolved: &BTreeSet<usize>, item: QueueItem) -> (usize, QueueItem) 
 
 pub struct GrayStar;
 
-impl ParityVisitor for GrayStar {
-	fn visit(&self, mut required: Vec<Bits>, mut optional: Vec<Bits>) -> Vec<CNot> {
+impl ParityVisitor<()> for GrayStar {
+	fn visit(&self, mut required: Vec<Bits>, mut optional: Vec<Bits>, _: &()) -> Vec<CNot> {
 		let mut unsolved: BTreeSet<usize> = BTreeSet::new();
 		// TODO: Check if this should only contain required
 		for bits in required.iter().chain(optional.iter()) {

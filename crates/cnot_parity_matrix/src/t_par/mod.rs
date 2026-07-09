@@ -28,12 +28,12 @@ pub struct HadamardTransform {
 
 /// Generic implementation of TPar in https://arxiv.org/pdf/1303.2042
 #[derive(Default)]
-pub struct TPar<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>> {
+pub struct TPar<V, M> {
 	visitor: V,
 	parity_solver: M,
 }
 
-impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>> TPar<V, M> {
+impl<V, M> TPar<V, M> {
 	pub fn new(visitor: V, parity_solver: M) -> Self {
 		Self {
 			visitor,
@@ -42,13 +42,10 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 	}
 }
 
-impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>> Compiler
-	for TPar<V, M>
+impl<D, V: ParityVisitor<D>, M: Compiler<ParityMatrix, Circuit<CNot>, D>>
+	Compiler<Circuit<CNotRzXYH>, Circuit<CNotRzXYH>, D> for TPar<V, M>
 {
-	type Input = Circuit<CNotRzXYH>;
-	type Output = Circuit<CNotRzXYH>;
-
-	fn compile(&self, input: Self::Input) -> Self::Output {
+	fn compile(&self, input: Circuit<CNotRzXYH>, device: &D) -> Circuit<CNotRzXYH> {
 		let n = input
 			.iter()
 			.map(|gate| gate.n_required_qubits())
@@ -116,7 +113,7 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 				.map(|(parity, _)| parity.using_span(&state_span).unwrap())
 				.collect();
 
-			let cnots = self.visitor.visit(required_bits, optional_bits);
+			let cnots = self.visitor.visit(required_bits, optional_bits, device);
 			let mut required: BTreeSet<_> = required.into_iter().map(|(a, _)| a.clone()).collect();
 			for cnot in cnots {
 				state.apply_cnot(cnot.control(), cnot.target());
@@ -158,7 +155,11 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 				.map(|parity| parity.using_span(&state_span).unwrap())
 				.collect();
 			let parity_matrix = ParityMatrix::standard_from_rows(parity_rows);
-			for cnot in self.parity_solver.compile(parity_matrix).into_iter() {
+			for cnot in self
+				.parity_solver
+				.compile(parity_matrix, device)
+				.into_iter()
+			{
 				state.apply_cnot(cnot.control(), cnot.target());
 				output.push(cnot);
 
@@ -226,7 +227,7 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 				.map(|parity| parity.using_span(&state_span).unwrap())
 				.collect();
 
-			let cnots = self.visitor.visit(required_bits, Vec::new());
+			let cnots = self.visitor.visit(required_bits, Vec::new(), device);
 
 			for cnot in cnots {
 				state.apply_cnot(cnot.control(), cnot.target());
@@ -261,7 +262,11 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 				.map(|parity| parity.using_span(&state_span).unwrap())
 				.collect();
 			let parity_matrix = ParityMatrix::standard_from_rows(parity_rows);
-			for cnot in self.parity_solver.compile(parity_matrix).into_iter() {
+			for cnot in self
+				.parity_solver
+				.compile(parity_matrix, device)
+				.into_iter()
+			{
 				state.apply_cnot(cnot.control(), cnot.target());
 				output.push(cnot);
 			}
@@ -315,8 +320,8 @@ impl<V: ParityVisitor, M: Compiler<Input = ParityMatrix, Output = Circuit<CNot>>
 	}
 }
 
-pub trait ParityVisitor {
-	fn visit(&self, required: Vec<Bits>, optional: Vec<Bits>) -> Vec<CNot>;
+pub trait ParityVisitor<Device> {
+	fn visit(&self, required: Vec<Bits>, optional: Vec<Bits>, device: &Device) -> Vec<CNot>;
 }
 
 #[cfg(test)]
@@ -420,7 +425,7 @@ mod tests {
 		];
 		let circuit = Circuit { gates };
 		let tpar = TPar::new(GrayStar, PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()));
-		let res = tpar.compile(circuit);
+		let res = tpar.compile(circuit, &());
 		dbg!(res);
 	}
 
@@ -430,7 +435,7 @@ mod tests {
 			let tpar = TPar::new(GrayStar, PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()));
 
 			let circuit: Circuit<CNotRzXYH> = Circuit::random(gates, qubits, &mut rng);
-			let compiled = tpar.compile(circuit.clone());
+			let compiled = tpar.compile(circuit.clone(), &());
 
 			let mut original: Statevector<Squirrel> = Statevector::new(qubits);
 			for gate in circuit.iter() {
