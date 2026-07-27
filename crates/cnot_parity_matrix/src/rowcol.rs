@@ -5,7 +5,7 @@ use test_core::prelude::*;
 use crate::ParityMatrix;
 
 #[derive(Debug)]
-pub struct TwoQubitEdge([usize; 2]);
+pub struct TwoQubitEdge(pub [usize; 2]);
 
 impl Edge for TwoQubitEdge {
 	fn nodes(&self) -> Vec<usize> {
@@ -237,6 +237,7 @@ mod tests {
 			let out = compiler.compile(parity_matrix.clone(), &g);
 
 			for cnot in out.iter().rev() {
+				assert!(g.neighbors(cnot.control()).contains(&cnot.target()));
 				parity_matrix.insert_cnot(*cnot);
 			}
 
