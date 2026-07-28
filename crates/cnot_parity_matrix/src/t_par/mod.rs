@@ -339,7 +339,7 @@ mod tests {
 
 	use crate::{
 		algorithm::PatelMarkovHayes,
-		gra_star_synth::{GrayStar, GrayStarTerminationCriteria},
+		gray_star_synth::{GrayStarSynth, GrayStarTerminationCriteria},
 		t_par::gateset::{CNotRzXYH, QuarterPi},
 	};
 
@@ -427,7 +427,7 @@ mod tests {
 		];
 		let circuit = Circuit { gates };
 		let tpar = TPar::new(
-			GrayStar {
+			GrayStarSynth {
 				max_queue_size: None,
 				path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
 			},
@@ -441,7 +441,7 @@ mod tests {
 		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		for round in 1..=rounds {
 			let tpar = TPar::new(
-				GrayStar {
+				GrayStarSynth {
 					max_queue_size: None,
 					path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
 				},

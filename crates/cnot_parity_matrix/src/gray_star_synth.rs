@@ -252,12 +252,12 @@ pub enum GrayStarTerminationCriteria {
 	None,
 }
 
-pub struct GrayStar {
+pub struct GrayStarSynth {
 	pub max_queue_size: Option<usize>,
 	pub path_termination_criteria: GrayStarTerminationCriteria,
 }
 
-impl ParityVisitor<()> for GrayStar {
+impl ParityVisitor<()> for GrayStarSynth {
 	fn visit(&self, mut required: Vec<Bits>, mut optional: Vec<Bits>, _: &()) -> Vec<CNot> {
 		// TODO: This will be calculated differently for connectivity
 		let mut unsolved: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
