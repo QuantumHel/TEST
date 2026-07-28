@@ -24,6 +24,17 @@ impl<T> Circuit<T> {
 		self.gates.len()
 	}
 
+	pub fn fileter_len<F: Fn(&T) -> bool>(&self, f: F) -> usize {
+		let mut len = 0;
+		for gate in self.gates.iter() {
+			if f(gate) {
+				len += 1;
+			}
+		}
+
+		len
+	}
+
 	pub fn is_empty(&self) -> bool {
 		self.gates.is_empty()
 	}
