@@ -64,7 +64,7 @@ impl RandomGate for H {
 
 /// # Attention
 /// Currently there is nothing stopping you from having control == target.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CNot {
 	control: usize,
 	target: usize,
