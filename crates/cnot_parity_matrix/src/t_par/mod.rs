@@ -332,12 +332,14 @@ mod tests {
 		Circuit,
 		gates::{CNot, H, Rz},
 	};
+	use rand::prelude::*;
+	use rand_chacha::ChaCha8Rng;
 	use simulator::Statevector;
 	use test_core::Compiler;
 
 	use crate::{
 		algorithm::PatelMarkovHayes,
-		gra_star_synth::GrayStar,
+		gra_star_synth::{GrayStar, GrayStarTerminationCriteria},
 		t_par::gateset::{CNotRzXYH, QuarterPi},
 	};
 
@@ -424,15 +426,27 @@ mod tests {
 			CNotRzXYH::H(H { target: 3 }),
 		];
 		let circuit = Circuit { gates };
-		let tpar = TPar::new(GrayStar, PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()));
+		let tpar = TPar::new(
+			GrayStar {
+				max_queue_size: None,
+				path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
+			},
+			PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()),
+		);
 		let res = tpar.compile(circuit, &());
 		dbg!(res);
 	}
 
 	fn random_tpar_test(qubits: usize, gates: usize, rounds: usize) {
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		for round in 1..=rounds {
-			let mut rng = rand::rng();
-			let tpar = TPar::new(GrayStar, PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()));
+			let tpar = TPar::new(
+				GrayStar {
+					max_queue_size: None,
+					path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
+				},
+				PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()),
+			);
 
 			let circuit: Circuit<CNotRzXYH> = Circuit::random(gates, qubits, &mut rng);
 			let compiled = tpar.compile(circuit.clone(), &());
@@ -448,7 +462,11 @@ mod tests {
 			}
 
 			assert_eq!(original, new);
-			println!("Success in round:\t{round}")
+			println!(
+				"Round {round} went from {} to {} CNOT gates",
+				circuit.fileter_len(|g| { matches!(g, CNotRzXYH::CNot(_)) }),
+				compiled.fileter_len(|g| { matches!(g, CNotRzXYH::CNot(_)) })
+			);
 		}
 	}
 
