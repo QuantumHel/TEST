@@ -6,7 +6,7 @@ mod t_par;
 mod xor_span;
 
 pub use parity_matrix::ParityMatrix;
-use test_core::connectivity::Edge;
+use test_core::connectivity::{Connectivity, Edge};
 
 pub mod algorithm {
 	pub use super::gray_star_synth::GrayStarSynth;
@@ -26,5 +26,28 @@ impl Edge for TwoQubitEdge {
 
 	fn weight(&self) -> f64 {
 		1.0
+	}
+}
+
+impl TwoQubitEdge {
+	pub fn square_lattice(min_qubit_count: usize) -> Connectivity<TwoQubitEdge> {
+		let n = (min_qubit_count as f64).sqrt().ceil() as usize;
+
+		let mut connectivity: Connectivity<TwoQubitEdge> = Connectivity::new();
+		for y in 0..n {
+			for x in 0..n {
+				let qubit = (y * n) + x;
+				// horizontal
+				if x < n - 1 {
+					connectivity.add_edge(TwoQubitEdge([qubit, qubit + 1]));
+				}
+
+				// vertical
+				if y < n - 1 {
+					connectivity.add_edge(TwoQubitEdge([qubit, qubit + n]));
+				}
+			}
+		}
+		connectivity
 	}
 }
