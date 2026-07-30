@@ -162,7 +162,17 @@ impl ParityMatrix {
 	}
 
 	pub fn span_bits(&self, bits: &Bits) -> Option<Bits> {
-		// fix this
+		let size = self.size();
+		if size > self.rows.len() {
+			let mut rows = self.rows.clone();
+			while size > rows.len() {
+				rows.push(Bits::with_one(rows.len()));
+			}
+
+			let span = XorSpan::new(&rows);
+			return span.span_element(bits);
+		}
+
 		let span = XorSpan::new(&self.rows);
 		span.span_element(bits)
 	}
