@@ -11,12 +11,12 @@ use circuit::{
 	Circuit,
 	gates::{CNot, H, Rz, X},
 };
-use test_core::Compiler;
+use test_core::{Compiler, connectivity::Connectivity};
 
 use gateset::CNotRzXYH;
 use parity::Parity;
 
-use crate::ParityMatrix;
+use crate::{ParityMatrix, TwoQubitEdge};
 
 use self::{state::State, triplet::Triplet};
 
@@ -26,7 +26,7 @@ pub struct HadamardTransform {
 	output: State,
 }
 
-/// Generic implementation of TPar in https://arxiv.org/pdf/1303.2042
+/// Generic (kinda) implementation of TPar in https://arxiv.org/pdf/1303.2042
 #[derive(Default)]
 pub struct TPar<V, M> {
 	visitor: V,
@@ -42,16 +42,17 @@ impl<V, M> TPar<V, M> {
 	}
 }
 
-impl<D, V: ParityVisitor<D>, M: Compiler<ParityMatrix, Circuit<CNot>, D>>
-	Compiler<Circuit<CNotRzXYH>, Circuit<CNotRzXYH>, D> for TPar<V, M>
-{
-	fn compile(&self, input: Circuit<CNotRzXYH>, device: &D) -> Circuit<CNotRzXYH> {
-		let n = input
-			.iter()
-			.map(|gate| gate.n_required_qubits())
-			.max()
-			.unwrap_or_default();
-
+impl<V, M> TPar<V, M> {
+	fn internal_compile<D>(
+		&self,
+		n: usize,
+		input: Circuit<CNotRzXYH>,
+		device: &D,
+	) -> Circuit<CNotRzXYH>
+	where
+		V: ParityVisitor<D>,
+		M: Compiler<ParityMatrix, Circuit<CNot>, D>,
+	{
 		#[allow(non_snake_case)]
 		let Triplet {
 			s: mut S,
@@ -320,6 +321,36 @@ impl<D, V: ParityVisitor<D>, M: Compiler<ParityMatrix, Circuit<CNot>, D>>
 	}
 }
 
+impl<V: ParityVisitor<()>, M: Compiler<ParityMatrix, Circuit<CNot>>>
+	Compiler<Circuit<CNotRzXYH>, Circuit<CNotRzXYH>> for TPar<V, M>
+{
+	fn compile(&self, input: Circuit<CNotRzXYH>, device: &()) -> Circuit<CNotRzXYH> {
+		let n = input
+			.iter()
+			.map(|gate| gate.n_required_qubits())
+			.max()
+			.unwrap_or_default();
+
+		self.internal_compile(n, input, device)
+	}
+}
+
+impl<
+	V: ParityVisitor<Connectivity<TwoQubitEdge>>,
+	M: Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>>,
+> Compiler<Circuit<CNotRzXYH>, Circuit<CNotRzXYH>, Connectivity<TwoQubitEdge>> for TPar<V, M>
+{
+	fn compile(
+		&self,
+		input: Circuit<CNotRzXYH>,
+		device: &Connectivity<TwoQubitEdge>,
+	) -> Circuit<CNotRzXYH> {
+		let n = device.nodes().len();
+
+		self.internal_compile(n, input, device)
+	}
+}
+
 pub trait ParityVisitor<Device> {
 	fn visit(&self, required: Vec<Bits>, optional: Vec<Bits>, device: &Device) -> Vec<CNot>;
 }
@@ -334,12 +365,14 @@ mod tests {
 	};
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
-	use simulator::Statevector;
-	use test_core::Compiler;
+	use simulator::{Simulatable, Statevector};
+	use test_core::{Compiler, connectivity::Connectivity};
 
 	use crate::{
+		TwoQubitEdge,
 		algorithm::PatelMarkovHayes,
 		gray_star_synth::{GrayStarSynth, GrayStarTerminationCriteria},
+		rowcol::RowCol,
 		t_par::gateset::{CNotRzXYH, QuarterPi},
 	};
 
@@ -487,5 +520,81 @@ mod tests {
 		const ROUNDS: usize = 100;
 
 		random_tpar_test(QUBITS, GATES, ROUNDS);
+	}
+
+	fn random_connectivity_tpar_test(qubits: usize, gates: usize, rounds: usize) {
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for round in 1..=rounds {
+			let device: Connectivity<TwoQubitEdge> = TwoQubitEdge::square_lattice(qubits);
+			let tpar = TPar::new(
+				GrayStarSynth {
+					max_queue_size: None,
+					path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
+				},
+				RowCol,
+			);
+
+			let circuit: Circuit<CNotRzXYH> = Circuit::random(gates, qubits, &mut rng);
+			let compiled = tpar.compile(circuit.clone(), &device);
+
+			let mut max_qubit = 0;
+			for gate in compiled.iter() {
+				max_qubit = max_qubit.max(
+					gate.controls()
+						.iter()
+						.max()
+						.copied()
+						.unwrap_or_default()
+						.max(gate.target()),
+				);
+			}
+
+			let mut original: Statevector<Squirrel> = Statevector::new(max_qubit + 1);
+			for gate in circuit.iter() {
+				original.apply(gate);
+			}
+
+			let mut new: Statevector<Squirrel> = Statevector::new(max_qubit + 1);
+			for gate in compiled.iter() {
+				// TODO: check if gate is supported by device
+				new.apply(gate);
+			}
+
+			assert_eq!(original, new);
+			println!(
+				"Round {round} went from {} to {} CNOT gates",
+				circuit.fileter_len(|g| { matches!(g, CNotRzXYH::CNot(_)) }),
+				compiled.fileter_len(|g| { matches!(g, CNotRzXYH::CNot(_)) })
+			);
+		}
+	}
+
+	#[test]
+	fn extra_qubit_usage_connectivity_tpar_test() {
+		// this will (with the given seed) use 6 qubits sometimes
+		const QUBITS: usize = 5;
+		const GATES: usize = 100;
+		const ROUNDS: usize = 100;
+
+		random_connectivity_tpar_test(QUBITS, GATES, ROUNDS);
+	}
+
+	#[test]
+	fn short_random_connectivity_tpar_test() {
+		const QUBITS: usize = 10;
+		const GATES: usize = 100;
+		const ROUNDS: usize = 10;
+
+		random_connectivity_tpar_test(QUBITS, GATES, ROUNDS);
+	}
+
+	#[test]
+	#[ignore = "takes too long for normal test runs"]
+	fn long_random_connectivity_tpar_test() {
+		const QUBITS: usize = 15;
+		const GATES: usize = 100;
+		const ROUNDS: usize = 100;
+
+		random_connectivity_tpar_test(QUBITS, GATES, ROUNDS);
 	}
 }
