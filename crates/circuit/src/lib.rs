@@ -1,3 +1,6 @@
+#[cfg(feature = "openqasm2")]
+pub mod openqasm2;
+
 use std::{slice::Iter, vec::IntoIter};
 
 pub mod gates;

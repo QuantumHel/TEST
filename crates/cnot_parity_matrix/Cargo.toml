@@ -8,5 +8,10 @@ test_bits = { path = "../bits" }
 test_core = { path = "../core" }
 test_circuit = { path = "../circuit" }
 test_simulator = { path = "../simulator" }
-rand = "0.10.1"
-rand_chacha = "0.10.0"
+openqasm2 = { workspace = true, optional = true }
+rand.workspace = true
+rand_chacha.workspace = true
+
+[features]
+default = []
+openqasm2 = ["dep:openqasm2", "test_circuit/openqasm2"]

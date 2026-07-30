@@ -11,6 +11,28 @@ pub struct Rz<T> {
 	pub target: usize,
 }
 
+#[cfg(feature = "openqasm2")]
+impl<T: From<openqasm2::Value>> crate::openqasm2::OpenQasm2Gate for Rz<T> {
+	fn cx(_: usize, _: usize) -> Option<Self> {
+		None
+	}
+
+	fn u(
+		theta: openqasm2::Value,
+		phi: openqasm2::Value,
+		lambda: openqasm2::Value,
+		target: usize,
+	) -> Option<Self> {
+		if openqasm2::Value::ZERO != theta || openqasm2::Value::ZERO != phi {
+			return None;
+		}
+		Some(Self {
+			angle: lambda.into(),
+			target,
+		})
+	}
+}
+
 impl<T> RandomGate for Rz<T>
 where
 	StandardUniform: Distribution<T>,
@@ -36,6 +58,29 @@ impl RandomGate for X {
 	}
 }
 
+#[cfg(feature = "openqasm2")]
+impl crate::openqasm2::OpenQasm2Gate for X {
+	fn cx(_: usize, _: usize) -> Option<Self> {
+		None
+	}
+
+	fn u(
+		theta: openqasm2::Value,
+		phi: openqasm2::Value,
+		lambda: openqasm2::Value,
+		target: usize,
+	) -> Option<Self> {
+		if theta == openqasm2::Value::PI
+			&& phi == openqasm2::Value::PI_2.checked_neg().unwrap()
+			&& lambda == openqasm2::Value::PI
+		{
+			Some(Self { target })
+		} else {
+			None
+		}
+	}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Y {
 	pub target: usize,
@@ -49,9 +94,55 @@ impl RandomGate for Y {
 	}
 }
 
+#[cfg(feature = "openqasm2")]
+impl crate::openqasm2::OpenQasm2Gate for Y {
+	fn cx(_: usize, _: usize) -> Option<Self> {
+		None
+	}
+
+	fn u(
+		theta: openqasm2::Value,
+		phi: openqasm2::Value,
+		lambda: openqasm2::Value,
+		target: usize,
+	) -> Option<Self> {
+		if theta == openqasm2::Value::PI
+			&& phi == openqasm2::Value::ZERO
+			&& lambda == openqasm2::Value::ZERO
+		{
+			Some(Self { target })
+		} else {
+			None
+		}
+	}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct H {
 	pub target: usize,
+}
+
+#[cfg(feature = "openqasm2")]
+impl crate::openqasm2::OpenQasm2Gate for H {
+	fn cx(_: usize, _: usize) -> Option<Self> {
+		None
+	}
+
+	fn u(
+		theta: openqasm2::Value,
+		phi: openqasm2::Value,
+		lambda: openqasm2::Value,
+		target: usize,
+	) -> Option<Self> {
+		if theta == openqasm2::Value::PI_2
+			&& phi == openqasm2::Value::ZERO
+			&& lambda == openqasm2::Value::PI
+		{
+			Some(Self { target })
+		} else {
+			None
+		}
+	}
 }
 
 impl RandomGate for H {
@@ -68,6 +159,21 @@ impl RandomGate for H {
 pub struct CNot {
 	control: usize,
 	target: usize,
+}
+
+#[cfg(feature = "openqasm2")]
+impl crate::openqasm2::OpenQasm2Gate for CNot {
+	fn cx(control: usize, target: usize) -> Option<Self> {
+		if control == target {
+			return None;
+		} else {
+			Some(Self { control, target })
+		}
+	}
+
+	fn u(_: openqasm2::Value, _: openqasm2::Value, _: openqasm2::Value, _: usize) -> Option<Self> {
+		None
+	}
 }
 
 impl RandomGate for CNot {

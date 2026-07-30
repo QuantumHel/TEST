@@ -11,27 +11,25 @@ researching quantum transpilation.
 
 Due to issues with `cargo doc` use `cargo docs` instead.
 
+## Features
+
+- `openqasm2` gives access to use OpenQasm2 with the help of the
+  [openqasm](https://crates.io/crates/openqasm) crate.
+
 ## Using nighty
 
-Install the nightly toolchain with
+The code may only compile with nightly. You can install the nightly toolchain
+with rustup:
 
 ```
 rustup toolchain install nightly
 ```
 
-and then activate it in the project folder with
+and then activate it in the project folder with:
 
 ```
 rustup override set nightly
 ```
-
-# TODO
-
-## Synthesize
-
-- Merge pauli exps with same strings (should only changes 1-qubit gate count).
-- Current code is written while testing things. The code eats performance for
-  fun.
 
 # .exp format
 

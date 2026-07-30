@@ -11,6 +11,7 @@ members = ["crates/*"]
 [workspace.dependencies]
 rand = "0.10.1"
 rand_chacha = "0.10.0"
+openqasm2 = { package = "openqasm", version = "0.1.2" }
 
 [dependencies]
 test_bits = { path = "crates/bits" }

@@ -1,9 +1,10 @@
-use std::ops::AddAssign;
-
 use rand::{
 	RngExt,
 	distr::{Distribution, StandardUniform},
 };
+use std::ops::AddAssign;
+#[cfg(feature = "openqasm2")]
+use test_circuit::openqasm2::OpenQasm2Gate;
 use test_circuit::{
 	RandomGate,
 	gates::{CNot, H, Rz, X, Y},
@@ -35,6 +36,51 @@ pub enum CNotRzXYH {
 	X(X),
 	Y(Y),
 	H(H),
+}
+
+#[cfg(feature = "openqasm2")]
+impl OpenQasm2Gate for CNotRzXYH {
+	fn cx(control: usize, target: usize) -> Option<Self> {
+		<CNot as OpenQasm2Gate>::cx(control, target).map(Self::CNot)
+	}
+
+	fn u(
+		theta: openqasm2::Value,
+		phi: openqasm2::Value,
+		lambda: openqasm2::Value,
+		target: usize,
+	) -> Option<Self> {
+		<X as OpenQasm2Gate>::u(theta, phi, lambda, target)
+			.map(Self::X)
+			.or(<Y as OpenQasm2Gate>::u(theta, phi, lambda, target).map(Self::Y))
+			.or(<H as OpenQasm2Gate>::u(theta, phi, lambda, target).map(Self::H))
+			.or_else(|| {
+				if openqasm2::Value::ZERO != theta || openqasm2::Value::ZERO != phi {
+					return None;
+				}
+
+				if *lambda.a.numer() != 0 {
+					return None;
+				}
+
+				let quarter_pi = lambda.b * 4;
+				if !quarter_pi.is_integer() {
+					return None;
+				}
+
+				let mut quarter_pi = quarter_pi.to_integer() % 8;
+				if quarter_pi < 0 {
+					quarter_pi += 8;
+				}
+
+				let quarter_pi: u32 = quarter_pi.try_into().expect("This should be fine");
+
+				Some(Self::Rz(Rz {
+					angle: QuarterPi(quarter_pi),
+					target,
+				}))
+			})
+	}
 }
 
 impl CNotRzXYH {
