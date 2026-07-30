@@ -50,9 +50,7 @@ impl<T: XorSpaceElement> XorSpan<T> {
 				in_target_space ^= &to_add.in_target_space;
 			}
 
-			let Some(control) = in_real_space.control_bit() else {
-				continue 'outer;
-			};
+			let control = in_real_space.control_bit().unwrap();
 
 			rows.insert(
 				control,
