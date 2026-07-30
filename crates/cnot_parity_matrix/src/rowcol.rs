@@ -4,11 +4,29 @@ use test_core::prelude::*;
 
 use crate::{ParityMatrix, TwoQubitEdge};
 
+fn is_empty<G: Graph<N, E>, N: Node, E: Edge>(graph: &G) -> bool {
+	for potential_node in 0..graph.node_storage_size() {
+		if graph.get_node(potential_node).is_some() {
+			return false;
+		}
+	}
+
+	true
+}
+
 /// Returns (node, parent) pairs
 fn postorder_traversal<G: Graph<N, E>, N: Node, E: Edge>(
 	root: usize,
 	graph: &G,
 ) -> Vec<(usize, Option<usize>)> {
+	if graph.get_node(root).is_none() {
+		if is_empty(graph) {
+			return Vec::new();
+		} else {
+			panic!("Something went wrong");
+		}
+	}
+
 	// Rooted DFS postorder over a tree.
 	// Returns (node, parent) pairs for all nodes except `root`, where nodes are
 	// emitted after their descendants.
@@ -49,6 +67,14 @@ fn preorder_traversal<G: Graph<N, E>, N: Node, E: Edge>(
 	root: usize,
 	graph: &G,
 ) -> Vec<(usize, Option<usize>)> {
+	if graph.get_node(root).is_none() {
+		if is_empty(graph) {
+			return Vec::new();
+		} else {
+			panic!("Something went wrong");
+		}
+	}
+
 	// Rooted DFS preorder over a tree.
 	// Returns (node, parent) pairs for all nodes except `root`
 	let mut parents: Vec<Option<usize>> = vec![None; graph.node_storage_size()];
@@ -201,19 +227,16 @@ mod tests {
 	#[test]
 	fn rowcol_random_test() {
 		const TEST_COUNT: usize = 100;
+		const QUBIT_COUNT: usize = 100;
+		const CNOT_COUNT: usize = QUBIT_COUNT * 100;
 		let mut rng = ChaCha8Rng::seed_from_u64(2);
 
-		let mut g: Connectivity<TwoQubitEdge> = Connectivity::new();
-		g.add_edge(TwoQubitEdge([2, 5]));
-		g.add_edge(TwoQubitEdge([1, 4]));
-		g.add_edge(TwoQubitEdge([1, 3]));
-		g.add_edge(TwoQubitEdge([0, 2]));
-		g.add_edge(TwoQubitEdge([0, 1]));
-
-		let n = g.nodes().len();
+		let g: Connectivity<TwoQubitEdge> = TwoQubitEdge::square_lattice(QUBIT_COUNT);
 
 		for _ in 0..TEST_COUNT {
-			let cnots: Vec<_> = (0..(n * 100)).map(|_| CNot::random(n, &mut rng)).collect();
+			let cnots: Vec<_> = (0..(CNOT_COUNT))
+				.map(|_| CNot::random(QUBIT_COUNT, &mut rng))
+				.collect();
 
 			let mut parity_matrix = ParityMatrix::default();
 			for cnot in cnots {
