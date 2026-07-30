@@ -2,20 +2,7 @@ use bits::Bits;
 use circuit::{Circuit, gates::CNot};
 use test_core::prelude::*;
 
-use crate::ParityMatrix;
-
-#[derive(Debug)]
-pub struct TwoQubitEdge(pub [usize; 2]);
-
-impl Edge for TwoQubitEdge {
-	fn nodes(&self) -> Vec<usize> {
-		self.0.to_vec()
-	}
-
-	fn weight(&self) -> f64 {
-		1.0
-	}
-}
+use crate::{ParityMatrix, TwoQubitEdge};
 
 /// Returns (node, parent) pairs
 fn postorder_traversal<G: Graph<N, E>, N: Node, E: Edge>(
