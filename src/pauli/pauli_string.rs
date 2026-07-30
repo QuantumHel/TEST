@@ -1,4 +1,4 @@
-use bits::{Bits, IterOnes};
+use test_bits::{Bits, IterOnes};
 
 use crate::{
 	connectivity::{RoutingInstruction, RoutingInstructionTarget},

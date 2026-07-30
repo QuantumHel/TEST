@@ -1,6 +1,6 @@
 mod decompose;
 
-use bits::Bits;
+use test_bits::Bits;
 
 use crate::pauli::{CliffordPauliAngle, PauliExp, PauliString};
 

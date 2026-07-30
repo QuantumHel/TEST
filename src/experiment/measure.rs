@@ -1,4 +1,4 @@
-use bits::Bits;
+use test_bits::Bits;
 
 use crate::pauli::{Negate, PauliExp};
 
