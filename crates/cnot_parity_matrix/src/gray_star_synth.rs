@@ -1,12 +1,29 @@
 use std::{
 	cmp::Ordering,
-	collections::{BTreeMap, BTreeSet, btree_map::Keys},
+	collections::{BTreeMap, BTreeSet, VecDeque, btree_map::Keys},
 };
 
 use bits::Bits;
 use circuit::gates::CNot;
+use test_core::connectivity::{Connectivity, ConnectivityNode, Subgraph, steiner_tree};
 
-use crate::t_par::ParityVisitor;
+use crate::{TwoQubitEdge, t_par::ParityVisitor};
+
+enum IteratorEnum<T1: Iterator<Item = usize>, T2: Iterator<Item = usize>> {
+	T1(T1),
+	T2(T2),
+}
+
+impl<T1: Iterator<Item = usize>, T2: Iterator<Item = usize>> Iterator for IteratorEnum<T1, T2> {
+	type Item = usize;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::T1(t1) => t1.next(),
+			Self::T2(t2) => t2.next(),
+		}
+	}
+}
 
 #[derive(Debug, Clone)]
 pub struct QueueItem {
@@ -95,6 +112,7 @@ impl Ord for QueueItem {
 fn find_path(
 	max_queue_size: &Option<usize>,
 	termination_criteria: &GrayStarTerminationCriteria,
+	connectivity: Option<&Subgraph<'_, ConnectivityNode, TwoQubitEdge>>,
 	item: QueueItem,
 ) -> QueueItem {
 	let original_len = item.required.len();
@@ -124,14 +142,39 @@ fn find_path(
 			}
 		}
 
-		// TODO: Iterators need to be changed if connectivity
-		for target in item.unsolved.iter() {
-			for control in item.unsolved.iter() {
-				if *control == *target {
+		for target in if connectivity.is_some() {
+			// In the case of unsolved we can have unsolved that are 0 and therefor do nothing.
+			IteratorEnum::T1(
+				item.required
+					.iter()
+					.flat_map(|parity| parity.iter_ones())
+					.collect::<BTreeSet<_>>()
+					.into_iter(),
+			)
+		} else {
+			IteratorEnum::T2(item.unsolved.iter().copied())
+		} {
+			for control in if let Some(connectivity) = connectivity {
+				let mut neighbors: Vec<usize> = Vec::new();
+				for edge in connectivity.get_node(target).unwrap().edges() {
+					let edge = connectivity.get_edge(*edge).unwrap();
+					for neighbor in edge.nodes() {
+						if *neighbor == target || !item.unsolved.contains(*neighbor) {
+							continue;
+						}
+						neighbors.push(*neighbor);
+					}
+				}
+
+				IteratorEnum::T1(neighbors.into_iter())
+			} else {
+				IteratorEnum::T2(item.unsolved.iter().copied())
+			} {
+				if control == target {
 					continue;
 				}
 
-				let cnot = CNot::new(*control, *target).unwrap();
+				let cnot = CNot::new(control, target).unwrap();
 				if let Some(previous) = item.cnots.last()
 					&& *previous == cnot
 				{
@@ -217,6 +260,10 @@ impl UnsolvedQubits {
 		self.qubits.len()
 	}
 
+	fn contains(&self, qubit: usize) -> bool {
+		self.qubits.contains_key(&qubit)
+	}
+
 	fn iter(&self) -> Keys<'_, usize, Vec<usize>> {
 		self.qubits.keys()
 	}
@@ -257,15 +304,16 @@ pub struct GrayStarSynth {
 	pub path_termination_criteria: GrayStarTerminationCriteria,
 }
 
-impl ParityVisitor<()> for GrayStarSynth {
-	fn visit(&self, mut required: Vec<Bits>, mut optional: Vec<Bits>, _: &()) -> Vec<CNot> {
-		// TODO: This will be calculated differently for connectivity
-		let mut unsolved: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
-		for bits in required.iter() {
-			for i in bits.iter_ones() {
-				unsolved.insert(i, Vec::new());
-			}
-		}
+impl GrayStarSynth {
+	fn generic_visit(
+		&self,
+		unsolved: BTreeMap<usize, Vec<usize>>,
+		mut required: Vec<Bits>,
+		mut optional: Vec<Bits>,
+		connectivity: Option<&Subgraph<'_, ConnectivityNode, TwoQubitEdge>>,
+	) -> Vec<CNot> {
+		required.retain(|bits| bits.count_ones() > 1);
+		optional.retain(|bits| bits.count_ones() > 1);
 
 		let mut unsolved = UnsolvedQubits { qubits: unsolved };
 		let mut result: Vec<CNot> = Vec::new();
@@ -274,6 +322,7 @@ impl ParityVisitor<()> for GrayStarSynth {
 			let mut item = find_path(
 				&self.max_queue_size,
 				&self.path_termination_criteria,
+				connectivity,
 				QueueItem {
 					unsolved: unsolved.clone(),
 					cnots: Vec::new(),
@@ -290,5 +339,68 @@ impl ParityVisitor<()> for GrayStarSynth {
 
 		assert!(required.is_empty());
 		result
+	}
+}
+
+impl ParityVisitor<()> for GrayStarSynth {
+	fn visit(&self, required: Vec<Bits>, optional: Vec<Bits>, _: &()) -> Vec<CNot> {
+		let mut unsolved: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+		for bits in required.iter() {
+			for i in bits.iter_ones() {
+				unsolved.insert(i, Vec::new());
+			}
+		}
+
+		self.generic_visit(unsolved, required, optional, None)
+	}
+}
+
+impl ParityVisitor<Connectivity<TwoQubitEdge>> for GrayStarSynth {
+	fn visit(
+		&self,
+		required: Vec<Bits>,
+		optional: Vec<Bits>,
+		device: &Connectivity<TwoQubitEdge>,
+	) -> Vec<CNot> {
+		if required.is_empty() {
+			return Vec::new();
+		}
+
+		let mut needed_qubits: BTreeSet<usize> = BTreeSet::new();
+		for bits in required.iter() {
+			for i in bits.iter_ones() {
+				needed_qubits.insert(i);
+			}
+		}
+		if needed_qubits.is_empty() {
+			return Vec::new();
+		}
+		let needed_qubits = needed_qubits.into_iter().collect::<Vec<_>>();
+
+		let tree = steiner_tree(&needed_qubits, device);
+		let root = *needed_qubits.first().unwrap();
+		let mut queue: VecDeque<usize> = VecDeque::from([root]);
+		let mut visited: BTreeSet<usize> = BTreeSet::new();
+		let mut unsolved: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+		while let Some(node) = queue.pop_front() {
+			visited.insert(node);
+			let mut children: Vec<usize> = Vec::new();
+
+			for edge in tree.get_node(node).unwrap().edges().iter() {
+				let edge = tree.get_edge(*edge).unwrap();
+				for child in edge.nodes() {
+					// Node is also contained in visited
+					if visited.contains(child) {
+						continue;
+					}
+					children.push(*child);
+					queue.push_back(*child);
+				}
+			}
+
+			unsolved.insert(node, children);
+		}
+
+		self.generic_visit(unsolved, required, optional, Some(&tree))
 	}
 }
