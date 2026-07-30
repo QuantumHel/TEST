@@ -1,8 +1,8 @@
 use std::ops::{Range, RangeBounds};
 
-use bits::Bits;
+use test_bits::Bits;
 
-use circuit::gates::CNot;
+use test_circuit::gates::CNot;
 
 use crate::xor_span::XorSpan;
 
@@ -199,7 +199,7 @@ impl std::fmt::Display for ParityMatrix {
 
 #[cfg(test)]
 mod test {
-	use circuit::gates::CNot;
+	use test_circuit::gates::CNot;
 
 	use crate::ParityMatrix;
 

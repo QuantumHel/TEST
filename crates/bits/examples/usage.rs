@@ -1,4 +1,4 @@
-use bits::Bits;
+use test_bits::Bits;
 
 fn main() {
 	let mut bits1 = Bits::new();

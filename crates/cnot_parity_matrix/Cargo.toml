@@ -1,12 +1,12 @@
 [package]
-name = "cnot_parity_matrix"
+name = "test_cnot_parity_matrix"
 version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-bits = { path = "../bits" }
+test_bits = { path = "../bits" }
 test_core = { path = "../core" }
-circuit = { path = "../circuit" }
-simulator = { path = "../simulator" }
+test_circuit = { path = "../circuit" }
+test_simulator = { path = "../simulator" }
 rand = "0.10.1"
 rand_chacha = "0.10.0"

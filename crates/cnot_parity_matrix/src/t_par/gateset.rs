@@ -1,14 +1,14 @@
 use std::ops::AddAssign;
 
-use circuit::{
-	RandomGate,
-	gates::{CNot, H, Rz, X, Y},
-};
 use rand::{
 	RngExt,
 	distr::{Distribution, StandardUniform},
 };
-use simulator::{Complex, Simulatable};
+use test_circuit::{
+	RandomGate,
+	gates::{CNot, H, Rz, X, Y},
+};
+use test_simulator::{Complex, Simulatable};
 
 use super::squirrel::Squirrel;
 

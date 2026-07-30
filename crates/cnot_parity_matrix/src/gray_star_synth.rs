@@ -3,8 +3,8 @@ use std::{
 	collections::{BTreeMap, BTreeSet, VecDeque, btree_map::Keys},
 };
 
-use bits::Bits;
-use circuit::gates::CNot;
+use test_bits::Bits;
+use test_circuit::gates::CNot;
 use test_core::connectivity::{Connectivity, ConnectivityNode, Subgraph, steiner_tree};
 
 use crate::{TwoQubitEdge, t_par::ParityVisitor};

@@ -1,9 +1,9 @@
 use std::num::NonZeroU32;
 
-use circuit::gates::CNot;
-use cnot_parity_matrix::{ParityMatrix, algorithm::PatelMarkovHayes};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
+use test_circuit::gates::CNot;
+use test_cnot_parity_matrix::{ParityMatrix, algorithm::PatelMarkovHayes};
 use test_core::Compiler;
 
 const TEST_COUNT: usize = 100;

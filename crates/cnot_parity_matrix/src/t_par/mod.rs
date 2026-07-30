@@ -6,8 +6,8 @@ mod triplet;
 
 use std::collections::BTreeSet;
 
-use bits::Bits;
-use circuit::{
+use test_bits::Bits;
+use test_circuit::{
 	Circuit,
 	gates::{CNot, H, Rz, X},
 };
@@ -359,14 +359,14 @@ pub trait ParityVisitor<Device> {
 mod tests {
 	use std::num::NonZeroU32;
 
-	use circuit::{
+	use rand::prelude::*;
+	use rand_chacha::ChaCha8Rng;
+	use test_circuit::{
 		Circuit,
 		gates::{CNot, H, Rz},
 	};
-	use rand::prelude::*;
-	use rand_chacha::ChaCha8Rng;
-	use simulator::{Simulatable, Statevector};
 	use test_core::{Compiler, connectivity::Connectivity};
+	use test_simulator::{Simulatable, Statevector};
 
 	use crate::{
 		TwoQubitEdge,

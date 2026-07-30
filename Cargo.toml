@@ -13,7 +13,7 @@ rand = "0.10.1"
 rand_chacha = "0.10.0"
 
 [dependencies]
-bits = { path = "crates/bits" }
+test_bits = { path = "crates/bits" }
 petgraph = "0.8.3"
 rand.workspace = true
 rand_chacha.workspace = true

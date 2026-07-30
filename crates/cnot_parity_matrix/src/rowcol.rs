@@ -1,5 +1,5 @@
-use bits::Bits;
-use circuit::{Circuit, gates::CNot};
+use test_bits::Bits;
+use test_circuit::{Circuit, gates::CNot};
 use test_core::prelude::*;
 
 use crate::{ParityMatrix, TwoQubitEdge};

@@ -276,7 +276,7 @@ mod tests {
 	use crate::t_par::squirrel::Rational;
 
 	use super::Squirrel;
-	use simulator::{Complex, Statevector};
+	use test_simulator::{Complex, Statevector};
 
 	#[test]
 	fn squirrel_statevector_eq_test() {

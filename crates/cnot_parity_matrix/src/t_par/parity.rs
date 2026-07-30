@@ -1,6 +1,6 @@
 use std::ops::BitXorAssign;
 
-use bits::Bits;
+use test_bits::Bits;
 
 use crate::xor_span::{XorSpaceElement, XorSpan};
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use circuit::gates::{H, Rz, X, Y};
+use test_circuit::gates::{H, Rz, X, Y};
 
 use super::{
 	HadamardTransform,
