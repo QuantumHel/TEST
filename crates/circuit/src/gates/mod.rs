@@ -71,7 +71,7 @@ impl crate::openqasm2::OpenQasm2Gate for X {
 		target: usize,
 	) -> Option<Self> {
 		if theta == openqasm2::Value::PI
-			&& phi == openqasm2::Value::PI_2.checked_neg().unwrap()
+			&& phi == openqasm2::Value::ZERO
 			&& lambda == openqasm2::Value::PI
 		{
 			Some(Self { target })
@@ -107,8 +107,8 @@ impl crate::openqasm2::OpenQasm2Gate for Y {
 		target: usize,
 	) -> Option<Self> {
 		if theta == openqasm2::Value::PI
-			&& phi == openqasm2::Value::ZERO
-			&& lambda == openqasm2::Value::ZERO
+			&& phi == openqasm2::Value::PI_2
+			&& lambda == openqasm2::Value::PI_2
 		{
 			Some(Self { target })
 		} else {
@@ -165,7 +165,7 @@ pub struct CNot {
 impl crate::openqasm2::OpenQasm2Gate for CNot {
 	fn cx(control: usize, target: usize) -> Option<Self> {
 		if control == target {
-			return None;
+			None
 		} else {
 			Some(Self { control, target })
 		}
