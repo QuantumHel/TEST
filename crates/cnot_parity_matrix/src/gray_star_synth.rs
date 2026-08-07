@@ -185,6 +185,9 @@ fn find_path(
 					.required
 					.iter()
 					.map(|bits| {
+						// This is a bit other way around as when changing paritymatrix
+						// that is because this is not the state we have, but the state
+						// where we "want to go".
 						let mut new_bits = bits.clone();
 						if bits.get(cnot.target()) {
 							new_bits.set(cnot.control(), !bits.get(cnot.control()));
