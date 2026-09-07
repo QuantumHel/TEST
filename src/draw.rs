@@ -294,6 +294,7 @@ pub fn draw_rows(rows: Vec<VisualRow>, size: ImageSize) -> SVGImage {
 		.max()
 		.unwrap_or_default();
 
+	// FIXME: We dont use extra 2 height padding for anything. (use or remove)
 	// need to fit 3+3*strings.len() squares in height
 	// need to fit 4 + len squares in width
 	let (width, height, square_size, padding_w, padding_h) = {
@@ -322,12 +323,18 @@ pub fn draw_rows(rows: Vec<VisualRow>, size: ImageSize) -> SVGImage {
 			}
 			ImageSize::Fixed { width, height } => {
 				let max_width = width as f64 / (4 + len) as f64;
-				let max_height = height as f64 / (rows.len()) as f64;
+				let max_height = height as f64 / (2 + rows.len()) as f64;
 				let square_size = max_height.min(max_width);
 
 				let padding_w = (width as f64 - square_size * (4 + len) as f64) / 2.0;
 				let padding_h = (height as f64 - square_size * (2 + rows.len()) as f64) / 2.0;
-				(width, height, square_size, padding_w, padding_h)
+				(
+					width,
+					height,
+					square_size,
+					square_size + padding_w,
+					square_size + padding_h,
+				)
 			}
 		}
 	};
