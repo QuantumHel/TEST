@@ -1,10 +1,12 @@
 mod graph;
+mod graph_ext;
 mod steiner_tree;
 mod subgraph;
 
 use std::collections::{HashSet, VecDeque};
 
 pub use graph::Graph;
+pub use graph_ext::GraphExt;
 pub use steiner_tree::steiner_tree;
 pub use subgraph::{Subedge, Subgraph, Subnode};
 

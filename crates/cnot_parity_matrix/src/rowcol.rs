@@ -4,109 +4,6 @@ use test_core::prelude::*;
 
 use crate::{ParityMatrix, TwoQubitEdge};
 
-fn is_empty<G: Graph<N, E>, N: Node, E: Edge>(graph: &G) -> bool {
-	for potential_node in 0..graph.node_storage_size() {
-		if graph.get_node(potential_node).is_some() {
-			return false;
-		}
-	}
-
-	true
-}
-
-/// Returns (node, parent) pairs
-fn postorder_traversal<G: Graph<N, E>, N: Node, E: Edge>(
-	root: usize,
-	graph: &G,
-) -> Vec<(usize, Option<usize>)> {
-	if graph.get_node(root).is_none() {
-		if is_empty(graph) {
-			return Vec::new();
-		} else {
-			panic!("Something went wrong");
-		}
-	}
-
-	// Rooted DFS postorder over a tree.
-	// Returns (node, parent) pairs for all nodes except `root`, where nodes are
-	// emitted after their descendants.
-	let mut parents: Vec<Option<usize>> = vec![None; graph.node_storage_size()];
-	parents[root] = Some(root);
-
-	let mut result = Vec::new();
-	// (node, parent, children_processed?)
-	let mut stack: Vec<(usize, usize, bool)> = Vec::new();
-	stack.push((root, root, false));
-
-	while let Some((node, parent, processed)) = stack.pop() {
-		if !processed {
-			stack.push((node, parent, true));
-
-			for edge_idx in graph.get_node(node).unwrap().edges().iter() {
-				let edge = graph.get_edge(*edge_idx).unwrap();
-				for &neighbor in edge.nodes().iter() {
-					// This means that we haven't processed the neighbor yet.
-					if parents[neighbor].is_none() {
-						parents[neighbor] = Some(node);
-						stack.push((neighbor, node, false));
-					}
-				}
-			}
-		} else if node == root {
-			result.push((node, None));
-		} else {
-			result.push((node, Some(parent)))
-		}
-	}
-
-	result
-}
-
-/// Returns (node, parent) pairs
-fn preorder_traversal<G: Graph<N, E>, N: Node, E: Edge>(
-	root: usize,
-	graph: &G,
-) -> Vec<(usize, Option<usize>)> {
-	if graph.get_node(root).is_none() {
-		if is_empty(graph) {
-			return Vec::new();
-		} else {
-			panic!("Something went wrong");
-		}
-	}
-
-	// Rooted DFS preorder over a tree.
-	// Returns (node, parent) pairs for all nodes except `root`
-	let mut parents: Vec<Option<usize>> = vec![None; graph.node_storage_size()];
-	parents[root] = Some(root);
-
-	let mut result = Vec::new();
-	// (node, parent)
-	let mut stack: Vec<(usize, usize)> = Vec::new();
-	stack.push((root, root));
-
-	while let Some((node, parent)) = stack.pop() {
-		if node == root {
-			result.push((node, None));
-		} else {
-			result.push((node, Some(parent)));
-		}
-
-		for edge_idx in graph.get_node(node).unwrap().edges().iter() {
-			let edge = graph.get_edge(*edge_idx).unwrap();
-			for &neighbor in edge.nodes().iter() {
-				// If the parent is some we have processed neighbor already
-				if parents[neighbor].is_none() {
-					parents[neighbor] = Some(node);
-					stack.push((neighbor, node));
-				}
-			}
-		}
-	}
-
-	result
-}
-
 /// An implementation of the rowcol algorithm described in
 /// https://doi.org/10.1103/PhysRevResearch.5.013065
 pub struct RowCol;
@@ -138,7 +35,7 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 				let tree = steiner_tree(&s, &g);
 
 				// 4
-				for (j, k) in postorder_traversal(i, &tree) {
+				for (j, k) in tree.postorder_traversal(i) {
 					if let Some(k) = k
 						&& matrix.get(j, i)
 						&& !matrix.get(k, i)
@@ -148,7 +45,7 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 				}
 
 				// 5
-				for (j, k) in postorder_traversal(i, &tree) {
+				for (j, k) in tree.postorder_traversal(i) {
 					for edge in tree.get_node(j).unwrap().edges() {
 						let neighbor: usize = *tree
 							.get_edge(*edge)
@@ -192,7 +89,7 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 
 				let tree_prime = steiner_tree(&terminals, &g);
 
-				for (j, parent) in preorder_traversal(i, &tree_prime) {
+				for (j, parent) in tree_prime.preorder_traversal(i) {
 					if let Some(parent) = parent
 						&& !s_prime.contains(&j)
 					{
@@ -200,7 +97,7 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 					}
 				}
 
-				for (j, parent) in postorder_traversal(i, &tree_prime) {
+				for (j, parent) in tree_prime.postorder_traversal(i) {
 					if let Some(parent) = parent {
 						result.push(matrix.add_row(j, parent));
 					}
@@ -260,7 +157,7 @@ mod tests {
 		let mut g: Connectivity<TwoQubitEdge> = Connectivity::new();
 		g.add_edge(TwoQubitEdge([0, 2]));
 		g.add_edge(TwoQubitEdge([0, 1]));
-		let result = postorder_traversal(0, &g);
+		let result = g.postorder_traversal(0);
 		assert_eq!(result, vec![(1, Some(0)), (2, Some(0)), (0, None)]);
 	}
 
@@ -273,7 +170,7 @@ mod tests {
 		g.add_edge(TwoQubitEdge([0, 2]));
 		g.add_edge(TwoQubitEdge([0, 1]));
 
-		let result = postorder_traversal(0, &g);
+		let result = g.postorder_traversal(0);
 		assert_eq!(
 			result,
 			vec![
@@ -292,7 +189,7 @@ mod tests {
 		let mut g: Connectivity<TwoQubitEdge> = Connectivity::new();
 		g.add_edge(TwoQubitEdge([0, 2]));
 		g.add_edge(TwoQubitEdge([0, 1]));
-		let result = preorder_traversal(0, &g);
+		let result = g.preorder_traversal(0);
 		assert_eq!(result, vec![(0, None), (1, Some(0)), (2, Some(0))]);
 	}
 
@@ -305,7 +202,7 @@ mod tests {
 		g.add_edge(TwoQubitEdge([0, 2]));
 		g.add_edge(TwoQubitEdge([0, 1]));
 
-		let result = preorder_traversal(0, &g);
+		let result = g.preorder_traversal(0);
 		assert_eq!(
 			result,
 			vec![
