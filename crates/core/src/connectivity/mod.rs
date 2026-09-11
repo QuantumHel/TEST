@@ -1,16 +1,16 @@
 mod graph;
 mod graph_ext;
+mod normal_graph_ext;
 mod steiner_tree;
 mod subgraph;
 
 use std::collections::{HashSet, VecDeque};
 
-pub use graph::Graph;
-pub use graph_ext::GraphExt;
+pub use graph::{Cardinality, ConstCardinalityEdge, Edge, Graph, Node};
+pub use graph_ext::{GraphExt, IncidenceEdge, IncidenceGraph, IncidenceNode};
+pub use normal_graph_ext::NormalGraphExt;
 pub use steiner_tree::steiner_tree;
 pub use subgraph::{Subedge, Subgraph, Subnode};
-
-pub use crate::connectivity::graph::{Edge, Node};
 
 #[derive(Debug, Default)]
 pub struct ConnectivityNode {
