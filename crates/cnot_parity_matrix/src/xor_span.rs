@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, ops::BitXorAssign};
 
-use test_bits::Bits;
+use bits::Bits;
 
 #[derive(Debug)]
 struct Row<T: XorSpaceElement> {

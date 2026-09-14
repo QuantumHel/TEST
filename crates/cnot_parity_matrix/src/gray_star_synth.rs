@@ -3,9 +3,10 @@ use std::{
 	collections::{BTreeMap, BTreeSet, VecDeque, btree_map::Keys},
 };
 
-use test_bits::Bits;
-use test_circuit::gates::CNot;
-use test_core::connectivity::{Connectivity, ConnectivityNode, Subgraph, steiner_tree};
+use bits::Bits;
+use circuit::gates::CNot;
+use core::connectivity::{Connectivity, ConnectivityNode};
+use graph::{Graph, GraphExt, subgraph::Subgraph};
 
 use crate::{TwoQubitEdge, t_par::ParityVisitor};
 
@@ -380,7 +381,7 @@ impl ParityVisitor<Connectivity<TwoQubitEdge>> for GrayStarSynth {
 		}
 		let needed_qubits = needed_qubits.into_iter().collect::<Vec<_>>();
 
-		let tree = steiner_tree(&needed_qubits, device);
+		let tree = device.steiner_tree(&needed_qubits);
 		let root = *needed_qubits.first().unwrap();
 		let mut queue: VecDeque<usize> = VecDeque::from([root]);
 		let mut visited: BTreeSet<usize> = BTreeSet::new();

@@ -3,9 +3,10 @@ use std::{
 	fmt::Debug,
 };
 
+use crate::{Edge, Graph, Node, utils::DisjointSetForest};
 use crate::{
-	connectivity::{Edge, Graph, Node, Subedge, Subgraph, Subnode},
-	disjoint_set_forest::DisjointSetForest,
+	GraphExt,
+	subgraph::{Subgraph, SubgraphBuilder},
 };
 
 struct Tuple {
@@ -66,8 +67,9 @@ struct MSTEdge {
 }
 
 /// # Panics:
-///     if a terminal is not contained in connectivity.
-pub fn steiner_tree<'a, 'b: 'c, 'c, G: Graph<N, E>, N: Node, E: Edge>(
+///
+/// Panics if a terminal is not contained in connectivity.
+pub fn steiner_tree<'a, 'b: 'c, 'c, G: Graph<N, E> + ?Sized, N: Node, E: Edge>(
 	terminals: &'a [usize],
 	graph: &'b G,
 ) -> Subgraph<'c, N, E> {
@@ -81,17 +83,12 @@ pub fn steiner_tree<'a, 'b: 'c, 'c, G: Graph<N, E>, N: Node, E: Edge>(
 
 	// Handle special cases that contain no edges
 	if terminals.is_empty() {
-		return Subgraph::empty(graph);
+		return SubgraphBuilder::new(graph).finish();
 	} else if terminals.len() == 1 {
 		let terminal = *terminals.first().unwrap();
-		let mut sub_graph = Subgraph::empty(graph);
-		if let Some(node) = graph.get_node(terminal) {
-			sub_graph.nodes[terminal] = Some(Subnode {
-				original: node,
-				edges: Vec::new(),
-			});
-		}
-		return sub_graph;
+		let mut subgraph = SubgraphBuilder::new(graph);
+		subgraph.add_node(terminal);
+		return subgraph.finish();
 	}
 
 	// Step 1.
@@ -232,98 +229,64 @@ pub fn steiner_tree<'a, 'b: 'c, 'c, G: Graph<N, E>, N: Node, E: Edge>(
 		add_edge(edge.header.1, &mut edges, &mut nodes, &pred);
 	}
 
-	let mut sub_graph = Subgraph::empty(graph);
+	let mut subgraph = SubgraphBuilder::new(graph);
 
-	for edge in edges.iter() {
-		sub_graph.edges[*edge] = Some(Subedge {
-			original: graph.get_edge(*edge).unwrap(),
-			nodes: Vec::new(),
-		})
+	for edge in edges.into_iter() {
+		subgraph.add_edge(edge);
 	}
 
-	for node in nodes.iter() {
-		sub_graph.nodes[*node] = Some(Subnode {
-			original: graph.get_node(*node).unwrap(),
-			edges: Vec::new(),
-		});
-
-		// inset node into edges, and edge into node
-		for edge in graph.get_node(*node).unwrap().edges().iter() {
-			if let Some(Some(sub_edge)) = sub_graph.edges.get_mut(*edge) {
-				sub_edge.nodes.push(*node); // ??
-				sub_graph.nodes[*node].as_mut().unwrap().edges.push(*edge);
-			}
-		}
+	for node in nodes.into_iter() {
+		subgraph.add_node(node);
 	}
 
-	assert!(sub_graph.is_tree_with(&terminals));
+	let subgraph = subgraph.finish();
+	assert!(subgraph.is_tree_with(&terminals));
 
-	sub_graph
+	subgraph
 }
 
 #[cfg(test)]
 mod tests {
-	use crate::connectivity::{Connectivity, Edge, steiner_tree::steiner_tree};
+	use super::steiner_tree;
+	use crate::{GraphExt, buildin_graphs::test_graph::TestGraph};
 
-	#[derive(Debug)]
-	struct TestEdge {
-		a: usize,
-		b: usize,
-		weight: f64,
-	}
-
-	impl Edge for TestEdge {
-		fn nodes(&self) -> Vec<usize> {
-			vec![self.a, self.b]
-		}
-
-		fn weight(&self) -> f64 {
-			self.weight
-		}
-	}
-
-	#[rustfmt::skip]
 	#[test]
 	fn aaa() {
-		let mut graph: Connectivity<TestEdge> = Connectivity::new();
-		graph.add_edge(TestEdge { a: 0, b: 1, weight: 10. }); // V1 - V2  0
-		graph.add_edge(TestEdge { a: 0, b: 8, weight: 1. });  // V1 - V9  1
-		graph.add_edge(TestEdge { a: 1, b: 2, weight: 8. });  // V2 - V3  2
-		graph.add_edge(TestEdge { a: 2, b: 3, weight: 9. });  // V3 - V4  3
-		graph.add_edge(TestEdge { a: 3, b: 4, weight: 2. });  // V4 - V5  4
-		graph.add_edge(TestEdge { a: 1, b: 5, weight: 1. });  // V2 - V6  5
-		graph.add_edge(TestEdge { a: 2, b: 4, weight: 2. });  // V3 - V5  6
-		graph.add_edge(TestEdge { a: 4, b: 5, weight: 1. });  // V5 - V6  7
-		graph.add_edge(TestEdge { a: 4, b: 8, weight: 1. });  // V5 - V9  8
-		graph.add_edge(TestEdge { a: 5, b: 6, weight: 1. });   // V6 - V7 9
-		graph.add_edge(TestEdge { a: 6, b: 7, weight: 0.5 }); // V7 - V8 10
-		graph.add_edge(TestEdge { a: 7, b: 8, weight: 0.5 }); // V8 - V9 11
+		let mut graph = TestGraph::default();
+		graph.add_edge(10., &[0, 1]); // V1 - V2  0
+		graph.add_edge(1., &[0, 8]); // V1 - V9  1
+		graph.add_edge(8., &[1, 2]); // V2 - V3  2
+		graph.add_edge(9., &[2, 3]); // V3 - V4  3
+		graph.add_edge(2., &[3, 4]); // V4 - V5  4
+		graph.add_edge(1., &[1, 5]); // V2 - V6  5
+		graph.add_edge(2., &[2, 4]); // V3 - V5  6
+		graph.add_edge(1., &[4, 5]); // V5 - V6  7
+		graph.add_edge(1., &[4, 8]); // V5 - V9  8
+		graph.add_edge(1., &[5, 6]); // V6 - V7 9
+		graph.add_edge(0.5, &[6, 7]); // V7 - V8 10
+		graph.add_edge(0.5, &[7, 8]); // V8 - V9 11
 
-		let full_sub = graph.create_subgraph();
-		assert!(!full_sub.is_tree());
-
+		assert!(!graph.is_tree());
 		let tree = steiner_tree(&[0, 1, 2, 3], &graph);
 		assert!(tree.is_tree());
 		assert!(tree.is_tree_with(&[0, 1, 2, 3]));
-		dbg!(tree);
 	}
 
-	#[rustfmt::skip]
 	#[test]
 	fn none_or_one_terminal() {
-		let mut graph: Connectivity<TestEdge> = Connectivity::new();
-		graph.add_edge(TestEdge { a: 0, b: 1, weight: 10. }); // V1 - V2  0
-		graph.add_edge(TestEdge { a: 0, b: 8, weight: 1. });  // V1 - V9  1
-		graph.add_edge(TestEdge { a: 1, b: 2, weight: 8. });  // V2 - V3  2
-		graph.add_edge(TestEdge { a: 2, b: 3, weight: 9. });  // V3 - V4  3
-		graph.add_edge(TestEdge { a: 3, b: 4, weight: 2. });  // V4 - V5  4
-		graph.add_edge(TestEdge { a: 1, b: 5, weight: 1. });  // V2 - V6  5
-		graph.add_edge(TestEdge { a: 2, b: 4, weight: 2. });  // V3 - V5  6
-		graph.add_edge(TestEdge { a: 4, b: 5, weight: 1. });  // V5 - V6  7
-		graph.add_edge(TestEdge { a: 4, b: 8, weight: 1. });  // V5 - V9  8
-		graph.add_edge(TestEdge { a: 5, b: 6, weight: 1. });   // V6 - V7 9
-		graph.add_edge(TestEdge { a: 6, b: 7, weight: 0.5 }); // V7 - V8 10
-		graph.add_edge(TestEdge { a: 7, b: 8, weight: 0.5 }); // V8 - V9 11
+		let mut graph = TestGraph::default();
+		graph.add_edge(10., &[0, 1]); // V1 - V2  0
+		graph.add_edge(1., &[0, 8]); // V1 - V9  1
+		graph.add_edge(8., &[1, 2]); // V2 - V3  2
+		graph.add_edge(9., &[2, 3]); // V3 - V4  3
+		graph.add_edge(2., &[3, 4]); // V4 - V5  4
+		graph.add_edge(1., &[1, 5]); // V2 - V6  5
+		graph.add_edge(2., &[2, 4]); // V3 - V5  6
+		graph.add_edge(1., &[4, 5]); // V5 - V6  7
+		graph.add_edge(1., &[4, 8]); // V5 - V9  8
+		graph.add_edge(1., &[5, 6]); // V6 - V7 9
+		graph.add_edge(0.5, &[6, 7]); // V7 - V8 10
+		graph.add_edge(0.5, &[7, 8]); // V8 - V9 11
 
 		let tree = steiner_tree(&[1], &graph);
 		assert!(tree.is_tree());
@@ -334,66 +297,28 @@ mod tests {
 		assert!(tree.is_tree_with(&[0]));
 	}
 
-	#[derive(Debug)]
-	struct HyperEdge {
-		nodes: Vec<usize>,
-		weight: f64,
-	}
-
-	impl Edge for HyperEdge {
-		fn nodes(&self) -> Vec<usize> {
-			self.nodes.clone()
-		}
-
-		fn weight(&self) -> f64 {
-			self.weight
-		}
-	}
-
-	#[rustfmt::skip]
 	#[test]
 	fn hypergraph() {
-		let mut graph: Connectivity<HyperEdge> = Connectivity::new();
-
-		// Vertical group on the left (Nodes 1, 2, 3)
-		graph.add_edge(HyperEdge { nodes: vec![0, 1, 2], weight: 1. });
-
-		// Horizontal group on the far left (Nodes 4, 5, 3)
-		graph.add_edge(HyperEdge { nodes: vec![3, 4, 2], weight: 1. });
-
-		// Top horizontal bridge (Nodes 2, 6, 7, 8)
-		graph.add_edge(HyperEdge { nodes: vec![1, 5, 6, 7], weight: 1. });
-
-		// Small ellipse connecting middle nodes (Nodes 6, 7)
-		graph.add_edge(HyperEdge { nodes: vec![5, 6], weight: 1. });
-
-		// Large circular cluster on the right (Nodes 7, 8, 9, 10)
-		graph.add_edge(HyperEdge { nodes: vec![6, 7, 8, 9], weight: 1. });
-
-		// AAAAAAAAAAAAAAAAAAAAAAAAAAAA (Nodes 12, 11, 13, 10)
-		graph.add_edge(HyperEdge { nodes: vec![11, 10, 12, 9], weight: 1. });
-
-		// AAAAAAAAAAAAAAAAAAAAAAAAAAAA (Nodes 2, 3, 5)
-		graph.add_edge(HyperEdge { nodes: vec![1, 2, 4], weight: 1. });
-
-		// AAAAAAAAAAAAAAAAAAAAAAAAAAAA (Nodes 9, 10)
-		graph.add_edge(HyperEdge { nodes: vec![8, 9], weight: 1. });
-
-		// AAAAAAAAAAAAAAAAAAAAAAAAAAAA (Nodes 11, 13)
-		graph.add_edge(HyperEdge { nodes: vec![10, 12], weight: 1. });
+		let mut graph = TestGraph::default();
+		graph.add_edge(1., &[0, 1, 2]);
+		graph.add_edge(1., &[3, 4, 2]);
+		graph.add_edge(1., &[1, 5, 6, 7]);
+		graph.add_edge(1., &[5, 6]);
+		graph.add_edge(1., &[6, 7, 8, 9]);
+		graph.add_edge(1., &[11, 10, 12, 9]);
+		graph.add_edge(1., &[1, 2, 4]);
+		graph.add_edge(1., &[8, 9]);
+		graph.add_edge(1., &[10, 12]);
 
 		let tree = steiner_tree(&[3, 10, 0], &graph);
 		assert!(tree.is_tree());
 		assert!(tree.is_tree_with(&[3, 10, 0]));
-
-		dbg!(tree);
 	}
 
-	#[rustfmt::skip]
 	#[test]
 	fn hypergraph_example() {
-		let mut graph: Connectivity<HyperEdge> = Connectivity::new();
-        graph.add_edge(HyperEdge { nodes: vec![0, 1, 2], weight: 1. });
-        graph.add_edge(HyperEdge { nodes: vec![2, 3, 4], weight: 1. });
+		let mut graph = TestGraph::default();
+		graph.add_edge(1., &[0, 1, 2]);
+		graph.add_edge(1., &[2, 3, 4]);
 	}
 }

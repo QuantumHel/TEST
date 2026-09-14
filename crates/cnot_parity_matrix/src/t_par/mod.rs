@@ -4,21 +4,17 @@ mod squirrel;
 mod state;
 mod triplet;
 
-use std::collections::BTreeSet;
-
-use test_bits::Bits;
-use test_circuit::{
+use self::{state::State, triplet::Triplet};
+use crate::{ParityMatrix, TwoQubitEdge};
+use bits::Bits;
+use circuit::{
 	Circuit,
 	gates::{CNot, H, Rz, X},
 };
-use test_core::{Compiler, connectivity::Connectivity};
-
+use core::{Compiler, connectivity::Connectivity};
 use gateset::CNotRzXYH;
 use parity::Parity;
-
-use crate::{ParityMatrix, TwoQubitEdge};
-
-use self::{state::State, triplet::Triplet};
+use std::collections::BTreeSet;
 
 pub struct HadamardTransform {
 	target: usize,
@@ -357,16 +353,15 @@ pub trait ParityVisitor<Device> {
 
 #[cfg(test)]
 mod tests {
-	use std::num::NonZeroU32;
-
-	use rand::prelude::*;
-	use rand_chacha::ChaCha8Rng;
-	use test_circuit::{
+	use circuit::{
 		Circuit,
 		gates::{CNot, H, Rz},
 	};
-	use test_core::{Compiler, connectivity::Connectivity};
-	use test_simulator::{Simulatable, Statevector};
+	use core::{Compiler, connectivity::Connectivity};
+	use rand::prelude::*;
+	use rand_chacha::ChaCha8Rng;
+	use simulator::{Simulatable, Statevector};
+	use std::num::NonZeroU32;
 
 	use crate::{
 		TwoQubitEdge,

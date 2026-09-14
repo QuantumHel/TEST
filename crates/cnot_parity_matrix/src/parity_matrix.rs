@@ -1,10 +1,7 @@
-use std::ops::{Range, RangeBounds};
-
-use test_bits::Bits;
-
-use test_circuit::gates::CNot;
-
 use crate::xor_span::XorSpan;
+use bits::Bits;
+use circuit::gates::CNot;
+use std::ops::{Range, RangeBounds};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub enum Basis {
@@ -199,7 +196,7 @@ impl std::fmt::Display for ParityMatrix {
 
 #[cfg(test)]
 mod test {
-	use test_circuit::gates::CNot;
+	use circuit::gates::CNot;
 
 	use crate::ParityMatrix;
 

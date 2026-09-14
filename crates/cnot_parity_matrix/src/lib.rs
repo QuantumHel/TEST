@@ -1,12 +1,14 @@
 mod gray_star_synth;
 mod parity_matrix;
 mod patel_markov_hayes;
+mod perm_row_col;
 mod rowcol;
 mod t_par;
 mod xor_span;
 
+use core::connectivity::Connectivity;
+use graph::{Cardinality, ConstCardinalityEdge, Edge};
 pub use parity_matrix::ParityMatrix;
-use test_core::connectivity::{Connectivity, Edge};
 
 pub mod algorithm {
 	pub use super::gray_star_synth::GrayStarSynth;
@@ -15,7 +17,7 @@ pub mod algorithm {
 	pub use super::t_par::TPar;
 }
 
-// This needs to be moved elsewehre
+// FIXME: This needs to be moved elsewehre (also tests in rowcol file)
 #[derive(Debug)]
 pub struct TwoQubitEdge(pub [usize; 2]);
 
@@ -27,6 +29,10 @@ impl Edge for TwoQubitEdge {
 	fn weight(&self) -> f64 {
 		1.0
 	}
+}
+
+impl ConstCardinalityEdge for TwoQubitEdge {
+	type CARDINALITY = Cardinality<2>;
 }
 
 impl TwoQubitEdge {

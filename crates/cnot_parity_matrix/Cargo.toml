@@ -4,14 +4,15 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-test_bits = { path = "../bits" }
-test_core = { path = "../core" }
-test_circuit = { path = "../circuit" }
-test_simulator = { path = "../simulator" }
+bits.workspace = true
+core.workspace = true
+circuit.workspace = true
+simulator.workspace = true
+graph.workspace = true
 openqasm2 = { workspace = true, optional = true }
 rand.workspace = true
 rand_chacha.workspace = true
 
 [features]
 default = []
-openqasm2 = ["dep:openqasm2", "test_circuit/openqasm2"]
+openqasm2 = ["dep:openqasm2", "circuit/openqasm2"]

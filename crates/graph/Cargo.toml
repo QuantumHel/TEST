@@ -1,7 +1,9 @@
 [package]
-name = "test_core"
+name = "test_graph"
 version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-graph.workspace = true
+
+[features]
+default = []

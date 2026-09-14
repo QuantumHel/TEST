@@ -1,4 +1,4 @@
-use super::{ConstCardinalityEdge, Graph, Node, graph::Cardinality};
+use crate::{Cardinality, ConstCardinalityEdge, Graph, Node};
 
 /// This traits implements additional functionality to normal graphs, aka graphs
 /// where [Edge](super::Edge)s implement

@@ -731,11 +731,19 @@ dependencies = [
  "test_bits",
  "test_circuit",
  "test_core",
+ "test_graph",
  "test_simulator",
 ]
 
 [[package]]
 name = "test_core"
+version = "0.0.1"
+dependencies = [
+ "test_graph",
+]
+
+[[package]]
+name = "test_graph"
 version = "0.0.1"
 
 [[package]]

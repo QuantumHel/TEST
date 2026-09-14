@@ -1,4 +1,4 @@
-use crate::connectivity::{Cardinality, ConstCardinalityEdge, Edge, Graph, Node};
+use crate::{Cardinality, ConstCardinalityEdge, Edge, Graph, Node};
 
 #[derive(Debug)]
 pub enum IncidenceNode {
@@ -56,20 +56,40 @@ impl Graph<IncidenceNode, IncidenceEdge> for IncidenceGraph {
 		self.edges.get(index)
 	}
 
-	fn get_edge_mut(&mut self, index: usize) -> Option<&mut IncidenceEdge> {
-		self.edges.get_mut(index)
-	}
-
 	fn get_node(&self, index: usize) -> Option<&IncidenceNode> {
 		self.nodes.get(index)
 	}
 
-	fn get_node_mut(&mut self, index: usize) -> Option<&mut IncidenceNode> {
-		self.nodes.get_mut(index)
-	}
-
 	fn node_storage_size(&self) -> usize {
 		self.nodes.len()
+	}
+
+	fn enumerate_edges<'a>(&'a self) -> impl Iterator<Item = (usize, &'a IncidenceEdge)>
+	where
+		IncidenceEdge: 'a,
+	{
+		self.edges.iter().enumerate()
+	}
+
+	fn enumerate_nodes<'a>(&'a self) -> impl Iterator<Item = (usize, &'a IncidenceNode)>
+	where
+		IncidenceNode: 'a,
+	{
+		self.nodes.iter().enumerate()
+	}
+
+	fn iter_edges<'a>(&'a self) -> impl Iterator<Item = &'a IncidenceEdge>
+	where
+		IncidenceEdge: 'a,
+	{
+		self.edges.iter()
+	}
+
+	fn iter_nodes<'a>(&'a self) -> impl Iterator<Item = &'a IncidenceNode>
+	where
+		IncidenceNode: 'a,
+	{
+		self.nodes.iter()
 	}
 }
 

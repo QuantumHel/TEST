@@ -1,6 +1,7 @@
-use test_bits::Bits;
-use test_circuit::{Circuit, gates::CNot};
-use test_core::prelude::*;
+use bits::Bits;
+use circuit::{Circuit, gates::CNot};
+use core::prelude::*;
+use graph::prelude::*;
 
 use crate::{ParityMatrix, TwoQubitEdge};
 
@@ -16,23 +17,26 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 	) -> Circuit<CNot> {
 		let n = connectivity.nodes().len();
 		let mut result = Circuit::new();
-		let mut g = connectivity.create_subgraph();
+		let mut g = connectivity.full_subgraph();
 		// Change to BFS at some point?
-		let mut total_tree = steiner_tree(&(0..n).collect::<Vec<usize>>(), connectivity);
+		let mut total_tree = connectivity.steiner_tree(&(0..n).collect::<Vec<usize>>());
 
 		loop {
-			let leafs = total_tree.leaf_nodes();
+			let leafs = total_tree
+				.enumerate_leaf_nodes()
+				.map(|(i, _)| i)
+				.collect::<Vec<_>>();
 			if leafs.is_empty() {
 				break;
 			}
 
 			// 1
-			for i in leafs.iter().map(|(i, _)| *i).collect::<Vec<_>>() {
+			for i in leafs {
 				// 2
 				let s: Vec<_> = (0..n).filter(|j| matrix.get(*j, i)).chain([i]).collect();
 
 				// 3
-				let tree = steiner_tree(&s, &g);
+				let tree = g.steiner_tree(&s);
 
 				// 4
 				for (j, k) in tree.postorder_traversal(i) {
@@ -87,7 +91,7 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 					terminals
 				};
 
-				let tree_prime = steiner_tree(&terminals, &g);
+				let tree_prime = g.steiner_tree(&terminals);
 
 				for (j, parent) in tree_prime.preorder_traversal(i) {
 					if let Some(parent) = parent

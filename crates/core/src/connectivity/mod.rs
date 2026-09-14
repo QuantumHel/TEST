@@ -1,16 +1,6 @@
-mod graph;
-mod graph_ext;
-mod normal_graph_ext;
-mod steiner_tree;
-mod subgraph;
-
 use std::collections::{HashSet, VecDeque};
 
-pub use graph::{Cardinality, ConstCardinalityEdge, Edge, Graph, Node};
-pub use graph_ext::{GraphExt, IncidenceEdge, IncidenceGraph, IncidenceNode};
-pub use normal_graph_ext::NormalGraphExt;
-pub use steiner_tree::steiner_tree;
-pub use subgraph::{Subedge, Subgraph, Subnode};
+use graph::prelude::*;
 
 #[derive(Debug, Default)]
 pub struct ConnectivityNode {
@@ -50,32 +40,6 @@ impl<T: Edge> Connectivity<T> {
 	/// somehow.
 	pub fn new() -> Self {
 		Self::default()
-	}
-
-	/// Creates an identical [Subgraph]
-	pub fn create_subgraph(&self) -> Subgraph<'_, ConnectivityNode, T> {
-		Subgraph {
-			edges: self
-				.edges
-				.iter()
-				.map(|original| {
-					Some(Subedge {
-						nodes: original.nodes(),
-						original,
-					})
-				})
-				.collect(),
-			nodes: self
-				.nodes
-				.iter()
-				.map(|original| {
-					Some(Subnode {
-						edges: original.edges.clone(),
-						original,
-					})
-				})
-				.collect(),
-		}
 	}
 
 	pub fn add_edge(&mut self, edge: T) {
@@ -162,5 +126,51 @@ impl<T: Edge> Connectivity<T> {
 		}
 
 		true
+	}
+}
+
+impl<E: Edge> Graph<ConnectivityNode, E> for Connectivity<E> {
+	fn node_storage_size(&self) -> usize {
+		self.nodes.len()
+	}
+
+	fn edge_storage_size(&self) -> usize {
+		self.edges.len()
+	}
+
+	fn get_node(&self, index: usize) -> Option<&ConnectivityNode> {
+		self.nodes.get(index)
+	}
+
+	fn get_edge(&self, index: usize) -> Option<&E> {
+		self.edges.get(index)
+	}
+
+	fn enumerate_edges<'a>(&'a self) -> impl Iterator<Item = (usize, &'a E)>
+	where
+		E: 'a,
+	{
+		self.edges.iter().enumerate()
+	}
+
+	fn enumerate_nodes<'a>(&'a self) -> impl Iterator<Item = (usize, &'a ConnectivityNode)>
+	where
+		ConnectivityNode: 'a,
+	{
+		self.nodes.iter().enumerate()
+	}
+
+	fn iter_edges<'a>(&'a self) -> impl Iterator<Item = &'a E>
+	where
+		E: 'a,
+	{
+		self.edges.iter()
+	}
+
+	fn iter_nodes<'a>(&'a self) -> impl Iterator<Item = &'a ConnectivityNode>
+	where
+		ConnectivityNode: 'a,
+	{
+		self.nodes.iter()
 	}
 }

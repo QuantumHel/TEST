@@ -1,15 +1,15 @@
+#[cfg(feature = "openqasm2")]
+use circuit::openqasm2::OpenQasm2Gate;
+use circuit::{
+	RandomGate,
+	gates::{CNot, H, Rz, X, Y},
+};
 use rand::{
 	RngExt,
 	distr::{Distribution, StandardUniform},
 };
+use simulator::{Complex, Simulatable};
 use std::ops::AddAssign;
-#[cfg(feature = "openqasm2")]
-use test_circuit::openqasm2::OpenQasm2Gate;
-use test_circuit::{
-	RandomGate,
-	gates::{CNot, H, Rz, X, Y},
-};
-use test_simulator::{Complex, Simulatable};
 
 use super::squirrel::Squirrel;
 

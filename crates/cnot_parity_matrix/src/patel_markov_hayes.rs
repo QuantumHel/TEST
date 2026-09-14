@@ -1,5 +1,5 @@
-use test_circuit::{Circuit, gates::CNot};
-use test_core::Compiler;
+use circuit::{Circuit, gates::CNot};
+use core::Compiler;
 
 use crate::ParityMatrix;
 use std::{num::NonZero, ops::Range};
@@ -89,11 +89,11 @@ impl PatelMarkovHayes {
 
 #[cfg(test)]
 mod test {
+	use circuit::{Circuit, gates::CNot};
+	use core::Compiler;
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 	use std::num::NonZeroU32;
-	use test_circuit::{Circuit, gates::CNot};
-	use test_core::Compiler;
 
 	use super::PatelMarkovHayes;
 	use crate::ParityMatrix;

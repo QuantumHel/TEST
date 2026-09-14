@@ -9,9 +9,16 @@ members = ["crates/*"]
 [lib]
 
 [workspace.dependencies]
+
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 openqasm2 = { package = "openqasm", version = "0.1.2" }
+bits = { path = "crates/bits", package = "test_bits" }
+#cnot_parity_matrix = { path = "crates/cnot_parity_matrix", package = "test_cnot_parity_matrix" }rand = "0.10.1"
+circuit = { path = "crates/circuit", package = "test_circuit" }
+core = { path = "crates/core", package = "test_core" }
+graph = { path = "crates/graph", package = "test_graph" }
+simulator = { path = "crates/simulator", package = "test_simulator" }
 
 [dependencies]
 test_bits = { path = "crates/bits" }

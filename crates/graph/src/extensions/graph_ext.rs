@@ -1,10 +1,12 @@
-mod incidence_graph;
+use std::collections::{HashSet, VecDeque};
 
-use crate::connectivity::NormalGraphExt;
+use crate::{
+	Edge, Graph, Node,
+	incidence_graph::{IncidenceGraph, IncidenceNode},
+	subgraph::Subgraph,
+};
 
-pub use self::incidence_graph::{IncidenceEdge, IncidenceGraph, IncidenceNode};
-
-use super::{Edge, Graph, Node};
+use super::NormalGraphExt;
 
 pub trait GraphExt<N: Node, E: Edge>: Graph<N, E> {
 	fn is_empty(&self) -> bool {
@@ -158,7 +160,7 @@ pub trait GraphExt<N: Node, E: Edge>: Graph<N, E> {
 	/// based on work of John Hopcroft and Robert Tarjan
 	/// https://doi.org/10.1145/362248.362272 )
 	fn non_cutting_nodes(&self) -> Vec<usize> {
-		let indicence_graph = self.create_incidence_graph();
+		let indicence_graph = self.incidence_graph();
 		let non_cutting = indicence_graph.normal_non_cutting_nodes();
 		non_cutting
 			.into_iter()
@@ -172,8 +174,86 @@ pub trait GraphExt<N: Node, E: Edge>: Graph<N, E> {
 			.collect()
 	}
 
-	fn create_incidence_graph(&self) -> IncidenceGraph {
+	fn incidence_graph(&self) -> IncidenceGraph {
 		IncidenceGraph::new_from(self)
+	}
+
+	fn steiner_tree<'a>(&'a self, terminals: &[usize]) -> Subgraph<'a, N, E> {
+		crate::algorithms::steiner_tree(terminals, self)
+	}
+
+	/// Creates a subgraph that contains the whole graph.
+	fn full_subgraph(&self) -> Subgraph<'_, N, E> {
+		Subgraph::full(self)
+	}
+
+	/// Iterates over all nodes that belong to one or less nodes.
+	fn leaf_nodes<'a>(&'a self) -> impl Iterator<Item = &'a N>
+	where
+		N: 'a,
+	{
+		self.iter_nodes().filter(|n| n.edges().len() < 2)
+	}
+
+	/// Iterates over all (index, node) pairs where node belongs to one or less
+	/// edges.
+	fn enumerate_leaf_nodes<'a>(&'a self) -> impl Iterator<Item = (usize, &'a N)>
+	where
+		N: 'a,
+	{
+		self.enumerate_nodes().filter(|(_, n)| n.edges().len() < 2)
+	}
+
+	fn is_tree(&self) -> bool {
+		let mut visited: HashSet<usize> = HashSet::new();
+		let mut used_edges: HashSet<usize> = HashSet::new();
+		let mut to_visit: VecDeque<usize> = VecDeque::new();
+
+		if let Some((first, _)) = self.enumerate_nodes().next() {
+			to_visit.push_front(first);
+			visited.insert(first);
+		} else {
+			return true;
+		}
+
+		while let Some(node) = to_visit.pop_back() {
+			for edge in self.get_node(node).unwrap().edges() {
+				if used_edges.contains(&edge) {
+					continue;
+				}
+
+				for neighbor in self.get_edge(edge).unwrap().nodes() {
+					if neighbor == node {
+						continue;
+					}
+
+					if visited.contains(&neighbor) {
+						return false;
+					} else {
+						visited.insert(neighbor);
+						to_visit.push_front(neighbor);
+					}
+				}
+
+				used_edges.insert(edge);
+			}
+		}
+
+		visited.len() == self.iter_nodes().count()
+	}
+
+	fn is_tree_with(&self, terminals: &[usize]) -> bool {
+		if !self.is_tree() {
+			return false;
+		}
+
+		for &terminal in terminals {
+			if self.get_node(terminal).is_none() {
+				return false;
+			}
+		}
+
+		true
 	}
 }
 
@@ -238,7 +318,7 @@ fn non_cutting_edges_dfs<N: Node, E: Edge, G: Graph<N, E> + ?Sized>(
 #[cfg(test)]
 mod tests {
 	use super::GraphExt;
-	use crate::connectivity::{Edge, Graph, Node};
+	use crate::{Edge, Graph, Node};
 
 	#[derive(Default, Debug)]
 	struct TestEdge {
@@ -307,14 +387,6 @@ mod tests {
 
 		fn get_node(&self, index: usize) -> Option<&TestNode> {
 			self.nodes.get(index)
-		}
-
-		fn get_edge_mut(&mut self, index: usize) -> Option<&mut TestEdge> {
-			self.edges.get_mut(index)
-		}
-
-		fn get_node_mut(&mut self, index: usize) -> Option<&mut TestNode> {
-			self.nodes.get_mut(index)
 		}
 	}
 
