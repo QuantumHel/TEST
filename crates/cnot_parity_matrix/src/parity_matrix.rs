@@ -10,6 +10,43 @@ pub enum Basis {
 	Hadamard,
 }
 
+/// A parity matrix representing an operation that can be done using cnot gates.
+///
+///
+/// The representation is such that output qubit parities map to rows.
+///
+/// For example in the standard basis the circuit:
+/// ```text
+///        0⊕1
+/// |0>─[x]───────[x]─|0⊕2>
+///      │         |
+/// |1>──■──■──────┼──|1>
+///         | 1⊕2 |
+/// |2>────[x]─────■──|1⊕2>
+/// ```
+/// maps to
+/// ```text
+/// [ 1 0 1 ]
+/// [ 0 1 0 ]
+/// [ 0 1 1 ]
+/// ```
+///
+/// , and in the hadamard basis (cnot reversed):
+/// ```text
+///
+/// |0>─[H]─[x]─────────────[x]─[H]─|0>
+///          │ 0⊕1  0⊕1⊕2 |     
+/// |1>─[H]──■─────■─────────┼──[H]─|0⊕1⊕2>
+///                |         |
+/// |2>─[H]───────[x]────────■──[H]─|0⊕2>
+/// ```
+///
+/// maps to
+/// ```text
+/// [ 1 0 0 ]
+/// [ 1 1 1 ]
+/// [ 1 0 1 ]
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct ParityMatrix {
 	rows: Vec<Bits>,
@@ -64,6 +101,16 @@ impl ParityMatrix {
 			.get_range(cols)
 	}
 
+	/// Insets a cnot to the end of the parity matrix.
+	///
+	/// For example if the cnots are represented as matrices $M_i$, and the
+	/// original matrix is:
+	///
+	/// $$M_0M_1M_2M_3M_4$$
+	///
+	/// and we insert $M_5$, it goes to the end and `self` becomes
+	///
+	/// $$M_0M_1M_2M_3M_4M_5$$
 	pub fn insert_cnot(&mut self, cnot: CNot) {
 		match self.basis {
 			Basis::Standard => self.add_row(cnot.control(), cnot.target()),
@@ -71,6 +118,13 @@ impl ParityMatrix {
 		};
 	}
 
+	/// Adds two rows together and returns the corresponding [CNot] added to the
+	/// end.
+	///
+	/// As the [CNot]s returned are at the end, the order of them (when $M_0$ is
+	/// from the first addition) is
+	///
+	/// $$...M_4M_3M_2M_1M_0$$
 	pub fn add_row(&mut self, source: usize, target: usize) -> CNot {
 		while self.rows.len() <= target {
 			self.rows.push(Bits::with_one(self.rows.len()));
