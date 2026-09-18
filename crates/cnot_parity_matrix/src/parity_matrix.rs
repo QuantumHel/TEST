@@ -1,6 +1,8 @@
 use crate::xor_span::XorSpan;
 use bits::Bits;
 use circuit::gates::CNot;
+use core::QubitMapping;
+use graph::{Cardinality, ConstCardinalityEdge, Graph, GraphExt, Node};
 use std::ops::{Range, RangeBounds};
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -118,6 +120,21 @@ impl ParityMatrix {
 		};
 	}
 
+	/// Inserts a [QubitMapping] to the end of a [ParityMatrix] (output
+	/// [QubitMapping]).
+	pub fn insert_qubit_mapping(&mut self, qubit_mapping: &QubitMapping) {
+		let mut clone = self.clone();
+		for (original, target) in qubit_mapping.map_non_trivial() {
+			let row = self.get_row(original);
+			while clone.rows.len() < target {
+				clone.rows.push(Bits::with_one(clone.rows.len()));
+			}
+			clone.rows[target] = row;
+		}
+
+		*self = clone;
+	}
+
 	/// Adds two rows together and returns the corresponding [CNot] added to the
 	/// end.
 	///
@@ -152,6 +169,8 @@ impl ParityMatrix {
 			rows: vec![Bits::default(); size],
 			basis: self.basis,
 		};
+		// This is reversed so that we allocate the needed bits size on first
+		// round.
 		for (i, row) in self.rows.iter().enumerate().rev() {
 			for j in row.iter_ones() {
 				transpose
@@ -162,6 +181,8 @@ impl ParityMatrix {
 			}
 		}
 
+		// Sets the diagonal for rows that are omitted in self due to being
+		// trivial (e_i)
 		if size > self.rows.len() {
 			for i in self.rows.len()..size {
 				transpose
@@ -227,6 +248,125 @@ impl ParityMatrix {
 		let span = XorSpan::new(&self.rows);
 		span.span_element(bits)
 	}
+
+	/// Elimination of a columnd as described in
+	/// https://doi.org/10.1103/PhysRevResearch.5.013065
+	///
+	/// The resulting column will have `1` only in the `row` that was given as
+	/// a parameter as used in paper https://arxiv.org/abs/2205.00724v4
+	///
+	/// Importantly the output [CNot] gates are reversed as described in
+	/// [ParityMatrix::add_row]
+	pub fn eliminate_column<
+		G: Graph<N, E>,
+		N: Node,
+		E: ConstCardinalityEdge<CARDINALITY = Cardinality<2>>,
+	>(
+		&mut self,
+		row: usize,
+		column: usize,
+		connectivity: &G,
+	) -> Vec<CNot> {
+		let mut result = Vec::new();
+		let s: Vec<_> = (0..self.rows.len().max(column))
+			.filter(|j| self.get(*j, column))
+			.chain([row])
+			.collect();
+
+		let tree = connectivity.steiner_tree(&s);
+
+		for (j, k) in tree.postorder_traversal(row) {
+			if let Some(k) = k
+				&& self.get(j, column)
+				&& !self.get(k, column)
+			{
+				result.push(self.add_row(j, k));
+			}
+		}
+
+		for (j, k) in tree.postorder_traversal(row) {
+			for edge in tree.get_node(j).unwrap().edges() {
+				let neighbor: usize = *tree
+					.get_edge(*edge)
+					.unwrap()
+					.nodes()
+					.iter()
+					.find(|n| **n != j)
+					.unwrap();
+
+				if let Some(k) = k
+					&& neighbor == k
+				{
+					continue;
+				}
+
+				result.push(self.add_row(j, neighbor));
+			}
+		}
+
+		for i in 0..self.rows.len().max(column) {
+			assert_eq!(self.get(i, column), i == row);
+		}
+
+		result
+	}
+
+	/// Elimination of a row as described in
+	/// https://doi.org/10.1103/PhysRevResearch.5.013065
+	///
+	/// The resulting row will have `1` only in the `column` that was given as
+	/// a parameter as used in paper https://arxiv.org/abs/2205.00724v4
+	///
+	/// Importantly the output [CNot] gates are reversed as described in
+	/// [ParityMatrix::add_row]
+	pub fn eliminate_row<
+		G: Graph<N, E>,
+		N: Node,
+		E: ConstCardinalityEdge<CARDINALITY = Cardinality<2>>,
+	>(
+		&mut self,
+		row: usize,
+		column: usize,
+		connectivity: &G,
+	) -> Vec<CNot> {
+		let mut result = Vec::new();
+		let sum_target = {
+			let mut original = self.get_row(row);
+			original.set(column, !original.get(column));
+			original
+		};
+
+		let s_prime: Vec<usize> = self
+			.span_bits(&sum_target)
+			.expect("should be impossible")
+			.iter_ones()
+			.collect();
+		let terminals = {
+			let mut terminals: Vec<usize> = s_prime.clone();
+			terminals.push(row);
+			terminals
+		};
+
+		let tree_prime = connectivity.steiner_tree(&terminals);
+
+		for (j, parent) in tree_prime.preorder_traversal(row) {
+			if let Some(parent) = parent
+				&& !s_prime.contains(&j)
+			{
+				result.push(self.add_row(j, parent));
+			}
+		}
+
+		for (j, parent) in tree_prime.postorder_traversal(row) {
+			if let Some(parent) = parent {
+				result.push(self.add_row(j, parent));
+			}
+		}
+
+		assert_eq!(self.get_row(row), Bits::with_one(column));
+
+		result
+	}
 }
 
 impl std::fmt::Display for ParityMatrix {
@@ -250,6 +390,9 @@ impl std::fmt::Display for ParityMatrix {
 
 #[cfg(test)]
 mod test {
+	use core::QubitMapping;
+
+	use bits::Bits;
 	use circuit::gates::CNot;
 
 	use crate::ParityMatrix;
@@ -279,5 +422,30 @@ mod test {
 			partiy_matrix.add_row(cnot.control(), cnot.target());
 		}
 		println!("{partiy_matrix}");
+	}
+
+	#[test]
+	fn test() {
+		let mut matrix = ParityMatrix::default();
+		matrix.insert_cnot(CNot::new(1, 0).unwrap());
+		matrix.insert_cnot(CNot::new(2, 0).unwrap());
+		matrix.insert_cnot(CNot::new(0, 1).unwrap());
+		matrix.insert_cnot(CNot::new(1, 0).unwrap());
+		matrix.insert_cnot(CNot::new(2, 0).unwrap());
+		matrix.insert_cnot(CNot::new(0, 2).unwrap());
+
+		let mut qubit_map = QubitMapping::default();
+		qubit_map.swap_mapped(0, 1);
+		qubit_map.swap_mapped(1, 2);
+
+		let mut row_0 = Bits::with_one(1);
+		row_0.set(2, true);
+		let mut row_1 = Bits::with_one(0);
+		row_1.set(2, true);
+		let row_2 = Bits::with_one(1);
+		assert_eq!(matrix.size(), 3);
+		assert_eq!(matrix.get_row(0), row_0);
+		assert_eq!(matrix.get_row(1), row_1);
+		assert_eq!(matrix.get_row(2), row_2);
 	}
 }

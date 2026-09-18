@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+	collections::{BTreeMap, BTreeSet},
+	fmt::Debug,
+};
 
 pub mod connectivity;
 
@@ -11,13 +14,61 @@ pub trait Compiler<Input, Output, Device = ()>: Sized {
 	fn compile(&self, input: Input, device: &Device) -> Output;
 }
 
+#[derive(Default, Debug)]
+pub struct QubitMappingBuilder {
+	map: BTreeMap<usize, usize>,
+}
+
+impl QubitMappingBuilder {
+	/// Sets that `from` maps to `to`. Overwrites old value of `from` if alread
+	/// mapped.
+	pub fn map_qubit(&mut self, from: usize, to: usize) {
+		self.map.insert(from, to);
+	}
+
+	/// Tries to create a [QubitMapping]. If ther resulting mapping maps two
+	/// qubits on top of each other, the [QubitMappingBuilder] is returned as
+	/// [Err].
+	pub fn finish(self) -> Result<QubitMapping, Self> {
+		let mut removed: BTreeSet<usize> = BTreeSet::new();
+		let mut filled: BTreeSet<usize> = BTreeSet::new();
+
+		let mut map: BTreeMap<usize, usize> = BTreeMap::new();
+		let mut inverse: BTreeMap<usize, usize> = BTreeMap::new();
+		for (from, to) in self.map.iter() {
+			removed.insert(*from);
+			if !filled.insert(*to) {
+				return Err(self);
+			}
+
+			map.insert(*from, *to);
+			inverse.insert(*to, *from);
+		}
+
+		if removed != filled {
+			return Err(self);
+		}
+
+		Ok(QubitMapping { map, inverse })
+	}
+}
+
 /// This maps some qubits to other qubits.
 ///
 /// The most common usecase is to map qubits at the start of the program, as
 /// that is a free classical step.
+#[derive(Default)]
 pub struct QubitMapping {
 	map: BTreeMap<usize, usize>,
 	inverse: BTreeMap<usize, usize>,
+}
+
+impl Debug for QubitMapping {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("QubitMapping")
+			.field("map", &self.map)
+			.finish()
+	}
 }
 
 impl QubitMapping {
@@ -45,5 +96,31 @@ impl QubitMapping {
 	/// Finds the source qubit of a mapped qubit
 	pub fn source(&self, qubit: usize) -> usize {
 		self.inverse.get(&qubit).copied().unwrap_or(qubit)
+	}
+
+	pub fn map_non_trivial(&self) -> impl Iterator<Item = (usize, usize)> {
+		self.map.iter().map(|(&a, &b)| (a, b))
+	}
+
+	pub fn as_reversed(self) -> Self {
+		Self {
+			map: self.inverse,
+			inverse: self.map,
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::QubitMapping;
+
+	#[test]
+	fn test1() {
+		let mut mapping = QubitMapping::default();
+		mapping.swap_mapped(0, 1);
+		mapping.swap_mapped(1, 2);
+		for a in mapping.map_non_trivial() {
+			println!("{a:?}");
+		}
 	}
 }

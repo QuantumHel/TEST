@@ -1,4 +1,4 @@
-use crate::{Edge, Graph, Node};
+use crate::{ConstCardinalityEdge, Edge, Graph, Node};
 
 #[derive(Debug)]
 pub struct Subedge<'a, T: Edge> {
@@ -20,6 +20,10 @@ impl<'a, T: Edge> Subedge<'a, T> {
 	pub fn nodes(&self) -> &[usize] {
 		&self.nodes
 	}
+}
+
+impl<'a, E: ConstCardinalityEdge> ConstCardinalityEdge for Subedge<'a, E> {
+	type CARDINALITY = E::CARDINALITY;
 }
 
 #[derive(Debug)]
@@ -180,6 +184,9 @@ impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
 		}
 	}
 
+	/// FIXME: Specify if weak or strong remove (maybe make two functions).
+	/// This function results from applying (wrongly) normal graph assumptions
+	/// to hypergraphs.
 	pub fn remove_node(&mut self, nodes: usize) {
 		if let Some(target) = self.nodes.get_mut(nodes).and_then(|a| a.take()) {
 			for edge_index in target.edges {
@@ -187,12 +194,24 @@ impl<'a, N: Node, T: Edge> Subgraph<'a, N, T> {
 				let index = edge.nodes.iter().position(|a| *a == nodes).unwrap();
 				edge.nodes.swap_remove(index);
 				if edge.nodes.len() < 2 {
-					self.remove_edge(edge_index);
+					if let Some(&node_in_edge) = edge.nodes.first() {
+						let node_in_edge = self.nodes[node_in_edge].as_mut().unwrap();
+						let i = node_in_edge
+							.edges
+							.iter()
+							.position(|a| *a == edge_index)
+							.unwrap();
+						node_in_edge.edges.swap_remove(i);
+					}
+					self.edges[edge_index] = None;
 				}
 			}
 		}
 	}
 
+	/// FIXME: Specify if weak or strong remove (maybe make two functions).
+	/// This function results from applying (wrongly) normal graph assumptions
+	/// to hypergraphs.
 	pub fn remove_edge(&mut self, edge: usize) {
 		if let Some(target) = self.edges.get_mut(edge).and_then(|a| a.take()) {
 			for qubit_index in target.nodes {

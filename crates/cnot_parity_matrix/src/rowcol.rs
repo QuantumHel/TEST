@@ -32,82 +32,8 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 
 			// 1
 			for i in leafs {
-				// 2
-				let s: Vec<_> = (0..n).filter(|j| matrix.get(*j, i)).chain([i]).collect();
-
-				// 3
-				let tree = g.steiner_tree(&s);
-
-				// 4
-				for (j, k) in tree.postorder_traversal(i) {
-					if let Some(k) = k
-						&& matrix.get(j, i)
-						&& !matrix.get(k, i)
-					{
-						result.push(matrix.add_row(j, k));
-					}
-				}
-
-				// 5
-				for (j, k) in tree.postorder_traversal(i) {
-					for edge in tree.get_node(j).unwrap().edges() {
-						let neighbor: usize = *tree
-							.get_edge(*edge)
-							.unwrap()
-							.nodes()
-							.iter()
-							.find(|n| **n != j)
-							.unwrap();
-
-						if let Some(k) = k
-							&& neighbor == k
-						{
-							continue;
-						}
-
-						result.push(matrix.add_row(j, neighbor));
-					}
-				}
-
-				for j in 0..n {
-					assert_eq!(matrix.get(j, i), j == i);
-				}
-
-				// 6
-				let sum_target = {
-					let mut original = matrix.get_row(i);
-					original.set(i, !original.get(i));
-					original
-				};
-
-				let s_prime: Vec<usize> = matrix
-					.span_bits(&sum_target)
-					.expect("should be impossible")
-					.iter_ones()
-					.collect();
-				let terminals = {
-					let mut terminals: Vec<usize> = s_prime.clone();
-					terminals.push(i);
-					terminals
-				};
-
-				let tree_prime = g.steiner_tree(&terminals);
-
-				for (j, parent) in tree_prime.preorder_traversal(i) {
-					if let Some(parent) = parent
-						&& !s_prime.contains(&j)
-					{
-						result.push(matrix.add_row(j, parent));
-					}
-				}
-
-				for (j, parent) in tree_prime.postorder_traversal(i) {
-					if let Some(parent) = parent {
-						result.push(matrix.add_row(j, parent));
-					}
-				}
-
-				assert_eq!(matrix.get_row(i), Bits::with_one(i));
+				result.append(&mut matrix.eliminate_column(i, i, &g));
+				result.append(&mut matrix.eliminate_row(i, i, &g));
 
 				g.remove_node(i);
 				total_tree.remove_node(i);

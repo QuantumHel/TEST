@@ -46,6 +46,10 @@ impl<T> Circuit<T> {
 		self.gates.push(gate.into());
 	}
 
+	pub fn append<G: Into<T>>(&mut self, gates: &mut Vec<G>) {
+		self.gates.extend(gates.drain(..).map(Into::into));
+	}
+
 	pub fn iter(&self) -> Iter<'_, T> {
 		self.gates.iter()
 	}
