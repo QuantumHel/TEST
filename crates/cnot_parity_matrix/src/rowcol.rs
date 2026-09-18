@@ -1,4 +1,3 @@
-use bits::Bits;
 use circuit::{Circuit, gates::CNot};
 use core::prelude::*;
 use graph::prelude::*;
