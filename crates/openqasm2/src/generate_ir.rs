@@ -183,16 +183,20 @@ impl<'a, T: OpenQasm2IR> SymTab<'a, T> {
 				let gate = self.gates.get(&name.text).unwrap().clone();
 				match gate {
 					DefinedGate::Gate(gate) => {
-						let input_len = qargs
-							.iter()
-							.filter_map(|a| match a {
-								ast::Argument::Named { name } => {
-									Some(self.declarations.get(&name.text).unwrap().indices.len())
-								}
-								_ => None,
-							})
-							.max()
-							.unwrap_or(1);
+						let input_len = if !self.gate_inputs.is_empty() {
+							1
+						} else {
+							qargs
+								.iter()
+								.filter_map(|a| match a {
+									ast::Argument::Named { name } => Some(
+										self.declarations.get(&name.text).unwrap().indices.len(),
+									),
+									_ => None,
+								})
+								.max()
+								.unwrap_or(1)
+						};
 
 						for i in 0..input_len {
 							let mut gate_inputs: HashMap<String, GateInput> = HashMap::new();

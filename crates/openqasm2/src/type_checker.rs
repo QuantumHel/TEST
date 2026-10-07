@@ -44,6 +44,7 @@ enum GateInput {
 	QubitBinding(ast::Id),
 }
 
+/*
 impl PartialEq for GateInput {
 	fn eq(&self, other: &Self) -> bool {
 		match (self, other) {
@@ -74,6 +75,7 @@ impl PartialEq for GateInput {
 		}
 	}
 }
+	 */
 
 struct TypeMap<'a, T: OpenQasm2IR> {
 	frontned: &'a OpenQasm2Frontend<T>,
@@ -278,55 +280,74 @@ impl<'a, T: OpenQasm2IR> TypeMap<'a, T> {
 							));
 						}
 
-						let mut new_gate_inputs: HashMap<String, GateInput> = HashMap::new();
-						for param in gate.params.iter() {
-							new_gate_inputs.insert(param.text.clone(), GateInput::Param);
-						}
-						for (name, qarg) in gate.qargs.iter().zip(qargs.iter()) {
-							let qarg_name = qarg.name();
-							if let Some(gate_inputs) = self.gate_inputs.as_ref() {
-								let Some(gate_input) = gate_inputs.get(&qarg_name.text) else {
-									return Err(Error::new(
-										ErrorKind::UndefinedIdentifier(qarg_name.text.clone()),
-										qarg_name.location.clone(),
-									));
-								};
-
-								new_gate_inputs.insert(name.text.clone(), gate_input.clone());
-							} else {
-								new_gate_inputs
-									.insert(name.text.clone(), GateInput::Qarg(qarg.clone()));
-							}
-						}
-
 						let outer_inputs = self.gate_inputs.take();
-						self.gate_inputs = Some(new_gate_inputs);
-						for operator in gate.quantum_operators.iter() {
-							match operator {
-								ast::GateOperation::UnitaryOperator(unitary_operator) => {
-									self.process_unitary_operator(unitary_operator)?;
-								}
-								ast::GateOperation::Barrier(qargs) => {
-									for qarg in qargs.iter() {
-										match self.gate_inputs.as_ref().unwrap().get(&qarg.text) {
-											Some(GateInput::Qarg(_))
-											| Some(GateInput::QubitBinding(_)) => {}
-											Some(GateInput::Param) => {
-												return Err(Error::new(
-													ErrorKind::Custom(format!(
-														"Expected qubit argument, got {} of numeric type insted",
-														qarg.text
-													)),
-													qarg.location.clone(),
-												));
-											}
-											_ => {
+						for i in 0..input_register_size.unwrap_or(1) {
+							// do same here as in generate ir
+							let mut new_gate_inputs: HashMap<String, GateInput> = HashMap::new();
+							for param in gate.params.iter() {
+								new_gate_inputs.insert(param.text.clone(), GateInput::Param);
+							}
+							for (name, qarg) in gate.qargs.iter().zip(qargs.iter()) {
+								let new = match qarg {
+									ast::Argument::Indexed { name, index } => {
+										GateInput::Qarg(ast::Argument::Indexed {
+											name: name.clone(),
+											index: *index,
+										})
+									}
+									ast::Argument::Named { name } => {
+										if let Some(gate_inputs) = outer_inputs.as_ref() {
+											let Some(gate_input) = gate_inputs.get(&name.text)
+											else {
 												return Err(Error::new(
 													ErrorKind::UndefinedIdentifier(
-														qarg.text.clone(),
+														name.text.clone(),
 													),
-													qarg.location.clone(),
+													name.location.clone(),
 												));
+											};
+
+											gate_input.clone()
+										} else {
+											GateInput::Qarg(ast::Argument::Indexed {
+												name: name.clone(),
+												index: i,
+											})
+										}
+									}
+								};
+								new_gate_inputs.insert(name.text.clone(), new);
+							}
+
+							self.gate_inputs = Some(new_gate_inputs);
+							for operator in gate.quantum_operators.iter() {
+								match operator {
+									ast::GateOperation::UnitaryOperator(unitary_operator) => {
+										self.process_unitary_operator(unitary_operator)?;
+									}
+									ast::GateOperation::Barrier(qargs) => {
+										for qarg in qargs.iter() {
+											match self.gate_inputs.as_ref().unwrap().get(&qarg.text)
+											{
+												Some(GateInput::Qarg(_))
+												| Some(GateInput::QubitBinding(_)) => {}
+												Some(GateInput::Param) => {
+													return Err(Error::new(
+														ErrorKind::Custom(format!(
+															"Expected qubit argument, got {} of numeric type insted",
+															qarg.text
+														)),
+														qarg.location.clone(),
+													));
+												}
+												_ => {
+													return Err(Error::new(
+														ErrorKind::UndefinedIdentifier(
+															qarg.text.clone(),
+														),
+														qarg.location.clone(),
+													));
+												}
 											}
 										}
 									}
@@ -392,7 +413,30 @@ impl<'a, T: OpenQasm2IR> TypeMap<'a, T> {
 									};
 
 									for (j_p, previous) in parameters.iter() {
-										if *previous == new {
+										let same = match (previous, &new) {
+											(
+												GateInput::QubitBinding(ast::Id {
+													text: a, ..
+												}),
+												GateInput::QubitBinding(ast::Id {
+													text: b, ..
+												}),
+											) => a == b,
+											(
+												GateInput::Qarg(ast::Argument::Indexed {
+													name: ast::Id { text: name_a, .. },
+													index: index_a,
+												}),
+												GateInput::Qarg(ast::Argument::Indexed {
+													name: ast::Id { text: name_b, .. },
+													index: index_b,
+												}),
+											) => name_a == name_b && index_a == index_b,
+											(GateInput::Qarg(ast::Argument::Named { .. }), _)
+											| (_, GateInput::Qarg(ast::Argument::Named { .. })) => unreachable!(),
+											_ => false, // they are same if either same identifier
+										};
+										if same {
 											j = *j_p;
 										}
 									}
@@ -843,7 +887,50 @@ impl<'a, T: OpenQasm2IR> TypeMap<'a, T> {
 				));
 			};
 
-			Ok(a == b)
+			match (a, b) {
+				(GateInput::Param, GateInput::Param) => unreachable!(),
+				(
+					GateInput::QubitBinding(ast::Id { text: a, .. }),
+					GateInput::QubitBinding(ast::Id { text: b, .. }),
+				) => Ok(a == b),
+				(
+					GateInput::Qarg(ast::Argument::Named {
+						name: ast::Id { text: a, .. },
+					}),
+					GateInput::Qarg(ast::Argument::Named {
+						name: ast::Id { text: b, .. },
+					}),
+				)
+				| (
+					GateInput::Qarg(ast::Argument::Named {
+						name: ast::Id { text: a, .. },
+					}),
+					GateInput::Qarg(ast::Argument::Indexed {
+						name: ast::Id { text: b, .. },
+						..
+					}),
+				)
+				| (
+					GateInput::Qarg(ast::Argument::Indexed {
+						name: ast::Id { text: a, .. },
+						..
+					}),
+					GateInput::Qarg(ast::Argument::Named {
+						name: ast::Id { text: b, .. },
+					}),
+				) => Ok(a == b),
+				(
+					GateInput::Qarg(ast::Argument::Indexed {
+						name: ast::Id { text: a_name, .. },
+						index: a_index,
+					}),
+					GateInput::Qarg(ast::Argument::Indexed {
+						name: ast::Id { text: b_name, .. },
+						index: b_index,
+					}),
+				) => Ok(a_name == b_name && a_index == b_index),
+				_ => Ok(false),
+			}
 		} else {
 			match (a, b) {
 				(ast::Argument::Named { name: a }, ast::Argument::Named { name: b })
