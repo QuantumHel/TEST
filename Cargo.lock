@@ -747,6 +747,10 @@ name = "test_graph"
 version = "0.0.1"
 
 [[package]]
+name = "test_openqasm2"
+version = "0.0.1"
+
+[[package]]
 name = "test_simulator"
 version = "0.0.1"
 dependencies = [
