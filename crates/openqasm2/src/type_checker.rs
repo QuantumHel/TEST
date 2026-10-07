@@ -44,39 +44,6 @@ enum GateInput {
 	QubitBinding(ast::Id),
 }
 
-/*
-impl PartialEq for GateInput {
-	fn eq(&self, other: &Self) -> bool {
-		match (self, other) {
-			(GateInput::Param, GateInput::Param) => false,
-			(
-				GateInput::QubitBinding(ast::Id { text: a, .. }),
-				GateInput::QubitBinding(ast::Id { text: b, .. }),
-			) => a == b,
-			(
-				GateInput::Qarg(ast::Argument::Named {
-					name: ast::Id { text: a, .. },
-				}),
-				GateInput::Qarg(ast::Argument::Named {
-					name: ast::Id { text: b, .. },
-				}),
-			) => a == b,
-			(
-				GateInput::Qarg(ast::Argument::Indexed {
-					name: ast::Id { text: a_name, .. },
-					index: a_index,
-				}),
-				GateInput::Qarg(ast::Argument::Indexed {
-					name: ast::Id { text: b_name, .. },
-					index: b_index,
-				}),
-			) => a_name == b_name && a_index == b_index,
-			_ => false,
-		}
-	}
-}
-	 */
-
 struct TypeMap<'a, T: OpenQasm2IR> {
 	frontned: &'a OpenQasm2Frontend<T>,
 	override_list: &'a VirtualFileOverrideList,
