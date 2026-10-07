@@ -1,8 +1,4 @@
-use std::{
-	fs::read_to_string,
-	path::{Component, Path, PathBuf},
-	rc::Rc,
-};
+use std::{fs::read_to_string, rc::Rc};
 
 use crate::{
 	OpaqueFunctionDefinition, OpenQasm2Frontend, OpenQasm2IR, VirtualFileOverrideList,
@@ -109,10 +105,10 @@ impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
 		default_file_tokens.append(&mut new_tokes);
 		override_list.append(&mut new_overrides);
 
-		// FIXME?: this messes with testing
-		if !default_file_tokens.is_empty() {
-			tokens.splice(3..3, default_file_tokens);
-		}
+		// FIXME: This is valid if the program is valid.
+		// Maybe need to move to parser for proper handling.
+		let insert_location = tokens.len().min(3);
+		tokens.splice(insert_location..insert_location, default_file_tokens);
 
 		Ok((tokens, override_list))
 	}
@@ -264,7 +260,7 @@ impl<'a, T: OpenQasm2IR> Tokenizer<'a, T> {
 
 		match self.peek(0) {
 			Some(b'"') => {
-				let relative_path = self.read_string(location.clone())?;
+				let path = self.read_string(location.clone())?;
 				let location = self.location();
 				if self.bump() != Some(';') {
 					return Err(Error::new(
@@ -277,48 +273,30 @@ impl<'a, T: OpenQasm2IR> Tokenizer<'a, T> {
 				if self.settings.ignore_imports {
 					return Ok(());
 				}
-				let file_path = Path::new(self.file.as_ref());
-
-				let combined_path = match file_path.parent() {
-					Some(parent_dir) => parent_dir.join(relative_path.as_ref()),
-					None => PathBuf::from(relative_path.as_ref()),
-				};
-
-				let virtual_path = normalize_virtual_path(&combined_path);
-				if let Some(virtual_file) = virtual_path
-					.to_str()
-					.and_then(|s| self.settings.file_overrides.get(s))
-				{
-					self.override_list
-						.insert(Rc::from(virtual_path.to_str().unwrap()));
+				if let Some(virtual_file) = self.settings.file_overrides.get(path.as_ref()) {
+					self.override_list.insert(Rc::from(path.to_string()));
 					for opaque in virtual_file.opaque_functions.values() {
 						self.output.append(&mut opaque.definition().tokenize());
 					}
 
 					let (mut new_tokes, mut new_overrides) = Tokenizer::new(
 						self.settings,
-						&format!("Virtua File: {}", virtual_path.to_str().unwrap()),
+						&format!("virtual_file_{}", path),
 						&virtual_file.text,
 					)
 					.run()?;
 					self.output.append(&mut new_tokes);
 					self.override_list.append(&mut new_overrides);
 				} else {
-					let Ok(text) = read_to_string(&combined_path) else {
+					let Ok(text) = read_to_string(path.to_string()) else {
 						return Err(Error::new(
-							ErrorKind::UnableToReadFile(
-								combined_path.to_string_lossy().to_string(),
-							),
+							ErrorKind::UnableToReadFile(path.to_string()),
 							location.clone(),
 						));
 					};
 
-					let (mut new_tokes, mut new_overrides) = Tokenizer::new(
-						self.settings,
-						&format!("Virtua File: {}", virtual_path.to_str().unwrap()),
-						&text,
-					)
-					.run()?;
+					let (mut new_tokes, mut new_overrides) =
+						Tokenizer::new(self.settings, &path, &text).run()?;
 					self.output.append(&mut new_tokes);
 					self.override_list.append(&mut new_overrides);
 				}
@@ -449,29 +427,6 @@ impl<'a, T: OpenQasm2IR> Tokenizer<'a, T> {
 	}
 }
 
-fn normalize_virtual_path(path: &Path) -> PathBuf {
-	let mut components = Vec::new();
-
-	for component in path.components() {
-		match component {
-			Component::CurDir => {} // Ignore '.'
-			Component::ParentDir => {
-				// Remove the previous component if possible
-				if let Some(last) = components.last()
-					&& matches!(last, Component::Normal(_))
-				{
-					components.pop();
-					continue;
-				}
-				components.push(component);
-			}
-			_ => components.push(component),
-		}
-	}
-
-	components.into_iter().collect()
-}
-
 impl OpaqueFunctionDefinition {
 	fn tokenize(&self) -> Vec<Token> {
 		let location = Location {
@@ -501,6 +456,10 @@ impl OpaqueFunctionDefinition {
 				location: location.clone(),
 			});
 			for i in 1..self.n_params {
+				tokens.push(Token {
+					ty: TokenKind::Comma,
+					location: location.clone(),
+				});
 				tokens.push(Token {
 					ty: TokenKind::Id(format!("c{i}")),
 					location: location.clone(),

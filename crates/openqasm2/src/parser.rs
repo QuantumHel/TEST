@@ -328,13 +328,14 @@ impl TokenStream {
 				let params: Vec<ast::Expression> =
 					if self.peek_expected()?.ty == TokenKind::OpeningBracket {
 						self.next_expected(TokenKind::OpeningBracket)?;
+						// trailing comma issue
 						let mut params = Vec::new();
-						while self.peek_expected()?.ty != TokenKind::ClosingBracket {
+						if self.peek_expected()?.ty != TokenKind::ClosingBracket {
 							params.push(self.parse_expression()?);
-							if self.peek_expected()?.ty != TokenKind::Comma {
-								break;
+							while self.peek_expected()?.ty == TokenKind::Comma {
+								self.next_expected(TokenKind::Comma)?;
+								params.push(self.parse_expression()?);
 							}
-							self.next_expected(TokenKind::Comma)?;
 						}
 
 						self.next_expected(TokenKind::ClosingBracket)?;
@@ -377,7 +378,7 @@ impl TokenStream {
 		}
 	}
 
-	// does not contain + - / * outside of ()
+	// does not contain + - / * outside of () or negation
 	fn parse_trivial_expression(&mut self) -> Result<ast::Expression, Error> {
 		let left = match self.peek_expected()?.ty {
 			TokenKind::Sin
@@ -409,7 +410,7 @@ impl TokenStream {
 				let location = self.next_expected(TokenKind::Minus)?.location;
 				ast::Expression::UnaryOperator {
 					operator: ast::UnaryOperator::Negation,
-					argument: Box::new(self.parse_expression()?),
+					argument: Box::new(self.parse_trivial_expression()?),
 					location,
 				}
 			}
@@ -929,7 +930,7 @@ mod tests {
 	#[test]
 	fn test_gate_declaration() {
 		const INPUT: &str =
-			"gate swap_r (p) q1, q2 { cx q1, q2; cx q2 ,q1; cx q1, q2; u (p, 0, 0) q2;}";
+			"gate swap_r (p) q1, q2 { CX q1, q2; CX q2 ,q1; CX q1, q2; U (p, 0, 0) q2;}";
 		let frontend = OpenQasm2Frontend::<()>::default();
 		let tokens = frontend.tokenize("file", INPUT).unwrap();
 		let mut token_stream = TokenStream {
@@ -1530,6 +1531,52 @@ mod tests {
 				file: Rc::from("file"),
 				row: 1,
 				col: 28,
+			},
+		};
+
+		assert_eq!(token_stream.parse_expression(), Ok(goal));
+	}
+
+	#[test]
+	fn test_expression_negation() {
+		const INPUT: &str = "-1 + 2";
+		let frontend = OpenQasm2Frontend::<()>::default();
+
+		let tokens = frontend.tokenize("file", INPUT).unwrap();
+		let mut token_stream = TokenStream {
+			tokens: tokens.0.into_iter().peekable(),
+		};
+
+		let goal = ast::Expression::BinaryOperator {
+			operator: ast::BinaryOperator::Addition,
+			left: Box::new(ast::Expression::UnaryOperator {
+				operator: ast::UnaryOperator::Negation,
+				argument: Box::new(ast::Expression::Integer {
+					value: 1,
+					location: Location {
+						file: Rc::from("file"),
+						row: 1,
+						col: 2,
+					},
+				}),
+				location: Location {
+					file: Rc::from("file"),
+					row: 1,
+					col: 1,
+				},
+			}),
+			right: Box::new(ast::Expression::Integer {
+				value: 2,
+				location: Location {
+					file: Rc::from("file"),
+					row: 1,
+					col: 6,
+				},
+			}),
+			location: Location {
+				file: Rc::from("file"),
+				row: 1,
+				col: 4,
 			},
 		};
 

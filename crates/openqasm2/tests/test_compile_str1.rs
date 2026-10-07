@@ -1,5 +1,4 @@
 mod common;
-use test_openqasm2 as openqasm2;
 
 use self::common::TestIR;
 use common::TestGate::*;
@@ -28,7 +27,7 @@ h qubits[4];";
 
 	let frontend = common::full_opaques_frontend();
 	let mut ir = TestIR::default();
-	frontend.combile_str(src, &mut ir).unwrap();
+	frontend.compile_str(src, &mut ir).unwrap();
 
 	let expected = vec![
 		H(4),
@@ -57,7 +56,7 @@ fn cxx_decomposition() {
 
 	let frontend = common::cxx_decomposition_frontend();
 	let mut ir = TestIR::default();
-	frontend.combile_str(src, &mut ir).unwrap();
+	frontend.compile_str(src, &mut ir).unwrap();
 
 	let expected = vec![
 		H(2),
@@ -86,7 +85,7 @@ fn tof_3_file() {
 	let frontend = common::full_opaques_frontend();
 	let mut ir = TestIR::default();
 	frontend
-		.combile_file("./tests/tof_3.qasm", &mut ir)
+		.compile_file("./tests/tof_3.qasm", &mut ir)
 		.unwrap();
 
 	let expected = vec![
@@ -106,6 +105,20 @@ fn tof_3_file() {
 		H(4),
 		H(4),
 	];
+
+	assert_eq!(*ir, expected);
+}
+
+#[test]
+fn quantum_register_gate_expansion() {
+	let src =
+		"OPENQASM 2.0; gate test a, b { cx a, b; cx b, a;} qreg a[1]; qreg b[2]; test a[0], b;";
+
+	let frontend = common::full_opaques_frontend();
+	let mut ir = TestIR::default();
+	frontend.compile_str(src, &mut ir).unwrap();
+
+	let expected = vec![Cx(0, 1), Cx(1, 0), Cx(0, 2), Cx(2, 0)];
 
 	assert_eq!(*ir, expected);
 }

@@ -74,13 +74,14 @@ impl<'a, T: OpenQasm2IR> SymTab<'a, T> {
 				ast::Statement::Declaration(declaration) => match declaration.ty {
 					ast::DeclarationType::Qubit => {
 						let indices: Vec<_> =
-							(self.n_qubits..(declaration.size as usize)).collect();
+							(self.n_qubits..(self.n_qubits + declaration.size as usize)).collect();
 						self.n_qubits += declaration.size as usize;
 						self.declarations
 							.insert(declaration.name.text.clone(), MappedDeclaration { indices });
 					}
 					ast::DeclarationType::Bit => {
-						let indices: Vec<_> = (self.n_bits..(declaration.size as usize)).collect();
+						let indices: Vec<_> =
+							(self.n_bits..(self.n_bits + declaration.size as usize)).collect();
 						self.n_bits += declaration.size as usize;
 						self.declarations
 							.insert(declaration.name.text.clone(), MappedDeclaration { indices });
@@ -182,31 +183,67 @@ impl<'a, T: OpenQasm2IR> SymTab<'a, T> {
 				let gate = self.gates.get(&name.text).unwrap().clone();
 				match gate {
 					DefinedGate::Gate(gate) => {
-						let mut gate_inputs: HashMap<String, GateInput> = HashMap::new();
-						for (name, qarg) in gate.qargs.iter().zip(qargs.iter()) {
-							let qarg_name = qarg.name();
-							if let Some(previous_gate_inputs) = self.gate_inputs.last() {
-								let gate_input =
-									previous_gate_inputs.get(&qarg_name.text).cloned().unwrap();
-								gate_inputs.insert(name.text.clone(), gate_input);
-							} else {
-								gate_inputs
-									.insert(name.text.clone(), GateInput::Argument(qarg.clone()));
-							}
-						}
-						self.gate_inputs.push(gate_inputs);
-
-						for operator in gate.quantum_operators.iter() {
-							match operator {
-								ast::GateOperation::UnitaryOperator(unitary_operator) => {
-									self.process_unitary_operator(unitary_operator, ir)?;
+						let input_len = qargs
+							.iter()
+							.filter_map(|a| match a {
+								ast::Argument::Named { name } => {
+									Some(self.declarations.get(&name.text).unwrap().indices.len())
 								}
-								// Translates to nop
-								ast::GateOperation::Barrier(_) => {}
-							}
-						}
+								_ => None,
+							})
+							.max()
+							.unwrap_or(1);
 
-						self.gate_inputs.pop();
+						for i in 0..input_len {
+							let mut gate_inputs: HashMap<String, GateInput> = HashMap::new();
+							for (name, qarg) in gate.qargs.iter().zip(qargs.iter()) {
+								let qarg_name = qarg.name();
+								if let Some(previous_gate_inputs) = self.gate_inputs.last() {
+									let gate_input =
+										previous_gate_inputs.get(&qarg_name.text).cloned().unwrap();
+									// As we are inside function we are already indexed
+									assert!(matches!(
+										gate_input,
+										GateInput::Argument(ast::Argument::Indexed { .. })
+									));
+									gate_inputs.insert(name.text.clone(), gate_input);
+								} else {
+									match qarg {
+										ast::Argument::Named { name: reg } => {
+											gate_inputs.insert(
+												name.text.clone(),
+												GateInput::Argument(ast::Argument::Indexed {
+													name: reg.clone(),
+													index: i as u64,
+												}),
+											);
+										}
+										ast::Argument::Indexed { name: reg, index } => {
+											gate_inputs.insert(
+												name.text.clone(),
+												GateInput::Argument(ast::Argument::Indexed {
+													name: reg.clone(),
+													index: *index,
+												}),
+											);
+										}
+									}
+								}
+							}
+							self.gate_inputs.push(gate_inputs);
+
+							for operator in gate.quantum_operators.iter() {
+								match operator {
+									ast::GateOperation::UnitaryOperator(unitary_operator) => {
+										self.process_unitary_operator(unitary_operator, ir)?;
+									}
+									// Translates to nop
+									ast::GateOperation::Barrier(_) => {}
+								}
+							}
+
+							self.gate_inputs.pop();
+						}
 					}
 					DefinedGate::Opaque => {
 						if let Some(gate_impl) = self.get_opaque_impl(name) {

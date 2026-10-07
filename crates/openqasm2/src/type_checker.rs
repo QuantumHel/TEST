@@ -52,18 +52,21 @@ impl PartialEq for GateInput {
 				GateInput::QubitBinding(ast::Id { text: a, .. }),
 				GateInput::QubitBinding(ast::Id { text: b, .. }),
 			) => a == b,
-			// FIXME: name is of interestin, but also index
 			(
-				GateInput::Qarg(ast::Argument::Named { name: a }),
-				GateInput::Qarg(ast::Argument::Named { name: b }),
+				GateInput::Qarg(ast::Argument::Named {
+					name: ast::Id { text: a, .. },
+				}),
+				GateInput::Qarg(ast::Argument::Named {
+					name: ast::Id { text: b, .. },
+				}),
 			) => a == b,
 			(
 				GateInput::Qarg(ast::Argument::Indexed {
-					name: a_name,
+					name: ast::Id { text: a_name, .. },
 					index: a_index,
 				}),
 				GateInput::Qarg(ast::Argument::Indexed {
-					name: b_name,
+					name: ast::Id { text: b_name, .. },
 					index: b_index,
 				}),
 			) => a_name == b_name && a_index == b_index,
@@ -842,7 +845,23 @@ impl<'a, T: OpenQasm2IR> TypeMap<'a, T> {
 
 			Ok(a == b)
 		} else {
-			Ok(a.name().text == b.name().text)
+			match (a, b) {
+				(ast::Argument::Named { name: a }, ast::Argument::Named { name: b })
+				| (ast::Argument::Named { name: a }, ast::Argument::Indexed { name: b, .. })
+				| (ast::Argument::Indexed { name: a, .. }, ast::Argument::Named { name: b }) => {
+					Ok(a.text == b.text)
+				}
+				(
+					ast::Argument::Indexed {
+						name: name_a,
+						index: index_a,
+					},
+					ast::Argument::Indexed {
+						name: name_b,
+						index: index_b,
+					},
+				) => Ok(name_a.text == name_b.text && index_a == index_b),
+			}
 		}
 	}
 

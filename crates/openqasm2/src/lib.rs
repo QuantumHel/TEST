@@ -15,7 +15,7 @@ use std::{
 	rc::Rc,
 };
 
-use self::error::Error;
+use self::error::{Error, ErrorKind, Location};
 
 #[derive(Debug)]
 pub struct Redefinition;
@@ -169,8 +169,18 @@ impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
 		Ok(self)
 	}
 
-	pub fn combile_file<P: AsRef<Path>>(&self, path: P, ir: &mut T) -> Result<(), Error> {
-		let src = read_to_string(&path).unwrap();
+	pub fn compile_file<P: AsRef<Path>>(&self, path: P, ir: &mut T) -> Result<(), Error> {
+		let Ok(src) = read_to_string(&path) else {
+			let name = path.as_ref().to_string_lossy().to_string();
+			return Err(Error::new(
+				ErrorKind::UnableToReadFile(name.clone()),
+				Location {
+					file: Rc::from(name.as_str()),
+					row: 1,
+					col: 1,
+				},
+			));
+		};
 		let (tokens, override_list) =
 			self.tokenize(&path.as_ref().to_string_lossy(), &src.to_owned())?;
 		let ast = self.parse(tokens)?;
@@ -178,7 +188,7 @@ impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
 		self.generate_ir(&ast, &override_list, ir)
 	}
 
-	pub fn combile_str(&self, src: &str, ir: &mut T) -> Result<(), Error> {
+	pub fn compile_str(&self, src: &str, ir: &mut T) -> Result<(), Error> {
 		let (tokens, override_list) = self.tokenize("main", src)?;
 		let ast = self.parse(tokens)?;
 		self.type_check(&ast, &override_list)?;
