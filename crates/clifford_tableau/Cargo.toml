@@ -1,0 +1,17 @@
+[package]
+name = "test_clifford_tableau"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+bits.workspace = true
+core.workspace = true
+circuit.workspace = true
+simulator.workspace = true
+graph.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+pauli.workspace = true
+
+[features]
+default = []
