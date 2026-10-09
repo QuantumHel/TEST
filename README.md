@@ -11,11 +11,6 @@ researching quantum transpilation.
 
 Due to issues with `cargo doc` use `cargo docs` instead.
 
-## Features
-
-- `openqasm2` gives access to use OpenQasm2 with the help of the
-  [openqasm](https://crates.io/crates/openqasm) crate.
-
 ## Using nighty
 
 The code may only compile with nightly. You can install the nightly toolchain

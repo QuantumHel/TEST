@@ -9,10 +9,9 @@ core.workspace = true
 circuit.workspace = true
 simulator.workspace = true
 graph.workspace = true
-openqasm2 = { workspace = true, optional = true }
+openqasm2.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 
 [features]
 default = []
-openqasm2 = ["dep:openqasm2", "circuit/openqasm2"]

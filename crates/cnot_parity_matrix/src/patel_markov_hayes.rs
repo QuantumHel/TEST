@@ -89,7 +89,7 @@ impl PatelMarkovHayes {
 
 #[cfg(test)]
 mod test {
-	use circuit::{Circuit, gates::CNot};
+	use circuit::{Circuit, RandomGate, gates::CNot};
 	use core::Compiler;
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;

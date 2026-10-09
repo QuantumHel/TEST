@@ -47,6 +47,7 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use circuit::RandomGate;
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 

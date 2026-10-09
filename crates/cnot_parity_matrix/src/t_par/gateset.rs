@@ -1,15 +1,17 @@
-#[cfg(feature = "openqasm2")]
-use circuit::openqasm2::OpenQasm2Gate;
 use circuit::{
-	RandomGate,
-	gates::{CNot, H, Rz, X, Y},
+	Circuit, RandomGate,
+	gates::{CNot, CNotOpaque, H, HOpaque, Rz, X, XOpaque, Y, YOpaque, Z, ZOpaque},
+};
+use openqasm2::{
+	OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Config, OpenQasm2Frontend,
+	VirtualOpenqasmFile,
 };
 use rand::{
 	RngExt,
 	distr::{Distribution, StandardUniform},
 };
 use simulator::{Complex, Simulatable};
-use std::ops::AddAssign;
+use std::{num::NonZero, ops::AddAssign};
 
 use super::squirrel::Squirrel;
 
@@ -38,51 +40,6 @@ pub enum CNotRzXYH {
 	H(H),
 }
 
-#[cfg(feature = "openqasm2")]
-impl OpenQasm2Gate for CNotRzXYH {
-	fn cx(control: usize, target: usize) -> Option<Self> {
-		<CNot as OpenQasm2Gate>::cx(control, target).map(Self::CNot)
-	}
-
-	fn u(
-		theta: openqasm2::Value,
-		phi: openqasm2::Value,
-		lambda: openqasm2::Value,
-		target: usize,
-	) -> Option<Self> {
-		<X as OpenQasm2Gate>::u(theta, phi, lambda, target)
-			.map(Self::X)
-			.or(<Y as OpenQasm2Gate>::u(theta, phi, lambda, target).map(Self::Y))
-			.or(<H as OpenQasm2Gate>::u(theta, phi, lambda, target).map(Self::H))
-			.or_else(|| {
-				if openqasm2::Value::ZERO != theta || openqasm2::Value::ZERO != phi {
-					return None;
-				}
-
-				if *lambda.a.numer() != 0 {
-					return None;
-				}
-
-				let quarter_pi = lambda.b * 4;
-				if !quarter_pi.is_integer() {
-					return None;
-				}
-
-				let mut quarter_pi = quarter_pi.to_integer() % 8;
-				if quarter_pi < 0 {
-					quarter_pi += 8;
-				}
-
-				let quarter_pi: u32 = quarter_pi.try_into().expect("This should be fine");
-
-				Some(Self::Rz(Rz {
-					angle: QuarterPi(quarter_pi),
-					target,
-				}))
-			})
-	}
-}
-
 impl CNotRzXYH {
 	/// Returns the index of the highest used qubit + 1
 	pub fn n_required_qubits(&self) -> usize {
@@ -93,6 +50,58 @@ impl CNotRzXYH {
 			Self::Y(y) => y.target,
 			Self::H(h) => h.target,
 		}
+	}
+
+	/// Creates an openQasm frontend for a [Circuit] of [CNotRzXYH] gates.
+	///
+	/// Ignores imports.
+	///
+	/// Supported gates:
+	/// - 'cnot'
+	/// - 'x'
+	/// - 'y'
+	/// - 'h'
+	/// - 't' (converted to [CNotRzXYH::Rz])
+	/// - 's' (converted to [CNotRzXYH::Rz])
+	/// - 'z' (converted to [CNotRzXYH::Rz])
+	/// - 'sdg' (converted to [CNotRzXYH::Rz])
+	/// - 'tdg' (converted to [CNotRzXYH::Rz])
+	/// - 'cxx' (decompposed like in figure 13 in https://arxiv.org/pdf/1206.0758)
+	pub fn open_qasm2_frontend() -> OpenQasm2Frontend<Circuit<Self>> {
+		let mut file: VirtualOpenqasmFile<Circuit<Self>> = VirtualOpenqasmFile::default();
+		file.add_opaque(CNotOpaque).unwrap();
+		file.add_opaque(XOpaque).unwrap();
+		file.add_opaque(YOpaque).unwrap();
+		file.add_opaque(HOpaque).unwrap();
+		file.add_opaque(TOpaque).unwrap();
+		file.add_opaque(SOpaque).unwrap();
+		file.add_opaque(ZOpaque).unwrap();
+		file.add_opaque(SdgOpaque).unwrap();
+		file.add_opaque(TdgOpaque).unwrap();
+
+		// From figure 13 in https://arxiv.org/pdf/1206.0758
+		file.add_text(
+			"gate ccx a, b, c {
+			h c;
+			t a; t b; t c;
+			cx b, a;
+			cx c, b;
+			cx a, c;
+			tdg b;
+			cx a, b;
+			tdg a; tdg b; t c;
+			cx c, b;
+			cx a, c;
+			cx b, a;
+			h c;
+		}",
+		);
+
+		OpenQasm2Frontend::new(OpenQasm2Config {
+			default_file: Some(file),
+			cx: Some(Box::new(CNotOpaque)),
+			ignore_imports: true,
+		})
 	}
 }
 
@@ -183,6 +192,15 @@ impl From<Rz<QuarterPi>> for CNotRzXYH {
 	}
 }
 
+impl From<Z> for CNotRzXYH {
+	fn from(value: Z) -> Self {
+		CNotRzXYH::Rz(Rz {
+			angle: QuarterPi(4),
+			target: value.target,
+		})
+	}
+}
+
 impl Simulatable<Squirrel> for Rz<QuarterPi> {
 	fn matrix(&self) -> [Complex<Squirrel>; 4] {
 		[
@@ -227,6 +245,38 @@ impl Simulatable<Squirrel> for Rz<QuarterPi> {
 		self.target
 	}
 }
+
+macro_rules! rz_opaque {
+	($opaque:ident, $name:literal, $rotation:literal) => {
+		struct $opaque;
+
+		impl OpaqueFunction<Circuit<CNotRzXYH>> for $opaque {
+			fn definition(&self) -> OpaqueFunctionDefinition {
+				OpaqueFunctionDefinition {
+					name: String::from($name),
+					n_params: 0,
+					n_qargs: NonZero::new(1).unwrap(),
+				}
+			}
+
+			fn insert_gate(&self, qargs: Vec<usize>, ir: &mut Circuit<CNotRzXYH>) {
+				let gate: Rz<QuarterPi> = Rz {
+					angle: QuarterPi($rotation),
+					target: qargs[0],
+				};
+				ir.push(CNotRzXYH::Rz(gate));
+			}
+
+			fn type_check(&self, _: Vec<usize>) -> Result<(), &'static str> {
+				Ok(())
+			}
+		}
+	};
+}
+rz_opaque!(TOpaque, "t", 1);
+rz_opaque!(SOpaque, "s", 2);
+rz_opaque!(SdgOpaque, "sdg", 6);
+rz_opaque!(TdgOpaque, "tdg", 7);
 
 impl From<X> for CNotRzXYH {
 	fn from(value: X) -> Self {

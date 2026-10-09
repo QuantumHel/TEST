@@ -92,7 +92,7 @@ mod tests {
 	use core::Compiler;
 	use core::connectivity::Connectivity;
 
-	use circuit::gates::CNot;
+	use circuit::{RandomGate, gates::CNot};
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 

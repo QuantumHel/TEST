@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use circuit::gates::CNot;
+use circuit::{RandomGate, gates::CNot};
 use core::Compiler;
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
