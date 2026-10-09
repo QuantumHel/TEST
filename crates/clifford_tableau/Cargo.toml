@@ -7,11 +7,12 @@ edition = "2024"
 bits.workspace = true
 core.workspace = true
 circuit.workspace = true
-simulator.workspace = true
 graph.workspace = true
 rand.workspace = true
-rand_chacha.workspace = true
 pauli.workspace = true
+
+[dev-dependencies]
+rand_chacha.workspace = true
 
 [features]
 default = []

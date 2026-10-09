@@ -11,6 +11,8 @@ simulator.workspace = true
 graph.workspace = true
 openqasm2.workspace = true
 rand.workspace = true
+
+[dev-dependencies]
 rand_chacha.workspace = true
 
 [features]

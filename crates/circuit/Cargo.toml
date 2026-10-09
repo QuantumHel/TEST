@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 openqasm2.workspace = true
 rand.workspace = true
-rand_chacha.workspace = true
 pauli.workspace = true
 
 [features]

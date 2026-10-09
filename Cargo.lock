@@ -221,7 +221,6 @@ name = "test_circuit"
 version = "0.0.1"
 dependencies = [
  "rand",
- "rand_chacha",
  "test_openqasm2",
  "test_pauli",
 ]
@@ -237,7 +236,6 @@ dependencies = [
  "test_core",
  "test_graph",
  "test_pauli",
- "test_simulator",
 ]
 
 [[package]]
@@ -279,9 +277,6 @@ dependencies = [
 [[package]]
 name = "test_simulator"
 version = "0.0.1"
-dependencies = [
- "rand",
-]
 
 [[package]]
 name = "test_transpiler"

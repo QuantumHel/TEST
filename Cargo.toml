@@ -23,6 +23,8 @@ openqasm2 = { path = "crates/openqasm2", package = "test_openqasm2" }
 test_bits = { path = "crates/bits" }
 petgraph = "0.8.3"
 rand.workspace = true
+
+[dev-dependencies]
 rand_chacha.workspace = true
 
 [package.metadata.docs.rs]
