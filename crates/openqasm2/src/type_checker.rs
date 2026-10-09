@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
 use crate::{
-	OpaqueFunction, OpenQasm2Frontend, OpenQasm2IR, VirtualFileOverrideList, ast,
+	OpaqueFunction, OpenQasm2Frontend, ast,
 	error::{
 		Error,
 		ErrorKind::{self, UndefinedIdentifier},
 	},
+	virtual_file_override_list::VirtualFileOverrideList,
 };
 
-impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
+impl<T> OpenQasm2Frontend<T> {
 	pub(crate) fn type_check(
 		&self,
 		ast: &ast::Program,
@@ -44,7 +45,7 @@ enum GateInput {
 	QubitBinding(ast::Id),
 }
 
-struct TypeMap<'a, T: OpenQasm2IR> {
+struct TypeMap<'a, T: 'static> {
 	frontned: &'a OpenQasm2Frontend<T>,
 	override_list: &'a VirtualFileOverrideList,
 	gates: HashMap<String, DefinedGate>,
@@ -52,7 +53,7 @@ struct TypeMap<'a, T: OpenQasm2IR> {
 	gate_inputs: Option<HashMap<String, GateInput>>,
 }
 
-impl<'a, T: OpenQasm2IR> TypeMap<'a, T> {
+impl<'a, T> TypeMap<'a, T> {
 	fn process_statement(&mut self, statement: &ast::Statement) -> Result<(), Error> {
 		match statement {
 			ast::Statement::Declaration(declaration) => self.add_declaration(declaration)?,
@@ -162,6 +163,15 @@ impl<'a, T: OpenQasm2IR> TypeMap<'a, T> {
 				target,
 				location,
 			} => {
+				if self.frontned.cx.is_none() {
+					return Err(Error::new(
+						ErrorKind::Custom(String::from(
+							"The open QASM 2 frontend used does not suppoer 'CX' gate",
+						)),
+						location.clone(),
+					));
+				}
+
 				self.is_type(control, ast::DeclarationType::Qubit)?;
 				self.is_type(target, ast::DeclarationType::Qubit)?;
 

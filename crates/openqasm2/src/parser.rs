@@ -1,12 +1,12 @@
 use std::{iter::Peekable, vec::IntoIter};
 
 use crate::{
-	OpenQasm2Frontend, OpenQasm2IR, ast,
+	OpenQasm2Frontend, ast,
 	error::{Error, ErrorKind, Location},
 	tokenizer::{Token, TokenKind},
 };
 
-impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
+impl<T> OpenQasm2Frontend<T> {
 	pub(crate) fn parse(&self, tokens: Vec<Token>) -> Result<ast::Program, Error> {
 		TokenStream::new(tokens).parse_program()
 	}

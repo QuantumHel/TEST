@@ -1,8 +1,9 @@
 use std::{fs::read_to_string, rc::Rc};
 
 use crate::{
-	OpaqueFunctionDefinition, OpenQasm2Frontend, OpenQasm2IR, VirtualFileOverrideList,
+	OpaqueFunctionDefinition, OpenQasm2Frontend,
 	error::{Error, ErrorKind, Location},
+	virtual_file_override_list::VirtualFileOverrideList,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -87,7 +88,7 @@ pub enum TokenKind {
 	Cx,
 }
 
-impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
+impl<T: 'static> OpenQasm2Frontend<T> {
 	pub(crate) fn tokenize(
 		&self,
 		file: &str,
@@ -114,7 +115,7 @@ impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
 	}
 }
 
-struct Tokenizer<'a, T: OpenQasm2IR> {
+struct Tokenizer<'a, T: 'static> {
 	settings: &'a OpenQasm2Frontend<T>,
 	file: Rc<str>,
 	src: &'a str,
@@ -126,7 +127,7 @@ struct Tokenizer<'a, T: OpenQasm2IR> {
 	override_list: VirtualFileOverrideList,
 }
 
-impl<'a, T: OpenQasm2IR> Tokenizer<'a, T> {
+impl<'a, T: 'static> Tokenizer<'a, T> {
 	/// Outer is false in all but the main file
 	fn new(settings: &'a OpenQasm2Frontend<T>, file: &str, src: &'a str) -> Self {
 		Self {

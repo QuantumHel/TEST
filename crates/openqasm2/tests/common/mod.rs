@@ -4,7 +4,8 @@ use std::{
 };
 
 use test_openqasm2::{
-	OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Frontend, OpenQasm2IR, VirtualOpenqasmFile,
+	OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Config, OpenQasm2Cx, OpenQasm2Frontend,
+	VirtualOpenqasmFile,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,12 +37,6 @@ impl Deref for TestIR {
 impl DerefMut for TestIR {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.ir
-	}
-}
-
-impl OpenQasm2IR for TestIR {
-	fn insert_cnot(&mut self, control: usize, target: usize) {
-		self.ir.push(TestGate::Cx(control, target));
 	}
 }
 
@@ -93,6 +88,12 @@ impl OpaqueFunction<TestIR> for CxOpaque {
 	}
 }
 
+impl OpenQasm2Cx<TestIR> for CxOpaque {
+	fn insert_cnot(&self, control: usize, target: usize, ir: &mut TestIR) {
+		ir.push(TestGate::Cx(control, target));
+	}
+}
+
 macro_rules! single_qubit_gate {
 	($name:ident, $opaque:ident, $str:literal) => {
 		pub struct $opaque;
@@ -137,7 +138,11 @@ pub fn full_opaques_frontend() -> OpenQasm2Frontend<TestIR> {
 	file.add_opaque(TdgOpaque).unwrap();
 	file.add_opaque(SdgOpaque).unwrap();
 
-	OpenQasm2Frontend::new_with_virtual_file(file).with_ignore_imports()
+	OpenQasm2Frontend::new(OpenQasm2Config {
+		default_file: Some(file),
+		cx: Some(Box::new(CxOpaque)),
+		ignore_imports: true,
+	})
 }
 
 pub fn cxx_decomposition_frontend() -> OpenQasm2Frontend<TestIR> {
@@ -169,5 +174,9 @@ pub fn cxx_decomposition_frontend() -> OpenQasm2Frontend<TestIR> {
 		}",
 	);
 
-	OpenQasm2Frontend::new_with_virtual_file(file).with_ignore_imports()
+	OpenQasm2Frontend::new(OpenQasm2Config {
+		default_file: Some(file),
+		cx: Some(Box::new(CxOpaque)),
+		ignore_imports: true,
+	})
 }

@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-	OpaqueFunction, OpenQasm2Frontend, OpenQasm2IR, VirtualFileOverrideList, ast,
+	OpaqueFunction, OpenQasm2Frontend, ast,
 	error::{Error, ErrorKind},
+	virtual_file_override_list::VirtualFileOverrideList,
 };
 
 struct MappedDeclaration {
@@ -21,7 +22,7 @@ enum DefinedGate {
 	Opaque,
 }
 
-struct SymTab<'a, T: OpenQasm2IR> {
+struct SymTab<'a, T: 'static> {
 	frontned: &'a OpenQasm2Frontend<T>,
 	override_list: &'a VirtualFileOverrideList,
 	gates: HashMap<String, DefinedGate>,
@@ -31,7 +32,7 @@ struct SymTab<'a, T: OpenQasm2IR> {
 	n_bits: usize,
 }
 
-impl<T: OpenQasm2IR> OpenQasm2Frontend<T> {
+impl<T: 'static> OpenQasm2Frontend<T> {
 	pub(crate) fn generate_ir(
 		&self,
 		ast: &ast::Program,
@@ -65,7 +66,7 @@ impl Indices {
 	}
 }
 
-impl<'a, T: OpenQasm2IR> SymTab<'a, T> {
+impl<'a, T> SymTab<'a, T> {
 	fn process_program(&mut self, program: &ast::Program, ir: &mut T) -> Result<(), Error> {
 		for statement in program.program.iter() {
 			match statement {
@@ -146,21 +147,37 @@ impl<'a, T: OpenQasm2IR> SymTab<'a, T> {
 
 				match (control, target) {
 					(Indices::Single(control), Indices::Single(target)) => {
-						ir.insert_cnot(control, target);
+						self.frontned
+							.cx
+							.as_ref()
+							.unwrap()
+							.insert_cnot(control, target, ir);
 					}
 					(Indices::Single(control), Indices::Register(targets)) => {
 						for target in targets.into_iter() {
-							ir.insert_cnot(control, target);
+							self.frontned
+								.cx
+								.as_ref()
+								.unwrap()
+								.insert_cnot(control, target, ir);
 						}
 					}
 					(Indices::Register(controls), Indices::Single(target)) => {
 						for control in controls.into_iter() {
-							ir.insert_cnot(control, target);
+							self.frontned
+								.cx
+								.as_ref()
+								.unwrap()
+								.insert_cnot(control, target, ir);
 						}
 					}
 					(Indices::Register(controls), Indices::Register(targets)) => {
 						for (control, target) in controls.into_iter().zip(targets) {
-							ir.insert_cnot(control, target);
+							self.frontned
+								.cx
+								.as_ref()
+								.unwrap()
+								.insert_cnot(control, target, ir);
 						}
 					}
 				}
