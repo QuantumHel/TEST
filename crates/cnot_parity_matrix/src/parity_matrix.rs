@@ -115,8 +115,8 @@ impl ParityMatrix {
 	/// $$M_0M_1M_2M_3M_4M_5$$
 	pub fn insert_cnot(&mut self, cnot: CNot) {
 		match self.basis {
-			Basis::Standard => self.add_row(cnot.control(), cnot.target()),
-			Basis::Hadamard => self.add_row(cnot.target(), cnot.control()),
+			Basis::Standard => self.add_row(*cnot.control(), *cnot.target()),
+			Basis::Hadamard => self.add_row(*cnot.target(), *cnot.control()),
 		};
 	}
 
@@ -419,7 +419,7 @@ mod test {
 
 		let mut partiy_matrix = ParityMatrix::default();
 		for cnot in answer.iter() {
-			partiy_matrix.add_row(cnot.control(), cnot.target());
+			partiy_matrix.add_row(*cnot.control(), *cnot.target());
 		}
 		println!("{partiy_matrix}");
 	}

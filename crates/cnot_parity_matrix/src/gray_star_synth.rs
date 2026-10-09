@@ -190,8 +190,8 @@ fn find_path(
 						// that is because this is not the state we have, but the state
 						// where we "want to go".
 						let mut new_bits = bits.clone();
-						if bits.get(cnot.target()) {
-							new_bits.set(cnot.control(), !bits.get(cnot.control()));
+						if bits.get(*cnot.target()) {
+							new_bits.set(*cnot.control(), !bits.get(*cnot.control()));
 						}
 						new_bits
 					})
@@ -203,8 +203,8 @@ fn find_path(
 					.iter()
 					.map(|bits| {
 						let mut new_bits = bits.clone();
-						if bits.get(cnot.target()) {
-							new_bits.set(cnot.control(), !bits.get(cnot.control()));
+						if bits.get(*cnot.target()) {
+							new_bits.set(*cnot.control(), !bits.get(*cnot.control()));
 						}
 						new_bits
 					})

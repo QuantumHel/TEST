@@ -113,28 +113,28 @@ impl<V, M> TPar<V, M> {
 			let cnots = self.visitor.visit(required_bits, optional_bits, device);
 			let mut required: BTreeSet<_> = required.into_iter().map(|(a, _)| a.clone()).collect();
 			for cnot in cnots {
-				state.apply_cnot(cnot.control(), cnot.target());
+				state.apply_cnot(*cnot.control(), *cnot.target());
 				output.push(cnot);
 
-				let parity = state.get_cloned(cnot.target());
+				let parity = state.get_cloned(*cnot.target());
 				if let Some(angle) = S.remove(&parity) {
 					required.remove(&parity);
 					output.push(Rz {
 						angle,
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 				}
 
-				let not_parity = state.get_cloned(cnot.target()).not();
+				let not_parity = state.get_cloned(*cnot.target()).not();
 				if let Some(angle) = S.remove(&not_parity) {
-					state.apply_x(cnot.target());
+					state.apply_x(*cnot.target());
 					required.remove(&not_parity);
 					output.push(X {
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 					output.push(Rz {
 						angle,
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 				}
 			}
@@ -157,26 +157,26 @@ impl<V, M> TPar<V, M> {
 				.compile(parity_matrix, device)
 				.into_iter()
 			{
-				state.apply_cnot(cnot.control(), cnot.target());
+				state.apply_cnot(*cnot.control(), *cnot.target());
 				output.push(cnot);
 
-				let parity = state.get_cloned(cnot.target());
+				let parity = state.get_cloned(*cnot.target());
 				if let Some(angle) = S.remove(&parity) {
 					output.push(Rz {
 						angle,
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 				}
 
-				let not_parity = state.get_cloned(cnot.target()).not();
+				let not_parity = state.get_cloned(*cnot.target()).not();
 				if let Some(angle) = S.remove(&not_parity) {
-					state.apply_x(cnot.target());
+					state.apply_x(*cnot.target());
 					output.push(X {
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 					output.push(Rz {
 						angle,
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 				}
 			}
@@ -227,26 +227,26 @@ impl<V, M> TPar<V, M> {
 			let cnots = self.visitor.visit(required_bits, Vec::new(), device);
 
 			for cnot in cnots {
-				state.apply_cnot(cnot.control(), cnot.target());
+				state.apply_cnot(*cnot.control(), *cnot.target());
 				output.push(cnot);
 
-				let parity = state.get_cloned(cnot.target());
+				let parity = state.get_cloned(*cnot.target());
 				if let Some(angle) = S.remove(&parity) {
 					output.push(Rz {
 						angle,
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 				}
 
 				let not_parity = parity.not();
 				if let Some(angle) = S.remove(&not_parity) {
-					state.apply_x(cnot.target());
+					state.apply_x(*cnot.target());
 					output.push(X {
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 					output.push(Rz {
 						angle,
-						target: cnot.target(),
+						target: *cnot.target(),
 					});
 				}
 			}
@@ -264,7 +264,7 @@ impl<V, M> TPar<V, M> {
 				.compile(parity_matrix, device)
 				.into_iter()
 			{
-				state.apply_cnot(cnot.control(), cnot.target());
+				state.apply_cnot(*cnot.control(), *cnot.target());
 				output.push(cnot);
 			}
 

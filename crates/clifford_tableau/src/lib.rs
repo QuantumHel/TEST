@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod random_test;
+pub mod spcc;
 
 use bits::Bits;
 

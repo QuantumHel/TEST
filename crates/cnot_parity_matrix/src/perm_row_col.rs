@@ -122,7 +122,7 @@ mod tests {
 
 			parity_matrix.insert_qubit_mapping(&qubit_mapping.as_reversed());
 			for cnot in circuit.iter().rev() {
-				assert!(g.neighbors(cnot.control()).contains(&cnot.target()));
+				assert!(g.neighbors(*cnot.control()).contains(cnot.target()));
 				parity_matrix.insert_cnot(*cnot);
 			}
 

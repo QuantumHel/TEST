@@ -44,7 +44,7 @@ impl CNotRzXYH {
 	/// Returns the index of the highest used qubit + 1
 	pub fn n_required_qubits(&self) -> usize {
 		1 + match self {
-			Self::CNot(cnot) => cnot.target().max(cnot.control()),
+			Self::CNot(cnot) => *cnot.target().max(cnot.control()),
 			Self::Rz(rz) => rz.target,
 			Self::X(x) => x.target,
 			Self::Y(y) => y.target,
@@ -118,7 +118,7 @@ impl Simulatable<Squirrel> for CNotRzXYH {
 
 	fn target(&self) -> usize {
 		match &self {
-			CNotRzXYH::CNot(cnot) => cnot.target(),
+			CNotRzXYH::CNot(cnot) => *cnot.target(),
 			CNotRzXYH::Rz(rz) => rz.target(),
 			CNotRzXYH::X(x) => x.target(),
 			CNotRzXYH::Y(y) => y.target(),
@@ -178,11 +178,11 @@ impl Simulatable<Squirrel> for CNot {
 	}
 
 	fn controls(&self) -> Vec<usize> {
-		vec![self.control()]
+		vec![*self.control()]
 	}
 
 	fn target(&self) -> usize {
-		self.target()
+		*self.target()
 	}
 }
 

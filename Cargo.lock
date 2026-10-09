@@ -223,6 +223,7 @@ dependencies = [
  "rand",
  "rand_chacha",
  "test_openqasm2",
+ "test_pauli",
 ]
 
 [[package]]
@@ -272,13 +273,7 @@ version = "0.0.1"
 name = "test_pauli"
 version = "0.0.1"
 dependencies = [
- "rand",
- "rand_chacha",
  "test_bits",
- "test_circuit",
- "test_core",
- "test_graph",
- "test_simulator",
 ]
 
 [[package]]

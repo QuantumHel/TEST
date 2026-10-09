@@ -7,6 +7,7 @@ edition = "2024"
 openqasm2.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
+pauli.workspace = true
 
 [features]
 default = []

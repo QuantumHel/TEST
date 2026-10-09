@@ -1,6 +1,10 @@
 use std::num::NonZero;
 
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Cx};
+use pauli::{
+	Clifford,
+	PauliLetter::{I, X, Y, Z},
+};
 use rand::RngExt;
 
 use crate::{Circuit, RandomGate};
@@ -21,12 +25,12 @@ impl CNot {
 		}
 	}
 
-	pub fn target(&self) -> usize {
-		self.target
+	pub fn target(&self) -> &usize {
+		&self.target
 	}
 
-	pub fn control(&self) -> usize {
-		self.control
+	pub fn control(&self) -> &usize {
+		&self.control
 	}
 
 	pub fn reverse(&self) -> Self {
@@ -78,5 +82,37 @@ impl<T: From<CNot>> OpenQasm2Cx<Circuit<T>> for CNotOpaque {
 	fn insert_cnot(&self, control: usize, target: usize, ir: &mut Circuit<T>) {
 		let cnot = CNot::new(control, target).unwrap();
 		ir.push(cnot);
+	}
+}
+
+impl Clifford for CNot {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		let (sign, control, target) = match (
+			pauli_string.get(self.control),
+			pauli_string.get(self.target),
+		) {
+			(Z, Z) => (false, I, Z),
+			(I, Z) => (false, Z, Z),
+			(Z, Y) => (false, I, Y),
+			(I, Y) => (false, Z, Y),
+			(Y, I) => (false, Y, X),
+			(Y, X) => (false, Y, I),
+			(X, I) => (false, X, X),
+			(X, X) => (false, X, I),
+			(X, Z) => (true, Y, Y),
+			(Y, Y) => (true, X, Z),
+			(X, Y) => (true, Y, Z),
+			(Y, Z) => (true, X, Y),
+			(c, t) => (false, c, t),
+		};
+
+		let mut new = pauli_string.clone();
+		new.set(self.control, control);
+		new.set(self.target, target);
+		(sign, new)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		[&self.target, &self.control].into_iter()
 	}
 }

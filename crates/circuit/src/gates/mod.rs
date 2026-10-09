@@ -4,6 +4,7 @@ use std::num::NonZero;
 
 pub use cnot::{CNot, CNotOpaque};
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition};
+use pauli::{Clifford, PauliLetter};
 use rand::RngExt;
 pub use rz::Rz;
 
@@ -51,3 +52,101 @@ trivial_single_qubit_gate!(Z, ZOpaque, "z");
 trivial_single_qubit_gate!(X, XOpaque, "x");
 trivial_single_qubit_gate!(Y, YOpaque, "y");
 trivial_single_qubit_gate!(H, HOpaque, "h");
+trivial_single_qubit_gate!(S, SOpaque, "s");
+trivial_single_qubit_gate!(V, VOpaque, "v");
+
+impl Clifford for X {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		(
+			pauli_string.get(self.target) != PauliLetter::X
+				&& pauli_string.get(self.target) != PauliLetter::I,
+			pauli_string.clone(),
+		)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
+	}
+}
+
+impl Clifford for Z {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		(
+			pauli_string.get(self.target) != PauliLetter::Z
+				&& pauli_string.get(self.target) != PauliLetter::I,
+			pauli_string.clone(),
+		)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
+	}
+}
+
+impl Clifford for Y {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		(
+			pauli_string.get(self.target) != PauliLetter::Y
+				&& pauli_string.get(self.target) != PauliLetter::I,
+			pauli_string.clone(),
+		)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
+	}
+}
+
+impl Clifford for H {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		let (sign, letter) = match pauli_string.get(self.target) {
+			PauliLetter::X => (false, PauliLetter::Z),
+			PauliLetter::Z => (false, PauliLetter::X),
+			PauliLetter::Y => (true, PauliLetter::Y),
+			PauliLetter::I => (false, PauliLetter::I),
+		};
+		let mut new = pauli_string.clone();
+		new.set(self.target, letter);
+		(sign, new)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
+	}
+}
+
+impl Clifford for S {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		let (sign, letter) = match pauli_string.get(self.target) {
+			PauliLetter::Z => (false, PauliLetter::Z),
+			PauliLetter::X => (false, PauliLetter::Y),
+			PauliLetter::Y => (true, PauliLetter::X),
+			PauliLetter::I => (false, PauliLetter::I),
+		};
+		let mut new = pauli_string.clone();
+		new.set(self.target, letter);
+		(sign, new)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
+	}
+}
+
+impl Clifford for V {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		let (sign, letter) = match pauli_string.get(self.target) {
+			PauliLetter::Z => (true, PauliLetter::Y),
+			PauliLetter::X => (false, PauliLetter::X),
+			PauliLetter::Y => (false, PauliLetter::Z),
+			PauliLetter::I => (false, PauliLetter::I),
+		};
+		let mut new = pauli_string.clone();
+		new.set(self.target, letter);
+		(sign, new)
+	}
+
+	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
+	}
+}

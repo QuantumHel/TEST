@@ -74,7 +74,7 @@ mod tests {
 			let out = compiler.compile(parity_matrix.clone(), &g);
 
 			for cnot in out.iter().rev() {
-				assert!(g.neighbors(cnot.control()).contains(&cnot.target()));
+				assert!(g.neighbors(*cnot.control()).contains(cnot.target()));
 				parity_matrix.insert_cnot(*cnot);
 			}
 

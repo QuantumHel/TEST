@@ -26,7 +26,7 @@ impl Triplet {
 	pub fn add_gate(&mut self, gate: CNotRzXYH) {
 		match gate {
 			CNotRzXYH::CNot(cnot) => {
-				self.q.apply_cnot(cnot.control(), cnot.target());
+				self.q.apply_cnot(*cnot.control(), *cnot.target());
 			}
 			CNotRzXYH::Rz(Rz { angle, target }) => {
 				let parity = self.q.get_cloned(target);
