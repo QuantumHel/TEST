@@ -1,6 +1,9 @@
-use crate::{ParityMatrix, TwoQubitEdge};
+use crate::ParityMatrix;
 use circuit::{Circuit, gates::CNot};
-use core::{Compiler, QubitMapping, QubitMappingBuilder, connectivity::Connectivity};
+use core::{
+	Compiler, QubitMapping, QubitMappingBuilder,
+	connectivity::{Connectivity, TwoQubitEdge},
+};
 use graph::prelude::*;
 
 /// An implementation of the PermRowCol algorithm from
@@ -89,14 +92,14 @@ fn choose_column(selected_row: usize, options: &[usize], parity_matrix: &ParityM
 
 #[cfg(test)]
 mod tests {
-	use core::Compiler;
 	use core::connectivity::Connectivity;
+	use core::{Compiler, connectivity::TwoQubitEdge};
 
 	use circuit::{RandomGate, gates::CNot};
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 
-	use crate::{ParityMatrix, TwoQubitEdge, algorithm::PermRowCol};
+	use crate::{ParityMatrix, algorithm::PermRowCol};
 
 	#[test]
 	fn perm_row_col_random_test() {

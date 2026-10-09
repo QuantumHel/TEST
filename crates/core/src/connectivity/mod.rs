@@ -1,6 +1,8 @@
+mod two_qubit_edge;
 use std::collections::{HashSet, VecDeque};
 
 use graph::prelude::*;
+pub use two_qubit_edge::TwoQubitEdge;
 
 #[derive(Debug, Default)]
 pub struct ConnectivityNode {

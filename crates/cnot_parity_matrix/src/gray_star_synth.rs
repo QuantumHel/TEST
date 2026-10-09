@@ -5,10 +5,10 @@ use std::{
 
 use bits::Bits;
 use circuit::gates::CNot;
-use core::connectivity::{Connectivity, ConnectivityNode};
+use core::connectivity::{Connectivity, ConnectivityNode, TwoQubitEdge};
 use graph::{Graph, GraphExt, subgraph::Subgraph};
 
-use crate::{TwoQubitEdge, t_par::ParityVisitor};
+use crate::t_par::ParityVisitor;
 
 enum IteratorEnum<T1: Iterator<Item = usize>, T2: Iterator<Item = usize>> {
 	T1(T1),

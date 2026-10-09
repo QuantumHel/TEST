@@ -5,13 +5,16 @@ mod state;
 mod triplet;
 
 use self::{state::State, triplet::Triplet};
-use crate::{ParityMatrix, TwoQubitEdge};
+use crate::ParityMatrix;
 use bits::Bits;
 use circuit::{
 	Circuit,
 	gates::{CNot, H, Rz, X},
 };
-use core::{Compiler, connectivity::Connectivity};
+use core::{
+	Compiler,
+	connectivity::{Connectivity, TwoQubitEdge},
+};
 use gateset::CNotRzXYH;
 use parity::Parity;
 use std::collections::BTreeSet;
@@ -357,14 +360,16 @@ mod tests {
 		Circuit,
 		gates::{CNot, H, Rz},
 	};
-	use core::{Compiler, connectivity::Connectivity};
+	use core::{
+		Compiler,
+		connectivity::{Connectivity, TwoQubitEdge},
+	};
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 	use simulator::{Simulatable, Statevector};
 	use std::num::NonZeroU32;
 
 	use crate::{
-		TwoQubitEdge,
 		algorithm::PatelMarkovHayes,
 		gray_star_synth::{GrayStarSynth, GrayStarTerminationCriteria},
 		rowcol::RowCol,

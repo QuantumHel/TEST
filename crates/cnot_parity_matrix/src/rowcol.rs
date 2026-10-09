@@ -1,8 +1,8 @@
 use circuit::{Circuit, gates::CNot};
-use core::prelude::*;
+use core::{connectivity::TwoQubitEdge, prelude::*};
 use graph::prelude::*;
 
-use crate::{ParityMatrix, TwoQubitEdge};
+use crate::ParityMatrix;
 
 /// An implementation of the rowcol algorithm described in
 /// https://doi.org/10.1103/PhysRevResearch.5.013065
