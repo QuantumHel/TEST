@@ -556,7 +556,16 @@ mod tests {
 
 			let mut new: Statevector<Squirrel> = Statevector::new(max_qubit + 1);
 			for gate in compiled.iter() {
-				// TODO: check if gate is supported by device
+				if let CNotRzXYH::CNot(cnot) = gate
+					&& !device.neighbors(*cnot.target()).contains(cnot.control())
+				{
+					panic!(
+						"Got CNot({}, {}) that is not supported by connectivity",
+						cnot.control(),
+						cnot.target()
+					);
+				}
+
 				new.apply(gate);
 			}
 
