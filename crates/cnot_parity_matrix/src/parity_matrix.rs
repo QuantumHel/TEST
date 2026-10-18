@@ -1,7 +1,7 @@
 use crate::xor_span::XorSpan;
 use bits::Bits;
 use circuit::gates::CNot;
-use core::QubitMapping;
+use core::qubit_map::QubitMap;
 use graph::{Cardinality, ConstCardinalityEdge, Graph, GraphExt, Node};
 use std::ops::{Range, RangeBounds};
 
@@ -122,7 +122,7 @@ impl ParityMatrix {
 
 	/// Inserts a [QubitMapping] to the end of a [ParityMatrix] (output
 	/// [QubitMapping]).
-	pub fn insert_qubit_mapping(&mut self, qubit_mapping: &QubitMapping) {
+	pub fn insert_qubit_mapping(&mut self, qubit_mapping: &QubitMap) {
 		let mut clone = self.clone();
 		for (original, target) in qubit_mapping.map_non_trivial() {
 			let row = self.get_row(original);
@@ -390,7 +390,7 @@ impl std::fmt::Display for ParityMatrix {
 
 #[cfg(test)]
 mod test {
-	use core::QubitMapping;
+	use core::qubit_map::QubitMap;
 
 	use bits::Bits;
 	use circuit::gates::CNot;
@@ -434,7 +434,7 @@ mod test {
 		matrix.insert_cnot(CNot::new(2, 0).unwrap());
 		matrix.insert_cnot(CNot::new(0, 2).unwrap());
 
-		let mut qubit_map = QubitMapping::default();
+		let mut qubit_map = QubitMap::default();
 		qubit_map.swap_mapped(0, 1);
 		qubit_map.swap_mapped(1, 2);
 

@@ -1,8 +1,9 @@
 use crate::ParityMatrix;
 use circuit::{Circuit, gates::CNot};
 use core::{
-	Compiler, QubitMapping, QubitMappingBuilder,
+	Compiler,
 	connectivity::{Connectivity, TwoQubitEdge},
+	qubit_map::{QubitMap, QubitMapBuilder},
 };
 use graph::prelude::*;
 
@@ -10,14 +11,12 @@ use graph::prelude::*;
 /// https://arxiv.org/abs/2205.00724v4
 pub struct PermRowCol;
 
-impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMapping), Connectivity<TwoQubitEdge>>
-	for PermRowCol
-{
+impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge>> for PermRowCol {
 	fn compile(
 		&self,
 		parity_matrix: ParityMatrix,
 		device: &Connectivity<TwoQubitEdge>,
-	) -> (Circuit<CNot>, QubitMapping) {
+	) -> (Circuit<CNot>, QubitMap) {
 		// Take the transpose in order to get output qubit mapping.
 		// Without transpose it would be the input qubit mapping
 		let mut parity_matrix = parity_matrix.transpose();
@@ -25,7 +24,7 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMapping), Connectivity<TwoQubit
 
 		let mut available_qubits = vec![true; graph.node_storage_size()];
 		let mut circuit: Circuit<CNot> = Circuit::new();
-		let mut qubit_mapping = QubitMappingBuilder::default();
+		let mut qubit_mapping = QubitMapBuilder::default();
 		while graph.iter_nodes().count() > 1 {
 			let candidates = graph.non_cutting_nodes();
 			let chosen_row = choose_row(&candidates, &parity_matrix);
