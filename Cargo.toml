@@ -18,6 +18,7 @@ graph = { path = "crates/graph", package = "test_graph" }
 simulator = { path = "crates/simulator", package = "test_simulator" }
 pauli = { path = "crates/pauli", package = "test_pauli" }
 openqasm2 = { path = "crates/openqasm2", package = "test_openqasm2" }
+misc = { path = "crates/misc", package = "test_misc" }
 
 [dependencies]
 test_bits = { path = "crates/bits" }

@@ -1,4 +1,4 @@
-use core::TargetQubits;
+use core::{OperatorEq, TargetQubits};
 use std::num::NonZero;
 
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Cx};
@@ -117,5 +117,11 @@ impl Clifford for CNot {
 impl TargetQubits for CNot {
 	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
 		[&self.target, &self.control].into_iter()
+	}
+}
+
+impl OperatorEq for CNot {
+	fn operator_eq(&self, _: &Self) -> bool {
+		true
 	}
 }

@@ -2,6 +2,8 @@ use circuit::{
 	Circuit, RandomGate,
 	gates::{CNot, CNotOpaque, H, HOpaque, Rz, X, XOpaque, Y, YOpaque, Z, ZOpaque},
 };
+use core::{OperatorEq, TargetQubits};
+use misc::IterEnum2;
 use openqasm2::{
 	OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Config, OpenQasm2Frontend,
 	VirtualOpenqasmFile,
@@ -102,6 +104,31 @@ impl CNotRzXYH {
 			cx: Some(Box::new(CNotOpaque)),
 			ignore_imports: true,
 		})
+	}
+}
+
+impl TargetQubits for CNotRzXYH {
+	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
+		match self {
+			Self::CNot(cnot) => IterEnum2::Iter1(cnot.target_qubits()),
+			Self::Rz(rz) => IterEnum2::Iter2(std::iter::once(&rz.target)),
+			Self::X(x) => IterEnum2::Iter2(std::iter::once(&x.target)),
+			Self::Y(y) => IterEnum2::Iter2(std::iter::once(&y.target)),
+			Self::H(h) => IterEnum2::Iter2(std::iter::once(&h.target)),
+		}
+	}
+}
+
+impl OperatorEq for CNotRzXYH {
+	fn operator_eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::CNot(_), Self::CNot(_)) => true,
+			(Self::Rz(a), Self::Rz(b)) => a.angle.0 % 8 == b.angle.0 % 8,
+			(Self::X(_), Self::X(_)) => true,
+			(Self::Y(_), Self::Y(_)) => true,
+			(Self::H(_), Self::H(_)) => true,
+			_ => false,
+		}
 	}
 }
 

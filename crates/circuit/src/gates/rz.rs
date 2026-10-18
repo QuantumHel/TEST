@@ -1,3 +1,5 @@
+use core::TargetQubits;
+
 use rand::{
 	RngExt,
 	distr::{Distribution, StandardUniform},
@@ -20,5 +22,11 @@ where
 			angle: rng.random(),
 			target: rng.random_range(..n_qubits),
 		}
+	}
+}
+
+impl<T> TargetQubits for Rz<T> {
+	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
+		std::iter::once(&self.target)
 	}
 }

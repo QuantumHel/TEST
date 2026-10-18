@@ -236,6 +236,7 @@ dependencies = [
  "test_circuit",
  "test_core",
  "test_graph",
+ "test_misc",
  "test_pauli",
 ]
 
@@ -249,6 +250,7 @@ dependencies = [
  "test_circuit",
  "test_core",
  "test_graph",
+ "test_misc",
  "test_openqasm2",
  "test_simulator",
 ]
@@ -262,6 +264,10 @@ dependencies = [
 
 [[package]]
 name = "test_graph"
+version = "0.0.1"
+
+[[package]]
+name = "test_misc"
 version = "0.0.1"
 
 [[package]]

@@ -1,4 +1,5 @@
-use core::TargetQubits;
+use core::{OperatorEq, TargetQubits};
+use misc::IterEnum2;
 use std::{
 	array::IntoIter,
 	iter::{self, Once},
@@ -42,22 +43,6 @@ impl From<V> for CNotHSV {
 	}
 }
 
-enum CNotHSVTargetIterator<'a> {
-	One(Once<&'a usize>),
-	Two(IntoIter<&'a usize, 2>),
-}
-
-impl<'a> Iterator for CNotHSVTargetIterator<'a> {
-	type Item = &'a usize;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		match self {
-			Self::One(iter) => iter.next(),
-			Self::Two(iter) => iter.next(),
-		}
-	}
-}
-
 impl Clifford for CNotHSV {
 	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
 		match self {
@@ -72,13 +57,23 @@ impl Clifford for CNotHSV {
 impl TargetQubits for CNotHSV {
 	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
 		match self {
-			CNotHSV::CNot(cnot) => {
-				CNotHSVTargetIterator::Two([cnot.control(), cnot.target()].into_iter())
-			}
-			CNotHSV::H(h) => CNotHSVTargetIterator::One(iter::once(&h.target)),
-			CNotHSV::S(s) => CNotHSVTargetIterator::One(iter::once(&s.target)),
-			CNotHSV::V(v) => CNotHSVTargetIterator::One(iter::once(&v.target)),
+			CNotHSV::CNot(cnot) => IterEnum2::Iter1(cnot.target_qubits()),
+			CNotHSV::H(h) => IterEnum2::Iter2(iter::once(&h.target)),
+			CNotHSV::S(s) => IterEnum2::Iter2(iter::once(&s.target)),
+			CNotHSV::V(v) => IterEnum2::Iter2(iter::once(&v.target)),
 		}
+	}
+}
+
+impl OperatorEq for CNotHSV {
+	fn operator_eq(&self, other: &Self) -> bool {
+		matches!(
+			(self, other),
+			(Self::CNot(_), Self::CNot(_))
+				| (Self::H(_), Self::H(_))
+				| (Self::S(_), Self::S(_))
+				| (Self::V(_), Self::V(_))
+		)
 	}
 }
 

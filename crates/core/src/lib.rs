@@ -22,3 +22,13 @@ pub trait TargetQubits {
 	/// matching.
 	fn target_qubits(&self) -> impl Iterator<Item = &usize>;
 }
+
+pub trait OperatorEq {
+	/// Returns true `self` and `other` are equal operators (ignoring on which
+	/// qubits/bits they act on).
+	///
+	/// # Example:
+	/// - `cnot 1, 2` annd `cnot 5, 3` are equal
+	/// - `rz(pi) 4` and `rz(pi/2) 4` are not
+	fn operator_eq(&self, other: &Self) -> bool;
+}

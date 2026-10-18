@@ -10,6 +10,7 @@ circuit.workspace = true
 graph.workspace = true
 rand.workspace = true
 pauli.workspace = true
+misc.workspace = true
 
 [dev-dependencies]
 rand_chacha.workspace = true

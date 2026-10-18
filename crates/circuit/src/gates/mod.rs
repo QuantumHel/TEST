@@ -2,7 +2,7 @@ mod cnot;
 mod rz;
 
 pub use cnot::{CNot, CNotOpaque};
-use core::TargetQubits;
+use core::{OperatorEq, TargetQubits};
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition};
 use pauli::{Clifford, PauliLetter};
 use rand::RngExt;
@@ -29,6 +29,12 @@ macro_rules! trivial_single_qubit_gate {
 				Self {
 					target: rng.random_range(..n_qubits),
 				}
+			}
+		}
+
+		impl OperatorEq for $name {
+			fn operator_eq(&self, _: &Self) -> bool {
+				true
 			}
 		}
 
