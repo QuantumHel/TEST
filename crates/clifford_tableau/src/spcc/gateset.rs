@@ -1,9 +1,6 @@
 use core::{OperatorEq, TargetQubits};
 use misc::IterEnum2;
-use std::{
-	array::IntoIter,
-	iter::{self, Once},
-};
+use std::iter;
 
 use circuit::{
 	RandomGate,
