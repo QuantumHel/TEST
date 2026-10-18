@@ -7,10 +7,4 @@ pub trait Clifford {
 	/// negative sign, and the resulting [PauliString] (which does not have an
 	/// iternal sign).
 	fn conjugate(&self, pauli_string: &PauliString) -> (bool, PauliString);
-
-	/// This lists all qubits with which the [Clifford] interacts.
-	///
-	/// Can be used for optimizaion like detecting trivial commutation, and
-	/// for making sure that we have the needed qubits available.
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize>;
 }

@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
+core.workspace = true
 openqasm2.workspace = true
 rand.workspace = true
 pauli.workspace = true

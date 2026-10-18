@@ -1,5 +1,7 @@
 pub mod spcc;
 
+use core::TargetQubits;
+
 use bits::Bits;
 
 use pauli::{Clifford, PauliString};
@@ -71,8 +73,8 @@ impl CliffordTableau {
 	///
 	/// Merges a Clifford into the tableau (On a circuit the Pauli would be
 	/// originally on the right side of the tableau).
-	pub fn merge_clifford<C: Clifford>(&mut self, clifford: &C) {
-		let Some(n_qubits) = clifford.interacting_qubits().max() else {
+	pub fn merge_clifford<C: Clifford + TargetQubits>(&mut self, clifford: &C) {
+		let Some(n_qubits) = clifford.target_qubits().max() else {
 			return;
 		};
 		// Makes sure that the tableau is enough big to represent the Clifford

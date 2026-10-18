@@ -1,3 +1,4 @@
+use core::TargetQubits;
 use std::num::NonZero;
 
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Cx};
@@ -111,8 +112,10 @@ impl Clifford for CNot {
 		new.set(self.target, target);
 		(sign, new)
 	}
+}
 
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+impl TargetQubits for CNot {
+	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
 		[&self.target, &self.control].into_iter()
 	}
 }

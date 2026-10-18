@@ -1,3 +1,4 @@
+use core::TargetQubits;
 use std::{
 	array::IntoIter,
 	iter::{self, Once},
@@ -66,8 +67,10 @@ impl Clifford for CNotHSV {
 			CNotHSV::V(v) => v.conjugate(pauli_string),
 		}
 	}
+}
 
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
+impl TargetQubits for CNotHSV {
+	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
 		match self {
 			CNotHSV::CNot(cnot) => {
 				CNotHSVTargetIterator::Two([cnot.control(), cnot.target()].into_iter())

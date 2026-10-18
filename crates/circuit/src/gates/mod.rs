@@ -1,12 +1,13 @@
 mod cnot;
 mod rz;
-use std::num::NonZero;
 
 pub use cnot::{CNot, CNotOpaque};
+use core::TargetQubits;
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition};
 use pauli::{Clifford, PauliLetter};
 use rand::RngExt;
 pub use rz::Rz;
+use std::num::NonZero;
 
 use crate::{Circuit, RandomGate};
 
@@ -15,6 +16,12 @@ macro_rules! trivial_single_qubit_gate {
 		#[derive(Debug, Clone, Copy, PartialEq)]
 		pub struct $name {
 			pub target: usize,
+		}
+
+		impl TargetQubits for $name {
+			fn target_qubits(&self) -> impl Iterator<Item = &usize> {
+				std::iter::once(&self.target)
+			}
 		}
 
 		impl RandomGate for $name {
@@ -63,10 +70,6 @@ impl Clifford for X {
 			pauli_string.clone(),
 		)
 	}
-
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
-		std::iter::once(&self.target)
-	}
 }
 
 impl Clifford for Z {
@@ -77,10 +80,6 @@ impl Clifford for Z {
 			pauli_string.clone(),
 		)
 	}
-
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
-		std::iter::once(&self.target)
-	}
 }
 
 impl Clifford for Y {
@@ -90,10 +89,6 @@ impl Clifford for Y {
 				&& pauli_string.get(self.target) != PauliLetter::I,
 			pauli_string.clone(),
 		)
-	}
-
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
-		std::iter::once(&self.target)
 	}
 }
 
@@ -109,10 +104,6 @@ impl Clifford for H {
 		new.set(self.target, letter);
 		(sign, new)
 	}
-
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
-		std::iter::once(&self.target)
-	}
 }
 
 impl Clifford for S {
@@ -127,10 +118,6 @@ impl Clifford for S {
 		new.set(self.target, letter);
 		(sign, new)
 	}
-
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
-		std::iter::once(&self.target)
-	}
 }
 
 impl Clifford for V {
@@ -144,9 +131,5 @@ impl Clifford for V {
 		let mut new = pauli_string.clone();
 		new.set(self.target, letter);
 		(sign, new)
-	}
-
-	fn interacting_qubits(&self) -> impl Iterator<Item = &usize> {
-		std::iter::once(&self.target)
 	}
 }
