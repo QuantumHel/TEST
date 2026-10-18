@@ -360,7 +360,7 @@ pub fn draw_rows(rows: Vec<VisualRow>, size: ImageSize) -> SVGImage {
 					};
 
 					res += &format!(
-						"<rect x='{}' y='{}' width='{square_size}' height={square_size} style='fill:{};stroke:black;stroke-width:{}' />",
+						"<rect x='{}' y='{}' width='{square_size}' height='{square_size}' style='fill:{};stroke:black;stroke-width:{}' />",
 						padding_w + square_size * (x + 2) as f64,
 						square_size * y as f64 + padding_h - square_size,
 						letter.bg,
