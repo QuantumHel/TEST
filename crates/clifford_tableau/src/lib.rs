@@ -79,7 +79,7 @@ impl CliffordTableau {
 		};
 		// Makes sure that the tableau is enough big to represent the Clifford
 		// operation.
-		for _ in 0..(n_qubits - self.x.len()) {
+		for _ in 0..n_qubits.saturating_sub(self.x.len()) {
 			let i = self.x.len();
 			self.x.push(PauliString::x(i));
 			self.z.push(PauliString::z(i));
