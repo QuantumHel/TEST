@@ -2,7 +2,10 @@ mod cnot;
 mod rz;
 
 pub use cnot::{CNot, CNotOpaque};
-use core::{OperatorEq, TargetQubits};
+use core::{
+	MapQubits, OperatorEq, TargetQubits,
+	qubit_map::{PartialQubitMap, QubitIsNotMapped},
+};
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition};
 use pauli::{Clifford, PauliLetter};
 use rand::RngExt;
@@ -21,6 +24,13 @@ macro_rules! trivial_single_qubit_gate {
 		impl TargetQubits for $name {
 			fn target_qubits(&self) -> impl Iterator<Item = &usize> {
 				std::iter::once(&self.target)
+			}
+		}
+
+		impl MapQubits for $name {
+			fn try_map_qubits(&mut self, map: &PartialQubitMap) -> Result<(), QubitIsNotMapped> {
+				self.target = map.map(self.target)?;
+				Ok(())
 			}
 		}
 

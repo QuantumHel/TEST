@@ -1,3 +1,5 @@
+use self::qubit_map::{PartialQubitMap, QubitIsNotMapped, QubitMap};
+
 pub mod connectivity;
 pub mod qubit_map;
 
@@ -27,8 +29,25 @@ pub trait OperatorEq {
 	/// Returns true `self` and `other` are equal operators (ignoring on which
 	/// qubits/bits they act on).
 	///
+	/// Two equal operators have to always have the same amount of
+	/// [TargetQubits].
+	///
 	/// # Example:
 	/// - `cnot 1, 2` annd `cnot 5, 3` are equal
 	/// - `rz(pi) 4` and `rz(pi/2) 4` are not
 	fn operator_eq(&self, other: &Self) -> bool;
+}
+
+pub trait MapQubits {
+	/// Maps all target qubits according to the qubit map.
+	///
+	/// This should return [Err] if and only if a target qubit cant be mapped
+	/// using the given [QubitMap].
+	fn try_map_qubits(&mut self, map: &PartialQubitMap) -> Result<(), QubitIsNotMapped>;
+
+	/// Maps all target qubits according to the qubit map.
+	fn map_qubits(&mut self, map: &QubitMap) {
+		let partial: PartialQubitMap = map.clone().into();
+		self.try_map_qubits(&partial).unwrap();
+	}
 }

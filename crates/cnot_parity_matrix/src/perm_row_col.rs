@@ -3,7 +3,7 @@ use circuit::{Circuit, gates::CNot};
 use core::{
 	Compiler,
 	connectivity::{Connectivity, TwoQubitEdge},
-	qubit_map::{QubitMap, QubitMapBuilder},
+	qubit_map::{PartialQubitMap, QubitMap},
 };
 use graph::prelude::*;
 
@@ -24,7 +24,7 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 
 		let mut available_qubits = vec![true; graph.node_storage_size()];
 		let mut circuit: Circuit<CNot> = Circuit::new();
-		let mut qubit_mapping = QubitMapBuilder::default();
+		let mut qubit_mapping = PartialQubitMap::default();
 		while graph.iter_nodes().count() > 1 {
 			let candidates = graph.non_cutting_nodes();
 			let chosen_row = choose_row(&candidates, &parity_matrix);
@@ -50,7 +50,7 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 
 			available_qubits[chosen_column] = false;
 			graph.remove_node(chosen_row);
-			qubit_mapping.map_qubit(chosen_row, chosen_column);
+			qubit_mapping.map_qubit(chosen_row, chosen_column).unwrap();
 		}
 
 		let free_column = available_qubits
@@ -59,10 +59,10 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 			.find_map(|(i, v)| v.then_some(i))
 			.unwrap();
 		let free_row = graph.enumerate_nodes().next().unwrap().0;
-		qubit_mapping.map_qubit(free_row, free_column);
+		qubit_mapping.map_qubit(free_row, free_column).unwrap();
 
 		// we dont reverse the circuit as we used the transpose paritymatrix
-		(circuit, qubit_mapping.finish().unwrap())
+		(circuit, qubit_mapping.try_into().unwrap())
 	}
 }
 

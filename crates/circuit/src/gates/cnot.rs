@@ -1,4 +1,4 @@
-use core::{OperatorEq, TargetQubits};
+use core::{MapQubits, OperatorEq, TargetQubits};
 use std::num::NonZero;
 
 use openqasm2::{OpaqueFunction, OpaqueFunctionDefinition, OpenQasm2Cx};
@@ -123,5 +123,16 @@ impl TargetQubits for CNot {
 impl OperatorEq for CNot {
 	fn operator_eq(&self, _: &Self) -> bool {
 		true
+	}
+}
+
+impl MapQubits for CNot {
+	fn try_map_qubits(
+		&mut self,
+		map: &core::qubit_map::PartialQubitMap,
+	) -> Result<(), core::qubit_map::QubitIsNotMapped> {
+		self.control = map.map(self.control)?;
+		self.target = map.map(self.target)?;
+		Ok(())
 	}
 }

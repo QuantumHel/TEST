@@ -1,4 +1,4 @@
-use core::TargetQubits;
+use core::{MapQubits, TargetQubits};
 
 use rand::{
 	RngExt,
@@ -28,5 +28,15 @@ where
 impl<T> TargetQubits for Rz<T> {
 	fn target_qubits(&self) -> impl Iterator<Item = &usize> {
 		std::iter::once(&self.target)
+	}
+}
+
+impl<T> MapQubits for Rz<T> {
+	fn try_map_qubits(
+		&mut self,
+		map: &core::qubit_map::PartialQubitMap,
+	) -> Result<(), core::qubit_map::QubitIsNotMapped> {
+		self.target = map.map(self.target)?;
+		Ok(())
 	}
 }
