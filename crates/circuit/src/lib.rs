@@ -1,6 +1,9 @@
+mod find_and_replace;
+pub mod gates;
+
 use std::{slice::Iter, vec::IntoIter};
 
-pub mod gates;
+pub use find_and_replace::{FindAndReplace, FindAndReplaceError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Circuit<T> {
