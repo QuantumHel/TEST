@@ -216,6 +216,9 @@ impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace
 				}
 			}
 
+			before.reverse();
+			after.reverse();
+
 			before.append(&mut replace_with);
 			before.append(&mut after);
 			input.gates.splice(i..i, before);
