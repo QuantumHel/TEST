@@ -1,5 +1,5 @@
 use core::{Compiler, MapQubits, OperatorEq, TargetQubits, qubit_map::PartialQubitMap};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::Circuit;
 
@@ -8,8 +8,22 @@ use crate::Circuit;
 /// This [Compiler] ignores the given device, and trusts that the replacement
 /// follows restraints.
 ///
+/// # Important!
 /// After each replacement, he circuit is inspected again from the beginning,
 /// this means that this compiler step can lead to an infinite loop.
+///
+/// # Known issue (will be fixed when needed):
+///
+/// We pick gates into the pattern greedily. This means that a pattern
+///
+///
+/// `H(0) H(1) CX(0, 1) H(0) H(1)`
+///
+/// fails to match on
+///
+/// `H(0) H(3) H(1) CX(0, 1) H(0) H(1)`
+///
+/// because we map 3 to 1.
 pub struct FindAndReplace<Find, Replace> {
 	find: Circuit<Find>,
 	replace: Circuit<Replace>,
@@ -45,6 +59,12 @@ impl<Find: TargetQubits, Replace: TargetQubits> FindAndReplace<Find, Replace> {
 	}
 }
 
+enum Edit {
+	Before,
+	After,
+	Remove,
+}
+
 impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace: Clone + Into<T>>
 	Compiler<Circuit<T>, Circuit<T>, D> for FindAndReplace<Find, Replace>
 {
@@ -61,7 +81,7 @@ impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace
 
 			// We should not need to check target qubit size, but we do to make sure.
 			if !start_gate.operator_eq(find_start)
-				&& find_start.target_qubits().count() == start_gate.target_qubits().count()
+				|| find_start.target_qubits().count() != start_gate.target_qubits().count()
 			{
 				i += 1;
 				continue;
@@ -69,8 +89,12 @@ impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace
 
 			// map from pattern to real
 			let mut mapping = PartialQubitMap::default();
+			// Contains qubits in input format. These can not be used for before
+			// and not for patterns. Only push after
+			let mut blocked: BTreeSet<usize> = BTreeSet::default();
 			let mut is_mapped: BTreeSet<usize> = BTreeSet::default();
-			let mut remove_indices = vec![];
+			// Edits
+			let mut edits: BTreeMap<usize, Edit> = BTreeMap::default();
 			let mut input_index = i;
 			let mut find_index = 0;
 			'find_index: while find_index < find.gates.len() {
@@ -88,13 +112,20 @@ impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace
 						&& next.target_qubits().count() == goal.target_qubits().count()
 					{
 						let mut is_match = true;
+						let mut tmp_mapped: BTreeSet<usize> = BTreeSet::default();
 						for (next_qubit, goal_qubit) in
 							next.target_qubits().zip(goal.target_qubits())
 						{
-							let mapped = if is_mapped.contains(goal_qubit) {
+							if blocked.contains(next_qubit) {
+								is_match = false;
+								break;
+							}
+							let mapped = if is_mapped.contains(goal_qubit)
+								|| tmp_mapped.contains(goal_qubit)
+							{
 								mapping.map(*goal_qubit).unwrap()
 							} else {
-								is_mapped.insert(*goal_qubit);
+								tmp_mapped.insert(*goal_qubit);
 								if mapping.map_qubit(*goal_qubit, *next_qubit).is_err() {
 									is_match = false;
 									break;
@@ -108,21 +139,49 @@ impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace
 						}
 
 						if is_match {
-							remove_indices.push(input_index);
+							for qubit in tmp_mapped.into_iter() {
+								is_mapped.insert(qubit);
+							}
+							edits.insert(input_index, Edit::Remove);
 							find_index += 1;
 							input_index += 1;
 							continue 'find_index;
+						} else {
+							for qubit in tmp_mapped.into_iter() {
+								mapping.reset_qubit(qubit);
+							}
 						}
 					}
 
+					let mut after: bool = false;
 					for qubit in next.target_qubits() {
 						if let Ok(goal_qubit) = mapping.source(*qubit)
 							&& is_mapped.contains(&goal_qubit)
-							&& will_be_used.contains(&goal_qubit)
 						{
-							i += 1;
-							continue 'outer;
+							after = true;
 						}
+
+						if blocked.contains(qubit) {
+							after = true;
+						}
+					}
+
+					if after {
+						for qubit in next.target_qubits() {
+							// if the qubit will ne used we cant put it after
+							if let Ok(goal_qubit) = mapping.source(*qubit)
+								&& is_mapped.contains(&goal_qubit)
+								&& will_be_used.contains(&goal_qubit)
+							{
+								i += 1;
+								continue 'outer;
+							}
+							blocked.insert(*qubit);
+						}
+
+						edits.insert(input_index, Edit::After);
+					} else {
+						edits.insert(input_index, Edit::Before);
 					}
 
 					input_index += 1;
@@ -131,23 +190,35 @@ impl<T: TargetQubits + OperatorEq + MapQubits, D, Find: Clone + Into<T>, Replace
 				continue 'outer;
 			}
 
-			let replace_with = Circuit {
-				gates: self
-					.replace
-					.gates
-					.iter()
-					.map(|a| {
-						let mut gate = a.clone().into();
-						gate.try_map_qubits(&mapping).unwrap();
-						gate
-					})
-					.collect(),
-			};
+			let mut replace_with: Vec<_> = self
+				.replace
+				.gates
+				.iter()
+				.map(|a| {
+					let mut gate = a.clone().into();
+					gate.try_map_qubits(&mapping).unwrap();
+					gate
+				})
+				.collect();
+			let mut before: Vec<T> = Vec::new();
+			let mut after: Vec<T> = Vec::new();
 
-			for index in remove_indices.into_iter().rev() {
-				input.gates.remove(index);
+			for (index, edit) in edits.into_iter().rev() {
+				let gate = input.gates.remove(index);
+				match edit {
+					Edit::Before => {
+						before.push(gate);
+					}
+					Edit::After => {
+						after.push(gate);
+					}
+					Edit::Remove => {}
+				}
 			}
-			input.gates.splice(i..i, replace_with.gates);
+
+			before.append(&mut replace_with);
+			before.append(&mut after);
+			input.gates.splice(i..i, before);
 			i = 0;
 		}
 
@@ -249,6 +320,60 @@ mod tests {
 				CNot::new(1, 2).unwrap(),
 				CNot::new(2, 1).unwrap(),
 				CNot::new(0, 1).unwrap(),
+			]
+		);
+	}
+
+	#[test]
+	fn find_and_replace_location() {
+		let circuit = Circuit {
+			gates: vec![
+				CNot::new(0, 1).unwrap(),
+				CNot::new(3, 2).unwrap(),
+				CNot::new(1, 2).unwrap(),
+			],
+		};
+		let find_and_replace: FindAndReplace<CNot, CNot> = FindAndReplace::new(
+			Circuit {
+				gates: vec![CNot::new(0, 1).unwrap(), CNot::new(1, 2).unwrap()],
+			},
+			Circuit {
+				gates: vec![CNot::new(0, 2).unwrap()],
+			},
+		)
+		.unwrap();
+
+		assert_eq!(
+			find_and_replace.compile(circuit, &()).gates,
+			vec![CNot::new(3, 2).unwrap(), CNot::new(0, 2).unwrap()]
+		);
+	}
+
+	#[test]
+	fn find_and_replace_non_trivial_block() {
+		let circuit = Circuit {
+			gates: vec![
+				CNot::new(1, 2).unwrap(),
+				CNot::new(1, 0).unwrap(),
+				CNot::new(3, 0).unwrap(),
+				CNot::new(2, 3).unwrap(),
+			],
+		};
+		let find_and_replace: FindAndReplace<CNot, CNot> = FindAndReplace::new(
+			Circuit {
+				gates: vec![CNot::new(0, 1).unwrap(), CNot::new(1, 2).unwrap()],
+			},
+			Circuit { gates: vec![] },
+		)
+		.unwrap();
+
+		assert_eq!(
+			find_and_replace.compile(circuit, &()).gates,
+			vec![
+				CNot::new(1, 2).unwrap(),
+				CNot::new(1, 0).unwrap(),
+				CNot::new(3, 0).unwrap(),
+				CNot::new(2, 3).unwrap(),
 			]
 		);
 	}

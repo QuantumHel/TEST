@@ -14,8 +14,7 @@ pub struct ToQubitAlreadyMappedTo {
 	pub to: usize,
 }
 
-/// This maps some qubits to other qubits and is injective, but not neccessarily
-/// surjective.
+/// This maps some qubits to some other qubits.
 ///
 /// The most common usecase is to map qubits at the start of the program, as
 /// that is a free classical step.
@@ -92,6 +91,14 @@ impl PartialQubitMap {
 			.iter()
 			.map(|(&a, &b)| (a, b))
 			.filter(|(a, b)| a != b)
+	}
+
+	/// Resets the mapping for the given qubit. This returns the qubit to either
+	/// identity map, or unmapped if `qubit` is already mapped to.
+	pub fn reset_qubit(&mut self, qubit: usize) {
+		if let Some(to) = self.map.remove(&qubit) {
+			self.inverse.remove(&to);
+		}
 	}
 }
 
@@ -199,7 +206,7 @@ impl From<QubitMap> for PartialQubitMap {
 
 #[cfg(test)]
 mod tests {
-	use super::QubitMap;
+	use super::{PartialQubitMap, QubitMap};
 
 	#[test]
 	fn test1() {
@@ -209,5 +216,13 @@ mod tests {
 		for a in mapping.non_trivial_mappings() {
 			println!("{a:?}");
 		}
+	}
+
+	#[test]
+	fn tmp() {
+		let mut mapping = PartialQubitMap::default();
+		mapping.map_qubit(1, 0).unwrap();
+		assert!(mapping.map(0).is_err());
+		assert!(mapping.source(1).is_err());
 	}
 }
