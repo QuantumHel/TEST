@@ -284,6 +284,9 @@ dependencies = [
 [[package]]
 name = "test_simulator"
 version = "0.0.1"
+dependencies = [
+ "test_core",
+]
 
 [[package]]
 name = "test_transpiler"

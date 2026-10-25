@@ -1,4 +1,3 @@
-use core::fmt;
 use std::ops::{Add, Div, Mul, Sub};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,8 +47,8 @@ impl<T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Copy + Div<Output 
 	}
 }
 
-impl<T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Copy + fmt::Display> fmt::Display
-	for Complex<T>
+impl<T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Copy + std::fmt::Display>
+	std::fmt::Display for Complex<T>
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "Re({}) + Im({})", self.re, self.im)

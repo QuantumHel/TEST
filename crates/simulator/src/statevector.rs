@@ -2,6 +2,8 @@ use crate::Simulatable;
 use crate::complex::Complex;
 
 use super::target_state_iterator::TargetStateIterator;
+use core::qubit_map::QubitMap;
+use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
@@ -23,6 +25,24 @@ impl<T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Copy + From<i32>> 
 		values[0].re = T::from(1);
 
 		Self { values, n_qubits }
+	}
+}
+
+#[derive(Default, Debug)]
+struct SwapHistory {
+	history: BTreeMap<usize, usize>,
+}
+
+impl SwapHistory {
+	fn insert_swap(&mut self, a: usize, b: usize) {
+		self.history.insert(b, a);
+	}
+
+	fn resolve_location(&self, mut a: usize) -> usize {
+		while let Some(b) = self.history.get(&a) {
+			a = *b
+		}
+		a
 	}
 }
 
@@ -60,6 +80,36 @@ impl<T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Copy> Statevector<
 			operation.target(),
 			&operation.controls(),
 		);
+	}
+
+	pub fn apply_swap(&mut self, a: usize, b: usize) {
+		if a == b {
+			return;
+		}
+		let a_mask = 1 << a;
+		let b_mask = 1 << b;
+		// FIXME: we dont need to iterate and check, we could just iterate
+		// correct ones only.
+		for i in 0..self.values.len() {
+			// We swap states whene a:th qubit 1 and b:th qubit 0
+			// with states where a:th qubit 0 and b:th qubit 1
+			if a_mask & i != 0 && b_mask & i == 0 {
+				// We swap the a:th and b:th bits
+				let target = i ^ a_mask ^ b_mask;
+				self.values.swap(i, target);
+			}
+		}
+	}
+
+	pub fn apply_qubit_map(&mut self, qubit_map: &QubitMap) {
+		// qubit x stored at y
+		let mut moved = SwapHistory::default();
+		for (a, b) in qubit_map.non_trivial_mappings() {
+			let a = moved.resolve_location(a);
+			let b = moved.resolve_location(b);
+			self.apply_swap(a, b);
+			moved.insert_swap(a, b);
+		}
 	}
 
 	/// The gate matrix is give as (a, b, c, d), where (a, b) is the first row and (c, d) the second.
