@@ -1,3 +1,5 @@
+use core::qubit_map::QubitMap;
+
 use crate::xor_span::XorSpan;
 
 use super::Parity;
@@ -11,6 +13,17 @@ impl State {
 	pub fn new(n: usize) -> Self {
 		Self {
 			qubit_parities: (0..n).map(Parity::for_qubit).collect(),
+		}
+	}
+
+	pub fn create_mapped(&self, qubit_map: &QubitMap) -> Self {
+		let mut new_parities = self.parities().to_vec();
+		for (a, b) in qubit_map.non_trivial_mappings() {
+			new_parities[b] = self.get_cloned(a);
+		}
+
+		Self {
+			qubit_parities: new_parities,
 		}
 	}
 
