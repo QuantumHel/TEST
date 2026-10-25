@@ -7,11 +7,36 @@ use core::{
 };
 use graph::prelude::*;
 
+pub trait ChooseRow {
+	fn choose_row(
+		&self,
+		options: &[usize],
+		parity_matrix: &ParityMatrix,
+		connectivity: &Connectivity<TwoQubitEdge>,
+	) -> usize;
+}
+
+pub trait ChooseColumn {
+	fn choose_column(
+		&self,
+		selected_row: usize,
+		options: &[usize],
+		parity_matrix: &ParityMatrix,
+		connectivity: &Connectivity<TwoQubitEdge>,
+	) -> usize;
+}
+
 /// An implementation of the PermRowCol algorithm from
 /// https://arxiv.org/abs/2205.00724v4
-pub struct PermRowCol;
+pub struct PermRowCol<R: ChooseRow, C: ChooseColumn> {
+	pub choose_row: R,
+	pub choose_column: C,
+}
 
-impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge>> for PermRowCol {
+impl<R: ChooseRow, C: ChooseColumn>
+	Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge>>
+	for PermRowCol<R, C>
+{
 	fn compile(
 		&self,
 		parity_matrix: ParityMatrix,
@@ -31,8 +56,10 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 				break;
 			}
 
-			let chosen_row = choose_row(&non_cutting, &parity_matrix);
-			let chosen_column = choose_column(
+			let chosen_row = self
+				.choose_row
+				.choose_row(&non_cutting, &parity_matrix, device);
+			let chosen_column = self.choose_column.choose_column(
 				chosen_row,
 				available_qubits
 					.iter()
@@ -41,6 +68,7 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 					.collect::<Vec<_>>()
 					.as_slice(),
 				&parity_matrix,
+				device,
 			);
 
 			// Since the parity matrix is transposed, we need to reverse the
@@ -62,27 +90,50 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 	}
 }
 
-fn choose_row(options: &[usize], parity_matrix: &ParityMatrix) -> usize {
-	options
-		.iter()
-		.map(|&i| (i, parity_matrix.get_row(i).count_ones()))
-		.min_by(|a, b| a.1.cmp(&b.1))
-		.unwrap()
-		.0
+/// An implementation of the PermRowCol choose row algorithm from
+/// https://arxiv.org/abs/2205.00724v4
+pub struct OriginalChooseRow;
+
+impl ChooseRow for OriginalChooseRow {
+	fn choose_row(
+		&self,
+		options: &[usize],
+		parity_matrix: &ParityMatrix,
+		_: &Connectivity<TwoQubitEdge>,
+	) -> usize {
+		options
+			.iter()
+			.map(|&i| (i, parity_matrix.get_row(i).count_ones()))
+			.min_by(|a, b| a.1.cmp(&b.1))
+			.unwrap()
+			.0
+	}
 }
 
-fn choose_column(selected_row: usize, options: &[usize], parity_matrix: &ParityMatrix) -> usize {
-	let parity_matrix = parity_matrix.transpose();
-	// for columns with an 1 in the pivor row, pick the one with the least 1s
-	options
-		.iter()
-		.filter_map(|&i| {
-			let row = parity_matrix.get_row(i);
-			row.get(selected_row).then(|| (i, row.count_ones()))
-		})
-		.min_by(|a, b| a.1.cmp(&b.1))
-		.unwrap()
-		.0
+/// An implementation of the PermRowCol choose column algorithm from
+/// https://arxiv.org/abs/2205.00724v4
+pub struct OriginalChooseColumn;
+
+impl ChooseColumn for OriginalChooseColumn {
+	fn choose_column(
+		&self,
+		selected_row: usize,
+		options: &[usize],
+		parity_matrix: &ParityMatrix,
+		_: &Connectivity<TwoQubitEdge>,
+	) -> usize {
+		let parity_matrix = parity_matrix.transpose();
+		// for columns with an 1 in the pivor row, pick the one with the least 1s
+		options
+			.iter()
+			.filter_map(|&i| {
+				let row = parity_matrix.get_row(i);
+				row.get(selected_row).then(|| (i, row.count_ones()))
+			})
+			.min_by(|a, b| a.1.cmp(&b.1))
+			.unwrap()
+			.0
+	}
 }
 
 #[cfg(test)]
@@ -94,6 +145,7 @@ mod tests {
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 
+	use crate::perm_row_col::{OriginalChooseColumn, OriginalChooseRow};
 	use crate::{ParityMatrix, algorithm::PermRowCol};
 
 	#[test]
@@ -115,7 +167,10 @@ mod tests {
 				parity_matrix.insert_cnot(cnot);
 			}
 
-			let compiler = PermRowCol;
+			let compiler = PermRowCol {
+				choose_row: OriginalChooseRow,
+				choose_column: OriginalChooseColumn,
+			};
 			let (circuit, qubit_mapping) = compiler.compile(parity_matrix.clone(), &g);
 
 			parity_matrix.insert_qubit_mapping(&qubit_mapping.as_reversed());

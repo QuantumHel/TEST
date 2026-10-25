@@ -1,7 +1,7 @@
 mod gray_star_synth;
 mod parity_matrix;
 mod patel_markov_hayes;
-mod perm_row_col;
+pub mod perm_row_col;
 mod rowcol;
 mod t_par;
 mod xor_span;
