@@ -40,4 +40,17 @@ impl TwoQubitEdge {
 		}
 		connectivity
 	}
+
+	pub fn fully_connected(qubit_count: usize) -> Connectivity<TwoQubitEdge> {
+		let mut connectivity: Connectivity<TwoQubitEdge> = Connectivity::new();
+		for i in 0..qubit_count {
+			for j in 0..qubit_count {
+				if i == j {
+					continue;
+				}
+				connectivity.add_edge(TwoQubitEdge([i, j]));
+			}
+		}
+		connectivity
+	}
 }
