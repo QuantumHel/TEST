@@ -26,12 +26,11 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 			}
 
 			// 1
-			for i in non_cutting {
-				circuit.append(&mut matrix.eliminate_column(i, i, &graph));
-				circuit.append(&mut matrix.eliminate_row(i, i, &graph));
+			let i = non_cutting[0];
+			circuit.append(&mut matrix.eliminate_column(i, i, &graph));
+			circuit.append(&mut matrix.eliminate_row(i, i, &graph));
 
-				graph.remove_node(i);
-			}
+			graph.remove_node(i);
 		}
 
 		circuit.reverse();
