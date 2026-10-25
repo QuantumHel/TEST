@@ -20,10 +20,10 @@ impl Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge
 		// Take the transpose in order to get output qubit mapping.
 		// Without transpose it would be the input qubit mapping
 		let mut parity_matrix = parity_matrix.transpose();
+		let mut circuit: Circuit<CNot> = Circuit::new();
 		let mut graph = device.full_subgraph();
 
 		let mut available_qubits = vec![true; graph.node_storage_size()];
-		let mut circuit: Circuit<CNot> = Circuit::new();
 		let mut qubit_mapping = PartialQubitMap::default();
 		while graph.iter_nodes().count() > 1 {
 			let candidates = graph.non_cutting_nodes();
@@ -129,6 +129,7 @@ mod tests {
 			}
 
 			assert!(parity_matrix.is_identity());
+			println!("Converted {CNOT_COUNT} cnots to {} cnots", circuit.len());
 		}
 	}
 }

@@ -12,35 +12,30 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 	fn compile(
 		&self,
 		mut matrix: ParityMatrix,
-		connectivity: &Connectivity<TwoQubitEdge>,
+		device: &Connectivity<TwoQubitEdge>,
 	) -> Circuit<CNot> {
-		let n = connectivity.nodes().len();
-		let mut result = Circuit::new();
-		let mut g = connectivity.full_subgraph();
-		// Change to BFS at some point?
-		let mut total_tree = connectivity.steiner_tree(&(0..n).collect::<Vec<usize>>());
+		let mut circuit = Circuit::new();
+		let mut graph = device.full_subgraph();
 
 		loop {
-			let leafs = total_tree
-				.enumerate_leaf_nodes()
-				.map(|(i, _)| i)
-				.collect::<Vec<_>>();
-			if leafs.is_empty() {
+			// ATTENTION: we used to create a tree outside of the loop, and took
+			// leaves from it, but this has better results.
+			let non_cutting = graph.non_cutting_nodes();
+			if non_cutting.is_empty() {
 				break;
 			}
 
 			// 1
-			for i in leafs {
-				result.append(&mut matrix.eliminate_column(i, i, &g));
-				result.append(&mut matrix.eliminate_row(i, i, &g));
+			for i in non_cutting {
+				circuit.append(&mut matrix.eliminate_column(i, i, &graph));
+				circuit.append(&mut matrix.eliminate_row(i, i, &graph));
 
-				g.remove_node(i);
-				total_tree.remove_node(i);
+				graph.remove_node(i);
 			}
 		}
 
-		result.reverse();
-		result
+		circuit.reverse();
+		circuit
 	}
 }
 
@@ -79,6 +74,7 @@ mod tests {
 			}
 
 			assert!(parity_matrix.is_identity());
+			println!("Converted {CNOT_COUNT} cnots to {} cnots", out.len());
 		}
 	}
 
