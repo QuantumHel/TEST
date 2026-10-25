@@ -255,6 +255,17 @@ pub trait GraphExt<N: Node, E: Edge>: Graph<N, E> {
 
 		true
 	}
+
+	fn node_count(&self) -> usize {
+		let mut count = 0;
+		for potential_node in 0..self.node_storage_size() {
+			if self.get_node(potential_node).is_some() {
+				count += 1;
+			}
+		}
+
+		count
+	}
 }
 
 impl<G: Graph<N, E>, N: Node, E: Edge> GraphExt<N, E> for G {}
