@@ -126,7 +126,7 @@ impl ParityMatrix {
 		let mut clone = self.clone();
 		for (original, target) in qubit_mapping.non_trivial_mappings() {
 			let row = self.get_row(original);
-			while clone.rows.len() < target {
+			while clone.rows.len() < target + 1 {
 				clone.rows.push(Bits::with_one(clone.rows.len()));
 			}
 			clone.rows[target] = row;
