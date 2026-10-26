@@ -2,7 +2,7 @@ use circuit::{Circuit, gates::CNot};
 use core::{connectivity::TwoQubitEdge, prelude::*};
 use graph::prelude::*;
 
-use crate::{ParityMatrix, perm_row_col::ChooseQubit};
+use crate::{ParityMatrix, choose::qubit::ChooseQubit};
 
 /// An implementation of the rowcol algorithm described in
 /// https://doi.org/10.1103/PhysRevResearch.5.013065
@@ -41,21 +41,10 @@ impl<T: ChooseQubit> Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubit
 	}
 }
 
-pub struct FirstQubit;
-
-impl ChooseQubit for FirstQubit {
-	fn choose_qubit(
-		&self,
-		options: &[usize],
-		_: &ParityMatrix,
-		_: &Connectivity<TwoQubitEdge>,
-	) -> usize {
-		options[0]
-	}
-}
-
 #[cfg(test)]
 mod tests {
+	use crate::choose::qubit::FirstQubit;
+
 	use super::*;
 	use circuit::RandomGate;
 	use rand::prelude::*;

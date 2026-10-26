@@ -441,10 +441,12 @@ mod tests {
 	use std::num::NonZeroU32;
 
 	use crate::{
-		algorithm::{PatelMarkovHayes, PermRowCol},
+		choose::{
+			column::OgPermRowColChooseColumn,
+			qubit::{FirstQubit, OgPermRowColChooseRow},
+		},
+		decompose::{PatelMarkovHayes, PermRowCol, RowCol},
 		gray_star_synth::{GrayStarSynth, GrayStarTerminationCriteria},
-		perm_row_col::{OriginalChooseColumn, OriginalChooseRow},
-		rowcol::{FirstQubit, RowCol},
 		t_par::gateset::{CNotRzXYH, QuarterPi},
 	};
 
@@ -696,8 +698,8 @@ mod tests {
 					path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
 				},
 				PermRowCol {
-					choose_row: OriginalChooseRow,
-					choose_column: OriginalChooseColumn,
+					choose_row: OgPermRowColChooseRow,
+					choose_column: OgPermRowColChooseColumn,
 				},
 			);
 

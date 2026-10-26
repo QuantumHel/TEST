@@ -1,5 +1,5 @@
 [package]
-name = "test_cnot_parity_matrix"
+name = "test_parity_matrix"
 version = "0.0.1"
 edition = "2024"
 

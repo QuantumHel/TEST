@@ -1,4 +1,7 @@
-use crate::ParityMatrix;
+use crate::{
+	ParityMatrix,
+	choose::{column::ChooseColumn, qubit::ChooseQubit},
+};
 use circuit::{Circuit, gates::CNot};
 use core::{
 	Compiler,
@@ -6,25 +9,6 @@ use core::{
 	qubit_map::{PartialQubitMap, QubitMap},
 };
 use graph::prelude::*;
-
-pub trait ChooseQubit {
-	fn choose_qubit(
-		&self,
-		options: &[usize],
-		parity_matrix: &ParityMatrix,
-		connectivity: &Connectivity<TwoQubitEdge>,
-	) -> usize;
-}
-
-pub trait ChooseColumn {
-	fn choose_column(
-		&self,
-		selected_row: usize,
-		options: &[usize],
-		parity_matrix: &ParityMatrix,
-		connectivity: &Connectivity<TwoQubitEdge>,
-	) -> usize;
-}
 
 /// An implementation of the PermRowCol algorithm from
 /// https://arxiv.org/abs/2205.00724v4
@@ -90,52 +74,6 @@ impl<R: ChooseQubit, C: ChooseColumn>
 	}
 }
 
-/// An implementation of the PermRowCol choose row algorithm from
-/// https://arxiv.org/abs/2205.00724v4
-pub struct OriginalChooseRow;
-
-impl ChooseQubit for OriginalChooseRow {
-	fn choose_qubit(
-		&self,
-		options: &[usize],
-		parity_matrix: &ParityMatrix,
-		_: &Connectivity<TwoQubitEdge>,
-	) -> usize {
-		options
-			.iter()
-			.map(|&i| (i, parity_matrix.get_row(i).count_ones()))
-			.min_by(|a, b| a.1.cmp(&b.1))
-			.unwrap()
-			.0
-	}
-}
-
-/// An implementation of the PermRowCol choose column algorithm from
-/// https://arxiv.org/abs/2205.00724v4
-pub struct OriginalChooseColumn;
-
-impl ChooseColumn for OriginalChooseColumn {
-	fn choose_column(
-		&self,
-		selected_row: usize,
-		options: &[usize],
-		parity_matrix: &ParityMatrix,
-		_: &Connectivity<TwoQubitEdge>,
-	) -> usize {
-		let parity_matrix = parity_matrix.transpose();
-		// for columns with an 1 in the pivor row, pick the one with the least 1s
-		options
-			.iter()
-			.filter_map(|&i| {
-				let row = parity_matrix.get_row(i);
-				row.get(selected_row).then(|| (i, row.count_ones()))
-			})
-			.min_by(|a, b| a.1.cmp(&b.1))
-			.unwrap()
-			.0
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use core::connectivity::Connectivity;
@@ -145,8 +83,8 @@ mod tests {
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 
-	use crate::perm_row_col::{OriginalChooseColumn, OriginalChooseRow};
-	use crate::{ParityMatrix, algorithm::PermRowCol};
+	use crate::choose::{column::OgPermRowColChooseColumn, qubit::OgPermRowColChooseRow};
+	use crate::{ParityMatrix, decompose::PermRowCol};
 
 	#[test]
 	fn perm_row_col_random_test() {
@@ -168,8 +106,8 @@ mod tests {
 			}
 
 			let compiler = PermRowCol {
-				choose_row: OriginalChooseRow,
-				choose_column: OriginalChooseColumn,
+				choose_row: OgPermRowColChooseRow,
+				choose_column: OgPermRowColChooseColumn,
 			};
 			let (circuit, qubit_mapping) = compiler.compile(parity_matrix.clone(), &g);
 
