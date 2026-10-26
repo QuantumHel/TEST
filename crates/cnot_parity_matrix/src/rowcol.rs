@@ -2,13 +2,17 @@ use circuit::{Circuit, gates::CNot};
 use core::{connectivity::TwoQubitEdge, prelude::*};
 use graph::prelude::*;
 
-use crate::ParityMatrix;
+use crate::{ParityMatrix, perm_row_col::ChooseQubit};
 
 /// An implementation of the rowcol algorithm described in
 /// https://doi.org/10.1103/PhysRevResearch.5.013065
-pub struct RowCol;
+pub struct RowCol<T: ChooseQubit> {
+	pub choose_qubit: T,
+}
 
-impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCol {
+impl<T: ChooseQubit> Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>>
+	for RowCol<T>
+{
 	fn compile(
 		&self,
 		mut matrix: ParityMatrix,
@@ -18,15 +22,14 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 		let mut graph = device.full_subgraph();
 
 		loop {
-			// ATTENTION: we used to create a tree outside of the loop, and took
-			// leaves from it, but this has better results.
 			let non_cutting = graph.non_cutting_nodes();
 			if non_cutting.is_empty() {
 				break;
 			}
 
-			// 1
-			let i = non_cutting[0];
+			let i = self
+				.choose_qubit
+				.choose_qubit(&non_cutting, &matrix, device);
 			circuit.append(&mut matrix.eliminate_column(i, i, &graph));
 			circuit.append(&mut matrix.eliminate_row(i, i, &graph));
 
@@ -35,6 +38,19 @@ impl Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubitEdge>> for RowCo
 
 		circuit.reverse();
 		circuit
+	}
+}
+
+pub struct FirstQubit;
+
+impl ChooseQubit for FirstQubit {
+	fn choose_qubit(
+		&self,
+		options: &[usize],
+		_: &ParityMatrix,
+		_: &Connectivity<TwoQubitEdge>,
+	) -> usize {
+		options[0]
 	}
 }
 
@@ -64,7 +80,9 @@ mod tests {
 				parity_matrix.insert_cnot(cnot);
 			}
 
-			let compiler = RowCol;
+			let compiler = RowCol {
+				choose_qubit: FirstQubit,
+			};
 			let out = compiler.compile(parity_matrix.clone(), &g);
 
 			for cnot in out.iter().rev() {

@@ -7,8 +7,8 @@ use core::{
 };
 use graph::prelude::*;
 
-pub trait ChooseRow {
-	fn choose_row(
+pub trait ChooseQubit {
+	fn choose_qubit(
 		&self,
 		options: &[usize],
 		parity_matrix: &ParityMatrix,
@@ -28,12 +28,12 @@ pub trait ChooseColumn {
 
 /// An implementation of the PermRowCol algorithm from
 /// https://arxiv.org/abs/2205.00724v4
-pub struct PermRowCol<R: ChooseRow, C: ChooseColumn> {
+pub struct PermRowCol<R: ChooseQubit, C: ChooseColumn> {
 	pub choose_row: R,
 	pub choose_column: C,
 }
 
-impl<R: ChooseRow, C: ChooseColumn>
+impl<R: ChooseQubit, C: ChooseColumn>
 	Compiler<ParityMatrix, (Circuit<CNot>, QubitMap), Connectivity<TwoQubitEdge>>
 	for PermRowCol<R, C>
 {
@@ -58,7 +58,7 @@ impl<R: ChooseRow, C: ChooseColumn>
 
 			let chosen_row = self
 				.choose_row
-				.choose_row(&non_cutting, &parity_matrix, device);
+				.choose_qubit(&non_cutting, &parity_matrix, device);
 			let chosen_column = self.choose_column.choose_column(
 				chosen_row,
 				available_qubits
@@ -94,8 +94,8 @@ impl<R: ChooseRow, C: ChooseColumn>
 /// https://arxiv.org/abs/2205.00724v4
 pub struct OriginalChooseRow;
 
-impl ChooseRow for OriginalChooseRow {
-	fn choose_row(
+impl ChooseQubit for OriginalChooseRow {
+	fn choose_qubit(
 		&self,
 		options: &[usize],
 		parity_matrix: &ParityMatrix,

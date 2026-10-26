@@ -444,7 +444,7 @@ mod tests {
 		algorithm::{PatelMarkovHayes, PermRowCol},
 		gray_star_synth::{GrayStarSynth, GrayStarTerminationCriteria},
 		perm_row_col::{OriginalChooseColumn, OriginalChooseRow},
-		rowcol::RowCol,
+		rowcol::{FirstQubit, RowCol},
 		t_par::gateset::{CNotRzXYH, QuarterPi},
 	};
 
@@ -604,7 +604,9 @@ mod tests {
 					max_queue_size: None,
 					path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
 				},
-				RowCol,
+				RowCol {
+					choose_qubit: FirstQubit,
+				},
 			);
 
 			let circuit: Circuit<CNotRzXYH> = Circuit::random(gates, qubits, &mut rng);
