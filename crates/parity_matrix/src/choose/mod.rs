@@ -1,9 +1,11 @@
 mod first;
+mod maximum_distance;
 mod minimum_neighbors;
 mod minimum_tree;
 mod perm_row_col;
 
 pub use first::First;
+pub use maximum_distance::MaximumDistance;
 pub use minimum_neighbors::MinimumNeighbors;
 pub use minimum_tree::MinimumTree;
 pub use perm_row_col::OriginalPermRowColChoice;
