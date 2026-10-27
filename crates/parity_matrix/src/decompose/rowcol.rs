@@ -2,7 +2,7 @@ use circuit::{Circuit, gates::CNot};
 use core::{connectivity::TwoQubitEdge, prelude::*};
 use graph::prelude::*;
 
-use crate::{ParityMatrix, choose::qubit::ChooseQubit};
+use crate::{ParityMatrix, choose::ChooseQubit};
 
 /// An implementation of the rowcol algorithm described in
 /// https://doi.org/10.1103/PhysRevResearch.5.013065
@@ -43,7 +43,7 @@ impl<T: ChooseQubit> Compiler<ParityMatrix, Circuit<CNot>, Connectivity<TwoQubit
 
 #[cfg(test)]
 mod tests {
-	use crate::choose::qubit::FirstQubit;
+	use crate::choose::First;
 
 	use super::*;
 	use circuit::RandomGate;
@@ -70,7 +70,7 @@ mod tests {
 			}
 
 			let compiler = RowCol {
-				choose_qubit: FirstQubit,
+				choose_qubit: First::default(),
 			};
 			let out = compiler.compile(parity_matrix.clone(), &g);
 

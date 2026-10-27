@@ -2,21 +2,32 @@ use core::connectivity::{Connectivity, TwoQubitEdge};
 
 use crate::ParityMatrix;
 
-pub trait ChooseColumn {
-	fn choose_column(
+use super::{ChooseColumn, ChooseQubit};
+
+/// An implementation of the original PermRowCol choices for picking the column
+/// and row.
+///
+/// https://arxiv.org/abs/2205.00724v4
+#[derive(Debug, Default)]
+pub struct OriginalPermRowColChoice;
+
+impl ChooseQubit for OriginalPermRowColChoice {
+	fn choose_qubit(
 		&self,
-		selected_row: usize,
 		options: &[usize],
 		parity_matrix: &ParityMatrix,
-		connectivity: &Connectivity<TwoQubitEdge>,
-	) -> usize;
+		_: &Connectivity<TwoQubitEdge>,
+	) -> usize {
+		options
+			.iter()
+			.map(|&i| (i, parity_matrix.get_row(i).count_ones()))
+			.min_by(|a, b| a.1.cmp(&b.1))
+			.unwrap()
+			.0
+	}
 }
 
-/// An implementation of the PermRowCol choose column algorithm from
-/// https://arxiv.org/abs/2205.00724v4
-pub struct OgPermRowColChooseColumn;
-
-impl ChooseColumn for OgPermRowColChooseColumn {
+impl ChooseColumn for OriginalPermRowColChoice {
 	fn choose_column(
 		&self,
 		selected_row: usize,

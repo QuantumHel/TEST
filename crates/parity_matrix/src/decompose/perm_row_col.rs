@@ -1,6 +1,6 @@
 use crate::{
 	ParityMatrix,
-	choose::{column::ChooseColumn, qubit::ChooseQubit},
+	choose::{ChooseColumn, ChooseQubit},
 };
 use circuit::{Circuit, gates::CNot};
 use core::{
@@ -83,7 +83,7 @@ mod tests {
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 
-	use crate::choose::{column::OgPermRowColChooseColumn, qubit::OgPermRowColChooseRow};
+	use crate::choose::OriginalPermRowColChoice;
 	use crate::{ParityMatrix, decompose::PermRowCol};
 
 	#[test]
@@ -106,8 +106,8 @@ mod tests {
 			}
 
 			let compiler = PermRowCol {
-				choose_row: OgPermRowColChooseRow,
-				choose_column: OgPermRowColChooseColumn,
+				choose_row: OriginalPermRowColChoice,
+				choose_column: OriginalPermRowColChoice,
 			};
 			let (circuit, qubit_mapping) = compiler.compile(parity_matrix.clone(), &g);
 
