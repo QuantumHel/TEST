@@ -182,6 +182,10 @@ pub trait GraphExt<N: Node, E: Edge>: Graph<N, E> {
 		crate::algorithms::steiner_tree(terminals, self)
 	}
 
+	fn shortest_paths(&self, start_index: usize) -> Vec<Option<f64>> {
+		crate::algorithms::dijkstras_shortest_paths(self, start_index)
+	}
+
 	/// Creates a subgraph that contains the whole graph.
 	fn full_subgraph(&self) -> Subgraph<'_, N, E> {
 		Subgraph::full(self)
