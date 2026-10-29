@@ -1,12 +1,16 @@
 use self::qubit_map::{PartialQubitMap, QubitIsNotMapped, QubitMap};
 
+mod compiler_ext;
 pub mod connectivity;
 pub mod qubit_map;
 
 pub mod prelude {
 	pub use super::Compiler;
+	pub use super::compiler_ext::{Chain, CompilerExt};
 	pub use super::connectivity::Connectivity;
 }
+
+pub use compiler_ext::{Chain, CompilerExt};
 
 pub trait Compiler<Input, Output, Device = ()>: Sized {
 	fn compile(&self, input: Input, device: &Device) -> Output;
