@@ -110,7 +110,7 @@ impl Bits {
 		}
 
 		// remove last holder when pushing last bits out of it
-		if shift > end % BITS_PER && bits.bits.len() > end_holder {
+		if shift > end % BITS_PER && bits.bits.len() > end_holder - start_holder {
 			bits.bits.pop();
 		}
 
@@ -383,6 +383,14 @@ mod test {
 		bits.set(65, true);
 		let range = bits.get_range(62..66);
 		assert_eq!(range, create(&[1, 0, 0, 1]));
+	}
+
+	#[test]
+	fn cross_second_border_test_and_drop_holder() {
+		let mut bits = Bits::with_one(126);
+		bits.set(129, true);
+		let range = bits.get_range(126..129);
+		assert_eq!(range, create(&[1, 0, 0]));
 	}
 
 	#[test]
