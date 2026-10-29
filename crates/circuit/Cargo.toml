@@ -8,6 +8,7 @@ core.workspace = true
 openqasm2.workspace = true
 rand.workspace = true
 pauli.workspace = true
+bits.workspace = true
 
 [features]
 default = []

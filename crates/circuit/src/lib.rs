@@ -1,8 +1,10 @@
 mod find_and_replace;
 pub mod gates;
 
+use core::TargetQubits;
 use std::{slice::Iter, vec::IntoIter};
 
+use bits::Bits;
 pub use find_and_replace::{FindAndReplace, FindAndReplaceError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,6 +58,55 @@ impl<T> Circuit<T> {
 
 	pub fn reverse(&mut self) {
 		self.gates.reverse();
+	}
+}
+
+impl<T: TargetQubits> Circuit<T> {
+	pub fn depth(&self) -> usize {
+		self.fileter_len(|_| true)
+	}
+
+	/// Takes circuit depth while ignoring all gates for which the given filter
+	/// returns false.
+	pub fn filtered_depth<F: Fn(&T) -> bool>(&self, filter: F) -> usize {
+		let mut layers: Vec<Bits> = Vec::new();
+
+		for gate in self.gates.iter() {
+			if !filter(gate) {
+				continue;
+			}
+
+			let mut stop: Option<usize> = None;
+			'layer: for (i, layer) in layers.iter().enumerate().rev() {
+				for &qubit in gate.target_qubits() {
+					if layer.get(qubit) {
+						stop = Some(i);
+						break 'layer;
+					}
+				}
+			}
+
+			let layer: usize = match stop {
+				Some(i) => {
+					if (i + 1) == layers.len() {
+						layers.push(Bits::new());
+					}
+					i + 1
+				}
+				None => {
+					if layers.is_empty() {
+						layers.push(Bits::new());
+					}
+					0
+				}
+			};
+
+			for &qubit in gate.target_qubits() {
+				layers[layer].set(qubit, true);
+			}
+		}
+
+		layers.len()
 	}
 }
 
