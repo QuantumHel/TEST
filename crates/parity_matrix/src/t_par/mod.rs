@@ -16,7 +16,7 @@ use core::{
 	connectivity::{Connectivity, TwoQubitEdge},
 	qubit_map::QubitMap,
 };
-use gateset::CNotRzXYH;
+pub use gateset::CNotRzXYH;
 use parity::Parity;
 use std::collections::BTreeSet;
 
