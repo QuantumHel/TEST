@@ -9,6 +9,7 @@ use circuit::{
 use pauli::Clifford;
 use rand::RngExt;
 
+#[derive(Debug)]
 pub enum CNotHSV {
 	CNot(CNot),
 	H(H),
