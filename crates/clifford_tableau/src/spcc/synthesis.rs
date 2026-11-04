@@ -23,6 +23,7 @@ pub fn tableau_to_circuit_pairs(
 	let num_qubits = input.size();
 	let mut qc_out: Circuit<CNotHSV> = Circuit::new();
 	let mut tableau = input.clone();
+	//	print!("Initial tableau:\n{:?}\n", num_qubits);
 
 	// Array representing removed gadgets. 1 if gadget is removed, 0 otherwise.
 	let mut removed_qubits: Vec<bool> = vec![false; num_qubits];
@@ -57,11 +58,12 @@ pub fn tableau_to_circuit_pairs(
 			perm_out[row] = row;
 		}
 	}
-
+	let gate_map = construct_gate_map();
+	//	for (key, value) in &gate_map {
+	//		println!("Key: {:?}, Value: {:?}", key, value);
+	//	}
 	let mut tableau_tree = construct_tableau_tree(&removed_qubits, &device_tree);
 	let apsp = all_pairs_shortest_paths(&tableau_tree);
-
-	let gate_map = construct_gate_map();
 
 	// Main loop of the algorithm. We will keep removing gadget pairs until all gadget pairs
 	// are removed and all qubits are mapped.
@@ -87,20 +89,19 @@ pub fn tableau_to_circuit_pairs(
 					}
 				}
 				for pair in 0..num_qubits {
-					if !removed_rows[pair] {
-						if tableau.get_x_row(pair).get(column) != PauliLetter::I
-							|| tableau.get_z_row(pair).get(column) != PauliLetter::I
+					if !removed_rows[pair]
+						&& (tableau.get_x_row(pair).get(column) != PauliLetter::I
+							|| tableau.get_z_row(pair).get(column) != PauliLetter::I)
+					{
+						let gadget_score = gadget_pair_scores[&pair];
+						if min_column == usize::MAX
+							|| gadget_score < min_gadget_score
+							|| (gadget_score == min_gadget_score && node_score < min_node_score)
 						{
-							let gadget_score = gadget_pair_scores[&pair];
-							if min_column == usize::MAX
-								|| gadget_score < min_gadget_score
-								|| (gadget_score == min_gadget_score && node_score < min_node_score)
-							{
-								min_column = column;
-								min_node_score = node_score;
-								min_gadget_score = gadget_score;
-								min_pair = pair;
-							}
+							min_column = column;
+							min_node_score = node_score;
+							min_gadget_score = gadget_score;
+							min_pair = pair;
 						}
 					}
 				}
@@ -111,7 +112,6 @@ pub fn tableau_to_circuit_pairs(
 			min_pair,
 			min_column,
 			&mut tableau,
-			&mut removed_rows,
 			&mut qc_out,
 			&mut tableau_tree,
 			&gate_map,
@@ -250,7 +250,6 @@ fn reduce_row(
 	row: usize,
 	target_qubit: usize,
 	tableau: &mut CliffordTableau,
-	removed_rows: &mut Vec<bool>,
 	qc_out: &mut Circuit<CNotHSV>,
 	tableau_tree: &mut Graph,
 	gate_map: &GateMap,

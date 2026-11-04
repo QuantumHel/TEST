@@ -40,7 +40,6 @@ impl Compiler<CliffordTableau, Circuit<CNotHSV>, Connectivity<TwoQubitEdge>> for
 		//		let mut mapped_tableau: CliffordTableau = implement_mapping(&input, &optimized_mapping);
 		let (circ, output_mapping) =
 			tableau_to_circuit_pairs(&input, &device_tree, &optimized_mapping);
-		let circ: Circuit<CNotHSV> = Circuit::new();
 		circ
 	}
 }
@@ -60,19 +59,20 @@ mod tests {
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
 		const ROUNDS: usize = 100;
-		const LOGICAL_QUBITS: usize = 40;
-		const PHYSICAL_QUBITS: usize = 100;
-		const GATES: usize = LOGICAL_QUBITS * 100;
+		const QUBITS: usize = 3;
+		const GATES: usize = QUBITS * 100;
 		let compiler = SPCC;
-		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
+		let connectivity = TwoQubitEdge::square_lattice(QUBITS);
 
 		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		for round in 0..ROUNDS {
-			let input: Circuit<CNotHSV> = Circuit::random(GATES, LOGICAL_QUBITS, &mut rng);
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
 			let mut tableau = CliffordTableau::id();
 			for gate in input.iter() {
 				tableau.merge_clifford(gate);
 			}
+			//			print!("Round {round} input tableau:\n{:?}\n", tableau);
+			//			print!("Round {round} input tableau:\n{:?}\n", tableau.size());
 			let result = compiler.compile(tableau.clone(), &connectivity);
 			let mut result_tableau = CliffordTableau::id();
 			for gate in result.iter() {

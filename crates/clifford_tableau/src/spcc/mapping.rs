@@ -329,23 +329,6 @@ fn all_pairs_shortest_paths(device: &Connectivity<TwoQubitEdge>) -> Vec<Vec<usiz
 	distances
 }
 
-fn validate_gadget_data(gadget_data: &[Vec<char>]) -> Result<usize, String> {
-	let num_qubits = gadget_data
-		.first()
-		.map(Vec::len)
-		.ok_or_else(|| "gadget_data must not be empty".to_string())?;
-
-	if num_qubits == 0 {
-		return Err("gadget_data must contain at least one qubit".to_string());
-	}
-
-	if gadget_data.iter().any(|row| row.len() != num_qubits) {
-		return Err("all gadget rows must have the same length".to_string());
-	}
-
-	Ok(num_qubits)
-}
-
 pub fn print_grid(size: (usize, usize), tree: &Graph) {
 	for i in 0..size.0 {
 		for j in 0..size.1 {
