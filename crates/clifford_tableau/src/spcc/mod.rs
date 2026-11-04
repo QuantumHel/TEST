@@ -1,14 +1,26 @@
 pub mod gateset;
+pub mod graph;
+pub mod mapping;
+pub mod resolve_in_pairs;
+pub mod synthesis;
+
 use core::{
 	Compiler,
 	connectivity::{Connectivity, TwoQubitEdge},
 };
 
+use ::graph::GraphExt;
 use circuit::Circuit;
 
 use crate::CliffordTableau;
 
 use self::gateset::CNotHSV;
+
+use self::mapping::construct_tree;
+use self::mapping::find_mapping;
+use self::mapping::print_grid;
+use self::synthesis::tableau_to_circuit_pairs;
+// use self::mapping::implement_mapping;
 
 pub struct SPCC;
 
@@ -18,7 +30,18 @@ impl Compiler<CliffordTableau, Circuit<CNotHSV>, Connectivity<TwoQubitEdge>> for
 		input: CliffordTableau,
 		device: &Connectivity<TwoQubitEdge>,
 	) -> Circuit<CNotHSV> {
-		todo!()
+		let num_logical_qubits = input.size();
+		let nr_physical_qubits = device.node_count();
+		let (root, device_tree) =
+			construct_tree(device, num_logical_qubits).expect("failed to construct SPCC tree");
+		print_grid((10, 10), &device_tree);
+		let optimized_mapping = find_mapping(&input, root, &device_tree);
+		println!("Optimized mapping: {:?}", optimized_mapping);
+		//		let mut mapped_tableau: CliffordTableau = implement_mapping(&input, &optimized_mapping);
+		let (circ, output_mapping) =
+			tableau_to_circuit_pairs(&input, &device_tree, &optimized_mapping);
+		let circ: Circuit<CNotHSV> = Circuit::new();
+		circ
 	}
 }
 
@@ -37,14 +60,15 @@ mod tests {
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
 		const ROUNDS: usize = 100;
-		const QUBITS: usize = 30;
-		const GATES: usize = QUBITS * 100;
+		const LOGICAL_QUBITS: usize = 40;
+		const PHYSICAL_QUBITS: usize = 100;
+		const GATES: usize = LOGICAL_QUBITS * 100;
 		let compiler = SPCC;
-		let connectivity = TwoQubitEdge::square_lattice(QUBITS);
+		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
 
 		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		for round in 0..ROUNDS {
-			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, LOGICAL_QUBITS, &mut rng);
 			let mut tableau = CliffordTableau::id();
 			for gate in input.iter() {
 				tableau.merge_clifford(gate);
