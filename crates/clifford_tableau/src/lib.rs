@@ -74,12 +74,12 @@ impl CliffordTableau {
 	/// Merges a Clifford into the tableau (On a circuit the Pauli would be
 	/// originally on the right side of the tableau).
 	pub fn merge_clifford<C: Clifford + TargetQubits>(&mut self, clifford: &C) {
-		let Some(n_qubits) = clifford.target_qubits().max() else {
+		let Some(highest_index) = clifford.target_qubits().max() else {
 			return;
 		};
 		// Makes sure that the tableau is enough big to represent the Clifford
 		// operation.
-		for _ in 0..n_qubits.saturating_sub(self.x.len()) {
+		for _ in 0..(highest_index + 1).saturating_sub(self.x.len()) {
 			let i = self.x.len();
 			self.x.push(PauliString::x(i));
 			self.z.push(PauliString::z(i));
