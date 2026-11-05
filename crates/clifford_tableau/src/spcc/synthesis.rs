@@ -1,3 +1,4 @@
+use core::qubit_map;
 use pauli::PauliLetter;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -15,12 +16,14 @@ use circuit::{
 	Circuit,
 	gates::{CNot, H, S, V},
 };
+use core::qubit_map::PartialQubitMap;
+use core::qubit_map::QubitMap;
 
 pub fn tableau_to_circuit_pairs(
 	input: &CliffordTableau,
 	device_tree: &Graph,
 	allow_permutation: bool,
-) -> (Circuit<CNotHSV>, Vec<usize>) {
+) -> (Circuit<CNotHSV>, QubitMap) {
 	let mut timer = 0;
 	let num_qubits = input.size();
 	let mut qc_out: Circuit<CNotHSV> = Circuit::new();
@@ -193,11 +196,18 @@ pub fn tableau_to_circuit_pairs(
 	//	println!("Final tableau:");
 	//	print_tableau(&tableau);
 	qc_out.reverse();
+
+	let mut partial_mapping = PartialQubitMap::default();
+	for (from, to) in perm_out.into_iter().enumerate() {
+		partial_mapping.map_qubit(from, to).unwrap();
+	}
+	let mapping: QubitMap = partial_mapping.try_into().unwrap();
+
 	println!(
 		"Circuit and tablau update took {} ms",
 		(timer as f64 / 1000.0).round() as i32
 	);
-	(qc_out, perm_out)
+	(qc_out, mapping)
 }
 
 fn all_pairs_shortest_paths(tableau_tree: &Graph) -> Vec<Vec<usize>> {
