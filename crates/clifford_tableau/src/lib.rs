@@ -1,6 +1,6 @@
 pub mod spcc;
 
-use core::TargetQubits;
+use core::{TargetQubits, qubit_map::QubitMap};
 
 use bits::Bits;
 
@@ -71,8 +71,8 @@ impl CliffordTableau {
 
 	/// # Merge Clifford
 	///
-	/// Merges a Clifford into the tableau (On a circuit the Pauli would be
-	/// originally on the right side of the tableau).
+	/// Merges a [Clifford] into the tableau (On a circuit the [Clifford] would
+	/// be originally on the right side of the tableau).
 	pub fn merge_clifford<C: Clifford + TargetQubits>(&mut self, clifford: &C) {
 		let Some(highest_index) = clifford.target_qubits().max() else {
 			return;
@@ -99,6 +99,35 @@ impl CliffordTableau {
 			if sign {
 				self.z_signs.set(i, !self.z_signs.get(i));
 			}
+		}
+	}
+
+	/// # Merge Clifford
+	///
+	/// Merges a [QubitMap] into the tableau (On a circuit the [QubitMap] would
+	/// be originally on the right side of the tableau).
+	pub fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
+		let old = self.clone();
+		for (from, to) in qubit_map.non_trivial_mappings() {
+			for _ in 0..(to + 1).saturating_sub(self.x.len()) {
+				let i = self.x.len();
+				self.x.push(PauliString::x(i));
+				self.z.push(PauliString::z(i));
+			}
+			let x = old
+				.x
+				.get(from)
+				.cloned()
+				.unwrap_or_else(|| PauliString::x(from));
+			self.x[to] = x;
+			let z = old
+				.z
+				.get(from)
+				.cloned()
+				.unwrap_or_else(|| PauliString::z(from));
+			self.z[to] = z;
+			self.x_signs.set(to, old.x_signs.get(from));
+			self.z_signs.set(to, old.z_signs.get(from));
 		}
 	}
 
