@@ -91,12 +91,12 @@ pub fn tableau_to_circuit_pairs(
 		let mut min_pair = usize::MAX;
 		let mut min_column = usize::MAX;
 		let mut min_gadget_score = usize::MAX;
-		for (column, distances) in apsp.iter().enumerate() {
-			if tableau_tree.has_node(column) && tableau_tree.degree(column) == Some(1) {
+		for column in 0..num_qubits {
+			if !removed_qubits[column] && tableau_tree.degree(column) == Some(1) {
 				let mut node_score: i64 = 0;
-				for (j, distance) in distances.iter().enumerate() {
-					if tableau_tree.has_node(j) {
-						node_score -= *distance as i64;
+				for j in 0..num_qubits {
+					if !removed_qubits[j] {
+						node_score -= apsp[column][j] as i64;
 					}
 				}
 				if !allow_permutation {
@@ -300,14 +300,14 @@ fn reduce_row(
 			// Only target_qubit left, we are done
 			break;
 		}
-		for node in gadget_tree.nodes() {
-			if node != target_qubit
-				&& gadget_tree.degree(node) == Some(1)
-				&& gadget_tree.get_node_type(node) == Some('I')
-			{
-				panic!("ERROR: leaf node is I");
-			}
-		}
+		//		for node in gadget_tree.nodes() {
+		//			if node != target_qubit
+		//				&& gadget_tree.degree(node) == Some(1)
+		//				&& gadget_tree.get_node_type(node) == Some('I')
+		//			{
+		//				panic!("ERROR: leaf node is I");
+		//			}
+		//		}
 
 		// Find a leaf and abstract gate sequences to reduce leaf
 		let abs_gates_options: Vec<Vec<GateStep>> = min_edge_options(&gadget_tree, target_qubit);

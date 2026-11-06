@@ -352,10 +352,9 @@ pub fn resolve_3qubits(qubits: (usize, usize, usize), tree: &Graph) -> (GateSequ
 }
 
 pub fn min_edge_options(tree: &Graph, target_qubit: usize) -> Vec<GateSequence> {
-	let leaf_qubits: Vec<usize> = tree
+	let leaf_qubits = tree
 		.nodes()
-		.filter(|&node| tree.degree(node) == Some(1) && node != target_qubit)
-		.collect();
+		.filter(|&node| tree.degree(node) == Some(1) && node != target_qubit);
 
 	let mut options = Vec::new();
 	let mut minimum_priority = -1;
@@ -369,7 +368,7 @@ pub fn min_edge_options(tree: &Graph, target_qubit: usize) -> Vec<GateSequence> 
 		let (gates, priority, _) = resolve_2qubits((q1, q2), tree);
 		add_if_minimum(&mut options, &mut minimum_priority, gates, priority);
 
-		let q3s: Vec<usize> = tree.neighbors(q2).filter(|&q3| q3 != q1).collect();
+		let q3s = tree.neighbors(q2).filter(|&q3| q3 != q1);
 		for q3 in q3s {
 			let (gates, priority, _) = resolve_3qubits((q1, q2, q3), tree);
 			add_if_minimum(&mut options, &mut minimum_priority, gates, priority);
