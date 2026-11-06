@@ -14,7 +14,7 @@ use crate::spcc::resolve_in_pairs::construct_gate_map;
 use crate::spcc::resolve_in_pairs::min_edge_options;
 use circuit::{
 	Circuit,
-	gates::{CNot, H, S, V},
+	gates::{CNot, H, S, Sdagger, V, Vdagger},
 };
 use core::qubit_map::PartialQubitMap;
 use core::qubit_map::QubitMap;
@@ -405,16 +405,8 @@ fn add_single_gate_to_circuit(gate: char, qubit: usize, qc_out: &mut Circuit<CNo
 
 fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut CliffordTableau) {
 	match gate {
-		'S' => {
-			for _ in 0..3 {
-				tableau.merge_clifford(&CNotHSV::S(S { target: qubit }));
-			}
-		}
-		'V' => {
-			for _ in 0..3 {
-				tableau.merge_clifford(&CNotHSV::V(V { target: qubit }));
-			}
-		}
+		'S' => tableau.merge_clifford(&CNotHSV::Sdagger(Sdagger { target: qubit })),
+		'V' => tableau.merge_clifford(&CNotHSV::Vdagger(Vdagger { target: qubit })),
 		'H' => tableau.merge_clifford(&CNotHSV::H(H { target: qubit })),
 		'I' => {} // Do nothing for identity
 		_ => panic!("ERROR: Unsupported gate in add_cnot_and_single_qubit_gates"),

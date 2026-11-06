@@ -4,7 +4,7 @@ use std::iter;
 
 use circuit::{
 	RandomGate,
-	gates::{CNot, H, S, V},
+	gates::{CNot, H, S, Sdagger, V, Vdagger},
 };
 use pauli::Clifford;
 use rand::RngExt;
@@ -15,6 +15,8 @@ pub enum CNotHSV {
 	H(H),
 	S(S),
 	V(V),
+	Sdagger(Sdagger),
+	Vdagger(Vdagger),
 }
 
 impl From<CNot> for CNotHSV {
@@ -41,6 +43,18 @@ impl From<V> for CNotHSV {
 	}
 }
 
+impl From<Sdagger> for CNotHSV {
+	fn from(value: Sdagger) -> Self {
+		Self::Sdagger(value)
+	}
+}
+
+impl From<Vdagger> for CNotHSV {
+	fn from(value: Vdagger) -> Self {
+		Self::Vdagger(value)
+	}
+}
+
 impl Clifford for CNotHSV {
 	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
 		match self {
@@ -48,6 +62,8 @@ impl Clifford for CNotHSV {
 			CNotHSV::H(h) => h.conjugate(pauli_string),
 			CNotHSV::S(s) => s.conjugate(pauli_string),
 			CNotHSV::V(v) => v.conjugate(pauli_string),
+			CNotHSV::Sdagger(sdagger) => sdagger.conjugate(pauli_string),
+			CNotHSV::Vdagger(vdagger) => vdagger.conjugate(pauli_string),
 		}
 	}
 }
@@ -59,6 +75,8 @@ impl TargetQubits for CNotHSV {
 			CNotHSV::H(h) => IterEnum2::Iter2(iter::once(&h.target)),
 			CNotHSV::S(s) => IterEnum2::Iter2(iter::once(&s.target)),
 			CNotHSV::V(v) => IterEnum2::Iter2(iter::once(&v.target)),
+			CNotHSV::Sdagger(sdagger) => IterEnum2::Iter2(iter::once(&sdagger.target)),
+			CNotHSV::Vdagger(vdagger) => IterEnum2::Iter2(iter::once(&vdagger.target)),
 		}
 	}
 }
@@ -71,6 +89,8 @@ impl OperatorEq for CNotHSV {
 				| (Self::H(_), Self::H(_))
 				| (Self::S(_), Self::S(_))
 				| (Self::V(_), Self::V(_))
+				| (Self::Sdagger(_), Self::Sdagger(_))
+				| (Self::Vdagger(_), Self::Vdagger(_))
 		)
 	}
 }
