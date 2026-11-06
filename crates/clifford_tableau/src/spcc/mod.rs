@@ -7,41 +7,43 @@ pub mod synthesis;
 use core::{
 	Compiler,
 	connectivity::{Connectivity, TwoQubitEdge},
-	qubit_map::QubitMap,
+	qubit_map::{PartialQubitMap, QubitMap},
 };
 
-use ::graph::GraphExt;
 use circuit::Circuit;
 
 use crate::CliffordTableau;
 
 use self::gateset::CNotHSV;
 
-use self::mapping::construct_tree;
-use self::mapping::find_mapping;
-use self::mapping::print_grid;
+use self::mapping::{construct_tree, find_mapping};
 use self::synthesis::tableau_to_circuit_pairs;
-// use self::mapping::implement_mapping;
 
 pub struct SPCC;
 
-impl Compiler<CliffordTableau, (Circuit<CNotHSV>, QubitMap), Connectivity<TwoQubitEdge>> for SPCC {
+impl
+	Compiler<
+		CliffordTableau,
+		(Circuit<CNotHSV>, PartialQubitMap, QubitMap),
+		Connectivity<TwoQubitEdge>,
+	> for SPCC
+{
 	fn compile(
 		&self,
-		input: CliffordTableau,
+		tableau: CliffordTableau,
 		device: &Connectivity<TwoQubitEdge>,
-	) -> (Circuit<CNotHSV>, QubitMap) {
-		let num_logical_qubits = input.size();
-		let nr_physical_qubits = device.node_count();
-		let (root, device_tree) =
+	) -> (Circuit<CNotHSV>, PartialQubitMap, QubitMap) {
+		let num_logical_qubits = tableau.size();
+		//		let num_physical_qubits = device.nodes().len();
+		let (root_node, device_tree) =
 			construct_tree(device, num_logical_qubits).expect("failed to construct SPCC tree");
-		//		print_grid((4, 4), &device_tree);
-		//		let optimized_mapping = find_mapping(&input, root, &device_tree);
-		//		println!("Optimized mapping: {:?}", optimized_mapping);
-		//		let mut mapped_tableau: CliffordTableau = implement_mapping(&input, &optimized_mapping);
-		let (circ, output_mapping) = tableau_to_circuit_pairs(&input, &device_tree, true);
-		//		println!("Output mapping: {:?}", output_mapping);
-		(circ, output_mapping)
+		//		print_grid((8, 8), &device_tree);
+		let initial_mapping = find_mapping(&tableau, root_node, &device_tree);
+		//println!("Initial mapping: {:?}", initial_mapping);
+		//		let mut mapped_tableau = tableau.clone();
+		//		mapped_tableau.merge_qubit_map(&initial_mapping);
+		let (circ, output_mapping) = tableau_to_circuit_pairs(&tableau, &device_tree, true);
+		(circ, initial_mapping, output_mapping)
 	}
 }
 
@@ -61,17 +63,18 @@ mod tests {
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
 		const ROUNDS: usize = 100;
-		const QUBITS: usize = 64;
-		const GATES: usize = QUBITS * 1000;
+		const LOGICAL_QUBITS: usize = 64;
+		const PHYSICAL_QUBITS: usize = 64;
+		const GATES: usize = LOGICAL_QUBITS * 1000;
 		let compiler = SPCC;
-		let connectivity = TwoQubitEdge::square_lattice(QUBITS);
+		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
 
 		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		let mut cnot_count_sum = 0;
 		let mut time_sum = 0.0;
 		for round in 0..ROUNDS {
 			println!("\nRound {round} of {ROUNDS}");
-			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, LOGICAL_QUBITS, &mut rng);
 			let mut tableau = CliffordTableau::id();
 			for gate in input.iter() {
 				tableau.merge_clifford(gate);
@@ -79,11 +82,13 @@ mod tests {
 			//			print!("Round {round} input tableau:\n{:?}\n", tableau);
 			//			print!("Round {round} input tableau:\n{:?}\n", tableau.size());
 			let start = time::Instant::now();
-			let (circuit, ouput_mapping) = compiler.compile(tableau.clone(), &connectivity);
+			let (circuit, _initial_mapping, output_mapping) =
+				compiler.compile(tableau.clone(), &connectivity);
 			let elapsed = start.elapsed();
 			time_sum += elapsed.as_millis() as f64;
-			let mut result_tableau = CliffordTableau::id();
+			let mut result_tableau = CliffordTableau::id(); // Identity tableau
 			for gate in circuit.iter() {
+				// Circuit
 				if let CNotHSV::CNot(cnot) = gate
 					&& !connectivity
 						.neighbors(*cnot.target())
@@ -97,7 +102,7 @@ mod tests {
 				}
 				result_tableau.merge_clifford(gate);
 			}
-			result_tableau.merge_qubit_map(&ouput_mapping);
+			result_tableau.merge_qubit_map(&output_mapping); // Output mapping
 			assert_eq!(result_tableau, tableau);
 			cnot_count_sum += circuit.fileter_len(|g| matches!(g, CNotHSV::CNot(_)));
 			println!(

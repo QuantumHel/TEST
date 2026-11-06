@@ -97,7 +97,7 @@ impl Graph {
 
 	/// Removes an edge. Returns `false` if it was not there.
 	pub fn remove_edge(&mut self, a: usize, b: usize) -> bool {
-		let removed = self.adj.get_mut(&a).map_or(false, |s| s.remove(&b));
+		let removed = self.adj.get_mut(&a).is_some_and(|s| s.remove(&b));
 		if let Some(set) = self.adj.get_mut(&b) {
 			set.remove(&a);
 		}
@@ -105,7 +105,7 @@ impl Graph {
 	}
 
 	pub fn has_edge(&self, a: usize, b: usize) -> bool {
-		self.adj.get(&a).map_or(false, |s| s.contains(&b))
+		self.adj.get(&a).is_some_and(|s| s.contains(&b))
 	}
 
 	pub fn edge_count(&self) -> usize {
@@ -183,8 +183,8 @@ impl Graph {
 		while let Some(u) = queue.pop_front() {
 			let d = dist[&u];
 			for v in self.neighbors(u) {
-				if !dist.contains_key(&v) {
-					dist.insert(v, d + 1);
+				if let std::collections::hash_map::Entry::Vacant(e) = dist.entry(v) {
+					e.insert(d + 1);
 					queue.push_back(v);
 				}
 			}
@@ -253,7 +253,16 @@ impl FromIterator<(usize, usize)> for Graph {
 	fn from_iter<I: IntoIterator<Item = (usize, usize)>>(iter: I) -> Self {
 		let mut g = Graph::new();
 		for (a, b) in iter {
-			g.add_edge_creating(a, b);
+			if g.has_edge(a, b) {
+				continue;
+			}
+			if !g.has_node(a) {
+				g.add_node(a);
+			}
+			if !g.has_node(b) {
+				g.add_node(b);
+			}
+			g.add_edge(a, b);
 		}
 		g
 	}

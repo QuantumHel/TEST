@@ -10,9 +10,10 @@ use crate::CliffordTableau;
 use crate::spcc::graph::Graph;
 
 use core::connectivity::{Connectivity, TwoQubitEdge};
+use core::qubit_map::PartialQubitMap;
 
 /// Selects a logical-to-physical mapping using the pair-mapping heuristic.
-pub fn find_mapping(tableau: &CliffordTableau, root: usize, tree: &Graph) -> Vec<usize> {
+pub fn find_mapping(tableau: &CliffordTableau, root: usize, tree: &Graph) -> PartialQubitMap {
 	let num_qubits = tableau.size();
 	let mut mapped_logical_qubits = HashSet::new();
 	let mut mapped_physical_qubits = HashSet::new();
@@ -43,11 +44,11 @@ pub fn find_mapping(tableau: &CliffordTableau, root: usize, tree: &Graph) -> Vec
 
 		for &(mpq, nmpq) in &next_physical_qubits {
 			let mlq = mapping_reverse[&mpq];
-			for nmlq in 0..num_qubits {
+			for (nmlq, weights_for_logical_qubit) in weights.iter().enumerate() {
 				if mapped_logical_qubits.contains(&nmlq) {
 					continue;
 				}
-				let weight = weights[nmlq][mlq];
+				let weight = weights_for_logical_qubit[mlq];
 				if max_weight == usize::MAX || weight > max_weight {
 					max_weight = weight;
 					max_logical_qubit_pair = (mlq, nmlq);
@@ -68,7 +69,12 @@ pub fn find_mapping(tableau: &CliffordTableau, root: usize, tree: &Graph) -> Vec
 			}
 		}
 	}
-	mapping
+
+	let mut partial_mapping = PartialQubitMap::default();
+	for (from, to) in mapping.into_iter().enumerate() {
+		partial_mapping.map_qubit(from, to).unwrap();
+	}
+	partial_mapping
 }
 
 /// Counts how many gadgets contain a non-identity Pauli at both qubits.
@@ -76,8 +82,8 @@ pub fn edges_by_i_index(tableau: &CliffordTableau) -> Vec<Vec<usize>> {
 	let num_qubits = tableau.size();
 	let mut edges: Vec<Vec<usize>> = vec![vec![0; num_qubits]; num_qubits];
 
-	for q1 in 0..num_qubits {
-		for q2 in 0..num_qubits {
+	for (q1, edges_row) in edges.iter_mut().enumerate().take(num_qubits) {
+		for (q2, edge) in edges_row.iter_mut().enumerate().take(num_qubits) {
 			let mut count: usize = 0;
 			let pauli_i = PauliLetter::I;
 			for row in 0..num_qubits {
@@ -90,7 +96,7 @@ pub fn edges_by_i_index(tableau: &CliffordTableau) -> Vec<Vec<usize>> {
 					count += 1;
 				}
 			}
-			edges[q1][q2] = count;
+			*edge = count;
 		}
 	}
 	edges
@@ -312,15 +318,15 @@ fn all_pairs_shortest_paths(device: &Connectivity<TwoQubitEdge>) -> Vec<Vec<usiz
 	let num_nodes = device.node_count();
 	let mut distances = vec![vec![usize::MAX; num_nodes]; num_nodes];
 
-	for start in 0..num_nodes {
+	for (start, distance_row) in distances.iter_mut().enumerate() {
 		let mut queue = VecDeque::new();
-		distances[start][start] = 0;
+		distance_row[start] = 0;
 		queue.push_back(start);
 
 		while let Some(node) = queue.pop_front() {
 			for neighbor in device.neighbors(node) {
-				if distances[start][neighbor] == usize::MAX {
-					distances[start][neighbor] = distances[start][node] + 1;
+				if distance_row[neighbor] == usize::MAX {
+					distance_row[neighbor] = distance_row[node] + 1;
 					queue.push_back(neighbor);
 				}
 			}
@@ -362,26 +368,22 @@ pub fn print_grid(size: (usize, usize), tree: &Graph) {
 	println!()
 }
 
-pub fn implement_mapping(
-	tableau: &CliffordTableau,
-	mapping: &Vec<usize>,
-	num_physical_qubits: usize,
-) -> CliffordTableau {
+pub fn implement_mapping(tableau: &CliffordTableau, mapping: &[usize]) -> CliffordTableau {
 	let num_logical_qubits = mapping.len();
-	let mut mapped_tableau = CliffordTableau::id();
+	let mapped_tableau = CliffordTableau::id();
 	for num_logical_qubit in 0..num_logical_qubits {
 		// Destabilizers
 		let orignal_row: PauliString = tableau.get_x_row(num_logical_qubit);
 		let mut new_row = PauliString::id();
-		for i in 0..num_logical_qubits {
-			new_row.set(mapping[i], orignal_row.get(i));
+		for (i, &mapped_index) in mapping.iter().enumerate() {
+			new_row.set(mapped_index, orignal_row.get(i));
 		}
 		//		mapped_tableau.set_x_row(mapping[num_logical_qubit], new_row);
 		// Stabilizers
 		let orignal_row: PauliString = tableau.get_z_row(num_logical_qubit);
 		let mut new_row = PauliString::id();
-		for i in 0..num_logical_qubits {
-			new_row.set(mapping[i], orignal_row.get(i));
+		for (i, &mapped_index) in mapping.iter().enumerate() {
+			new_row.set(mapped_index, orignal_row.get(i));
 		}
 		//		mapped_tableau.set_z_row(mapping[num_logical_qubit], new_row);
 	}

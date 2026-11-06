@@ -116,9 +116,7 @@ pub fn construct_gate_map() -> GateMap {
 
 fn state_for_operations(operations: [[Pauli; 2]; 2]) -> String {
 	let mut state = String::with_capacity(2);
-	for column in 0..2 {
-		let first = operations[0][column];
-		let second = operations[1][column];
+	for (&first, &second) in operations[0].iter().zip(operations[1].iter()) {
 		let symbol = if first == 0 && second == 0 {
 			'I'
 		} else if first != 0 && second == 0 {
@@ -149,27 +147,26 @@ pub fn resolve_2qubits(qubits: (usize, usize), tree: &Graph) -> (GateSequence, i
 	let edge = (qubits.0, qubits.1);
 	let edge_type = get_edge_type(tree, edge);
 	let mut gates = Vec::new();
-	let priority;
 
-	if ["CC", ">>", "<<", "CA", "<A", ">A"].contains(&edge_type.as_str()) {
+	let priority = if ["CC", ">>", "<<", "CA", "<A", ">A"].contains(&edge_type.as_str()) {
 		gates.push(GateStep::new(
 			edge,
 			&edge_type,
 			&format!("I{}", &edge_type[1..]),
 		));
-		priority = 0;
+		0
 	} else if ["A>", "A<"].contains(&edge_type.as_str()) {
 		gates.push(GateStep::new(edge, &edge_type, "CA"));
 		gates.push(GateStep::new(edge, "CA", "IA"));
-		priority = 1;
+		1
 	} else if edge_type == "AC" {
 		gates.push(GateStep::new(edge, &edge_type, ">A"));
 		gates.push(GateStep::new(edge, ">A", "IA"));
-		priority = 2;
+		2
 	} else if edge_type == "CI" {
 		gates.push(GateStep::new(edge, &edge_type, "CC"));
 		gates.push(GateStep::new(edge, "CC", "IC"));
-		priority = 2;
+		2
 	} else if [">I", "<I"].contains(&edge_type.as_str()) {
 		let first = &edge_type[0..1];
 		gates.push(GateStep::new(edge, &edge_type, &format!("{first}{first}")));
@@ -178,15 +175,15 @@ pub fn resolve_2qubits(qubits: (usize, usize), tree: &Graph) -> (GateSequence, i
 			&format!("{first}{first}"),
 			&format!("I{first}"),
 		));
-		priority = 2;
+		2
 	} else if edge_type == "AI" {
 		gates.push(GateStep::new(edge, &edge_type, "AC"));
 		gates.push(GateStep::new(edge, "AC", "<A"));
 		gates.push(GateStep::new(edge, "<A", "IA"));
-		priority = 3;
+		3
 	} else {
-		priority = -1;
-	}
+		-1
+	};
 
 	(gates, priority, edge_type)
 }
