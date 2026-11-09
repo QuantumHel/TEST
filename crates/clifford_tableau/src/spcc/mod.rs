@@ -2,8 +2,10 @@ pub mod ct_fast;
 pub mod gateset;
 pub mod graph;
 pub mod mapping;
+pub mod print_tableau;
 pub mod resolve_in_pairs;
 pub mod synthesis;
+
 use core::{
 	Compiler,
 	connectivity::{Connectivity, TwoQubitEdge},
@@ -47,7 +49,7 @@ mod tests {
 
 	use crate::CliffordTableau;
 
-	use super::synthesis::print_tableau;
+	use super::print_tableau::print_tableau;
 	use super::{SPCC, ct_fast::CTFast, gateset::CNotHSV};
 	use core::{Compiler, connectivity::TwoQubitEdge};
 	use std::time;
@@ -55,9 +57,9 @@ mod tests {
 	#[test]
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
-		const ROUNDS: usize = 10;
-		const LOGICAL_QUBITS: usize = 9;
-		const PHYSICAL_QUBITS: usize = 9;
+		const ROUNDS: usize = 30;
+		const LOGICAL_QUBITS: usize = 64;
+		const PHYSICAL_QUBITS: usize = 64;
 		const GATES: usize = LOGICAL_QUBITS * 1000;
 		let compiler = SPCC;
 		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
@@ -70,13 +72,6 @@ mod tests {
 			let input: Circuit<CNotHSV> = Circuit::random(GATES, LOGICAL_QUBITS, &mut rng);
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(LOGICAL_QUBITS);
-			//			let cnot = CNot::new(0, 1).expect("CNOT control and target must differ");
-			//			let cnot2 = CNot::new(0, 1).expect("CNOT control and target must differ");
-			//			tableau.merge_clifford(&CNotHSV::CNot(cnot));
-			//			tableau.merge_clifford(&CNotHSV::S(S { target: 0 }));
-			//			tableau.merge_clifford(&CNotHSV::H(H { target: 1 }));
-			//tableau.merge_clifford(&CNotHSV::CNot(cnot2));
-			//			print_tableau(&tableau);
 			for gate in input.iter() {
 				//				println!("apply gate {:?}", gate);
 				tableau.merge_clifford(gate);
@@ -84,8 +79,8 @@ mod tests {
 				//				println!("{}\n", tableau_fast.display());
 				//				print_tableau(&tableau);
 			}
-			print_tableau(&tableau);
-			println!("{}", tableau_fast);
+			//			print_tableau(&tableau);
+			//			println!("{}", tableau_fast);
 			//			print!("Round {round} input tableau:\n{:?}\n", tableau.size());
 			let start = time::Instant::now();
 			let (circuit, _initial_mapping, output_mapping) =
