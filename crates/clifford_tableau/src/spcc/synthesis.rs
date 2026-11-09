@@ -1,4 +1,3 @@
-use pauli::PauliLetter;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::time;
@@ -6,7 +5,6 @@ use std::time;
 use super::ct_fast::CTFast;
 use super::gateset::CNotHSV;
 use super::resolve_in_pairs::GateMapKey;
-use crate::CliffordTableau;
 use crate::spcc::graph::Graph;
 use crate::spcc::resolve_in_pairs::GateMap;
 use crate::spcc::resolve_in_pairs::GateStep;
@@ -357,15 +355,6 @@ fn reduce_row(
 	timer
 }
 
-fn to_char(letter: PauliLetter) -> char {
-	match letter {
-		PauliLetter::I => 'I',
-		PauliLetter::X => 'X',
-		PauliLetter::Y => 'Y',
-		PauliLetter::Z => 'Z',
-	}
-}
-
 fn add_gate_to_circuit_and_tableau(
 	gate: char,
 	qubit: usize,
@@ -391,8 +380,8 @@ fn add_single_gate_to_circuit(gate: char, qubit: usize, qc_out: &mut Circuit<CNo
 
 fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut CTFast) {
 	match gate {
-		'S' => tableau.apply_sdag(qubit),
-		'V' => tableau.apply_vdag(qubit),
+		'S' => tableau.apply_sdg(qubit),
+		'V' => tableau.apply_vdg(qubit),
 		'H' => tableau.apply_h(qubit),
 		'I' => {} // Do nothing for identity
 		_ => panic!("ERROR: Unsupported gate in add_cnot_and_single_qubit_gates"),
@@ -422,33 +411,4 @@ fn construct_tableau_tree(removed_rows: &[bool], device_tree: &Graph) -> Graph {
 		}
 	}
 	tableau_tree
-}
-
-pub fn print_tableau(tableau: &CliffordTableau) {
-	println!("Tableau:");
-	for row in 0..tableau.size() {
-		let mut row_str = String::new();
-		for qubit in 0..tableau.size() {
-			row_str.push(to_char(tableau.get_x_row(row).get(qubit)));
-		}
-		row_str.push(if tableau.get_x_signs().get(row) {
-			'-'
-		} else {
-			'+'
-		});
-		println!("{}", row_str);
-	}
-	println!(" ");
-	for row in 0..tableau.size() {
-		let mut row_str = String::new();
-		for qubit in 0..tableau.size() {
-			row_str.push(to_char(tableau.get_z_row(row).get(qubit)));
-		}
-		row_str.push(if tableau.get_z_signs().get(row) {
-			'-'
-		} else {
-			'+'
-		});
-		println!("{}", row_str);
-	}
 }

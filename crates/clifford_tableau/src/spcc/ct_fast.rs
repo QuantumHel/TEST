@@ -90,7 +90,7 @@ impl CTFast {
 		}
 	}
 
-	pub fn apply_sdag(&mut self, qubit: usize) {
+	pub fn apply_sdg(&mut self, qubit: usize) {
 		for row in 0..self.row_blocks {
 			self.z_x_columns[row][qubit] ^= self.x_x_columns[row][qubit];
 			self.z_z_columns[row][qubit] ^= self.x_z_columns[row][qubit];
@@ -110,7 +110,7 @@ impl CTFast {
 		}
 	}
 
-	pub fn apply_vdag(&mut self, qubit: usize) {
+	pub fn apply_vdg(&mut self, qubit: usize) {
 		for row in 0..self.row_blocks {
 			self.x_signs[row] ^= self.x_x_columns[row][qubit] & self.z_x_columns[row][qubit];
 			self.z_signs[row] ^= self.x_z_columns[row][qubit] & self.z_z_columns[row][qubit];
@@ -159,8 +159,8 @@ impl CTFast {
 			CNotHSV::H(qubit) => self.apply_h(qubit.target),
 			CNotHSV::S(qubit) => self.apply_s(qubit.target),
 			CNotHSV::V(qubit) => self.apply_v(qubit.target),
-			CNotHSV::Sdagger(qubit) => self.apply_sdag(qubit.target),
-			CNotHSV::Vdagger(qubit) => self.apply_vdag(qubit.target),
+			CNotHSV::Sdagger(qubit) => self.apply_sdg(qubit.target),
+			CNotHSV::Vdagger(qubit) => self.apply_vdg(qubit.target),
 		}
 	}
 }
@@ -253,6 +253,14 @@ impl Clone for CTFast {
 #[cfg(test)]
 mod tests {
 	use super::CTFast;
+	use crate::spcc::print_tableau::to_str;
+	use circuit::Circuit;
+	use circuit::gates::{CNot, H, S, V};
+	use rand::SeedableRng;
+	use rand_chacha::ChaCha8Rng;
+
+	use super::CNotHSV;
+	use crate::CliffordTableau;
 
 	#[test]
 	fn prints_identity_tableau() {
@@ -331,8 +339,8 @@ mod tests {
 		let gatesr: Vec<(char, (usize, usize))> = gates.iter().rev().cloned().collect();
 		for (gate, (q1, q2)) in gatesr {
 			match gate {
-				'V' => tableau.apply_vdag(q1),
-				'S' => tableau.apply_sdag(q1),
+				'V' => tableau.apply_vdg(q1),
+				'S' => tableau.apply_sdg(q1),
 				'H' => tableau.apply_h(q1),
 				'C' => tableau.apply_cnot(q1, q2),
 				_ => panic!("Unknown gate"),
@@ -341,5 +349,131 @@ mod tests {
 		let res =
 			"X: X   +\n    X  +\n     X +\n      X+\nZ: Z   +\n    Z  +\n     Z +\n      Z+\n";
 		assert_eq!(tableau.to_string(), res);
+	}
+
+	#[test]
+	fn test_equality() {
+		let tableau = CTFast::new(4);
+		let tableau2 = CTFast::new(4);
+		assert_eq!(tableau, tableau2);
+		let mut tableau3 = CTFast::new(4);
+		assert_eq!(tableau, tableau3);
+		tableau3.apply_h(0);
+		assert_ne!(tableau, tableau3);
+	}
+
+	#[test]
+	fn test_big_identity() {
+		let tableau = CTFast::new(200);
+		let tableau2 = CTFast::new(200);
+		assert_eq!(tableau, tableau2);
+		let mut tableau3 = CTFast::new(200);
+		assert_eq!(tableau, tableau3);
+		tableau3.apply_h(0);
+		assert_ne!(tableau, tableau3);
+	}
+
+	#[test]
+	fn test_clone() {
+		let tableau = CTFast::new(4);
+		let tableau2 = tableau.clone();
+		assert_eq!(tableau, tableau2);
+	}
+
+	#[test]
+	fn test_clone_big() {
+		let tableau = CTFast::new(100);
+		let tableau2 = tableau.clone();
+		assert_eq!(tableau, tableau2);
+	}
+
+	#[test]
+	fn test_big() {
+		let mut tableau = CTFast::new(200);
+		let tableau2 = CTFast::new(200);
+		tableau.apply_s(100);
+		assert_ne!(tableau, tableau2);
+		tableau.apply_sdg(100);
+		assert_eq!(tableau, tableau2);
+	}
+
+	#[test]
+	fn test_to_clifford_tableau_identity_h() {
+		const QUBITS: usize = 10;
+		let mut tableau = CliffordTableau::id();
+		let mut tableau_fast = CTFast::new(QUBITS);
+		let gate = &CNotHSV::H(H { target: 9 });
+		tableau.merge_clifford(gate);
+		tableau_fast.merge_clifford(&gate);
+		assert_eq!(to_str(&tableau), tableau_fast.to_string());
+	}
+
+	#[test]
+	fn test_to_clifford_tableau_identity_h_big() {
+		const QUBITS: usize = 100;
+		let mut tableau = CliffordTableau::id();
+		let mut tableau_fast = CTFast::new(QUBITS);
+		let gate = &CNotHSV::H(H { target: 99 });
+		tableau.merge_clifford(gate);
+		tableau_fast.merge_clifford(&gate);
+		assert_eq!(to_str(&tableau), tableau_fast.to_string());
+	}
+
+	#[test]
+	fn test_to_clifford_tableau_identity_special() {
+		const QUBITS: usize = 2;
+		let mut tableau = CliffordTableau::id();
+		let mut tableau_fast = CTFast::new(QUBITS);
+
+		let cnot = CNot::new(0, 1).expect("CNOT control and target must differ");
+		tableau.merge_clifford(&CNotHSV::CNot(cnot));
+		tableau.merge_clifford(&CNotHSV::S(S { target: 0 }));
+		tableau.merge_clifford(&CNotHSV::H(H { target: 1 }));
+		tableau.merge_clifford(&CNotHSV::CNot(cnot));
+
+		tableau_fast.merge_clifford(&CNotHSV::CNot(cnot));
+		tableau_fast.merge_clifford(&CNotHSV::S(S { target: 0 }));
+		tableau_fast.merge_clifford(&CNotHSV::H(H { target: 1 }));
+		tableau_fast.merge_clifford(&CNotHSV::CNot(cnot));
+
+		assert_eq!(to_str(&tableau), tableau_fast.to_string());
+	}
+
+	#[test]
+	fn test_to_clifford_tableau() {
+		const QUBITS: usize = 10;
+		const ROUNDS: usize = 10;
+		const GATES: usize = 1000;
+		for i in 0..ROUNDS {
+			let mut tableau = CliffordTableau::id();
+			let mut tableau_fast = CTFast::new(QUBITS);
+			let mut rng = ChaCha8Rng::seed_from_u64(67);
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+				tableau_fast.merge_clifford(gate);
+			}
+			assert_eq!(to_str(&tableau), tableau_fast.to_string());
+		}
+	}
+
+	#[test]
+	fn test_to_clifford_tableau_big() {
+		const QUBITS: usize = 100;
+		const ROUNDS: usize = 10;
+		const GATES: usize = 10000;
+		for i in 0..ROUNDS {
+			let mut tableau = CliffordTableau::id();
+			let mut tableau_fast = CTFast::new(QUBITS);
+			let mut rng = ChaCha8Rng::seed_from_u64(67);
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+				tableau_fast.merge_clifford(gate);
+			}
+			assert_eq!(to_str(&tableau), tableau_fast.to_string());
+		}
 	}
 }
