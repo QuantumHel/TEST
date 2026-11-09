@@ -49,7 +49,6 @@ mod tests {
 
 	use crate::CliffordTableau;
 
-	use super::print_tableau::print_tableau;
 	use super::{SPCC, ct_fast::CTFast, gateset::CNotHSV};
 	use core::{Compiler, connectivity::TwoQubitEdge};
 	use std::time;
@@ -73,15 +72,9 @@ mod tests {
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(LOGICAL_QUBITS);
 			for gate in input.iter() {
-				//				println!("apply gate {:?}", gate);
 				tableau.merge_clifford(gate);
 				tableau_fast.merge_clifford(gate);
-				//				println!("{}\n", tableau_fast.display());
-				//				print_tableau(&tableau);
 			}
-			//			print_tableau(&tableau);
-			//			println!("{}", tableau_fast);
-			//			print!("Round {round} input tableau:\n{:?}\n", tableau.size());
 			let start = time::Instant::now();
 			let (circuit, _initial_mapping, output_mapping) =
 				compiler.compile(tableau_fast, &connectivity);
@@ -104,7 +97,7 @@ mod tests {
 				result_tableau.merge_clifford(gate);
 			}
 			result_tableau.merge_qubit_map(&output_mapping); // Output mapping
-			//		assert_eq!(result_tableau, tableau);
+			assert_eq!(result_tableau, tableau);
 			cnot_count_sum += circuit.fileter_len(|g| matches!(g, CNotHSV::CNot(_)));
 			println!(
 				"Round {round} went from {} to {} CNOT gates. Average CNOT count so far: {}",

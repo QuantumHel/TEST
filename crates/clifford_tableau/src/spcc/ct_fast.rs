@@ -255,7 +255,7 @@ mod tests {
 	use super::CTFast;
 	use crate::spcc::print_tableau::to_str;
 	use circuit::Circuit;
-	use circuit::gates::{CNot, H, S, V};
+	use circuit::gates::{CNot, H, S};
 	use rand::SeedableRng;
 	use rand_chacha::ChaCha8Rng;
 
@@ -443,7 +443,7 @@ mod tests {
 		const QUBITS: usize = 10;
 		const ROUNDS: usize = 10;
 		const GATES: usize = 1000;
-		for i in 0..ROUNDS {
+		for _i in 0..ROUNDS {
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(QUBITS);
 			let mut rng = ChaCha8Rng::seed_from_u64(67);
@@ -462,7 +462,7 @@ mod tests {
 		const QUBITS: usize = 100;
 		const ROUNDS: usize = 10;
 		const GATES: usize = 10000;
-		for i in 0..ROUNDS {
+		for _i in 0..ROUNDS {
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(QUBITS);
 			let mut rng = ChaCha8Rng::seed_from_u64(67);
