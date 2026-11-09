@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::time;
 
+use super::ct_fast::CTFast;
 use super::gateset::CNotHSV;
 use super::resolve_in_pairs::GateMapKey;
 use crate::CliffordTableau;
@@ -13,16 +14,17 @@ use crate::spcc::resolve_in_pairs::construct_gate_map;
 use crate::spcc::resolve_in_pairs::min_edge_options;
 use circuit::{
 	Circuit,
-	gates::{CNot, H, S, Sdagger, V, Vdagger},
+	gates::{CNot, H, S, V},
 };
 use core::qubit_map::PartialQubitMap;
 use core::qubit_map::QubitMap;
 
 pub fn tableau_to_circuit_pairs(
-	tableau: &CliffordTableau,
+	tableau: &CTFast,
 	device_tree: &Graph,
 	allow_permutation: bool,
 ) -> (Circuit<CNotHSV>, QubitMap) {
+	//	println!("Start tableau:\n{}", tableau.display());
 	let mut timer = 0;
 	let num_qubits = tableau.size();
 	let mut qc_out: Circuit<CNotHSV> = Circuit::new();
@@ -41,14 +43,10 @@ pub fn tableau_to_circuit_pairs(
 		let mut remove = true;
 		let mut target_qubit = usize::MAX;
 		for qubit in 0..num_qubits {
-			if tableau.get_x_row(row).get(qubit) == PauliLetter::I
-				&& tableau.get_z_row(row).get(qubit) == PauliLetter::I
-			{
+			if tableau.get_x_row_col(row, qubit) == 0 && tableau.get_z_row_col(row, qubit) == 0 {
 				continue;
 			}
-			if tableau.get_x_row(row).get(qubit) == PauliLetter::X
-				&& tableau.get_z_row(row).get(qubit) == PauliLetter::Z
-			{
+			if tableau.get_x_row_col(row, qubit) == 1 && tableau.get_z_row_col(row, qubit) == 2 {
 				if target_qubit == usize::MAX {
 					target_qubit = qubit;
 					continue;
@@ -108,8 +106,8 @@ pub fn tableau_to_circuit_pairs(
 				}
 				for pair in 0..num_qubits {
 					if !removed_rows[pair]
-						&& (tableau.get_x_row(pair).get(column) != PauliLetter::I
-							|| tableau.get_z_row(pair).get(column) != PauliLetter::I)
+						&& (tableau.get_x_row_col(pair, column) != 0
+							|| tableau.get_z_row_col(pair, column) != 0)
 					{
 						let gadget_score = gadget_pair_scores[&pair];
 						if min_column == usize::MAX
@@ -158,22 +156,22 @@ pub fn tableau_to_circuit_pairs(
 		.find_map(|(r, &removed)| (!removed).then_some(r))
 		.unwrap_or(usize::MAX);
 	let last_qubit = tableau_tree.nodes().next().unwrap();
-	if tableau.get_x_row(row).get(last_qubit) == PauliLetter::Y {
+	if tableau.get_x_row_col(row, last_qubit) == 3 {
 		add_gate_to_circuit_and_tableau('S', last_qubit, &mut tableau, &mut qc_out);
-	} else if tableau.get_x_row(row).get(last_qubit) == PauliLetter::Z {
+	} else if tableau.get_x_row_col(row, last_qubit) == 2 {
 		add_gate_to_circuit_and_tableau('H', last_qubit, &mut tableau, &mut qc_out);
 	}
-	if tableau.get_z_row(row).get(last_qubit) == PauliLetter::Y {
+	if tableau.get_z_row_col(row, last_qubit) == 3 {
 		add_gate_to_circuit_and_tableau('V', last_qubit, &mut tableau, &mut qc_out);
 	}
 	perm_out[last_qubit] = row;
 
 	// Undo phase signs
 	for row in 0..num_qubits {
-		if tableau.get_x_signs().get(row) {
+		if tableau.get_x_phase(row) {
 			let mut qubit: usize = usize::MAX;
 			for i in 0..num_qubits {
-				if tableau.get_x_row(row).get(i) != PauliLetter::I {
+				if tableau.get_x_row_col(row, i) != 0 {
 					qubit = i;
 					break;
 				}
@@ -181,10 +179,10 @@ pub fn tableau_to_circuit_pairs(
 			add_gate_to_circuit_and_tableau('S', qubit, &mut tableau, &mut qc_out);
 			add_gate_to_circuit_and_tableau('S', qubit, &mut tableau, &mut qc_out);
 		}
-		if tableau.get_z_signs().get(row) {
+		if tableau.get_z_phase(row) {
 			let mut qubit: usize = usize::MAX;
 			for i in 0..num_qubits {
-				if tableau.get_z_row(row).get(i) != PauliLetter::I {
+				if tableau.get_z_row_col(row, i) != 0 {
 					qubit = i;
 					break;
 				}
@@ -205,8 +203,9 @@ pub fn tableau_to_circuit_pairs(
 
 	println!(
 		"Circuit and tablau update took {} ms",
-		(timer as f64 / 1000.0).round() as i32
+		(timer as f64 / 1000.0)
 	);
+	//	println!("Final tableau:\n{}", tableau.display());
 	(qc_out, mapping)
 }
 
@@ -230,30 +229,29 @@ fn all_pairs_shortest_paths(tableau_tree: &Graph, num_qubits: usize) -> Vec<Vec<
 	distances
 }
 
-fn gadget_pair_score(tableau: &CliffordTableau, tableau_tree: &Graph, pair: usize) -> usize {
+fn gadget_pair_score(tableau: &CTFast, tableau_tree: &Graph, pair: usize) -> usize {
 	let (gadget_tree, nr_i) = create_gadget_tree_graph(tableau, tableau_tree, pair, pair);
 	gadget_tree.nodes().count() + nr_i
 }
 
 fn create_gadget_tree_graph(
-	tableau: &CliffordTableau,
+	tableau: &CTFast,
 	tableau_tree: &Graph,
 	pair: usize,
 	target_qubit: usize,
 ) -> (Graph, usize) {
 	let mut gadget_tree = tableau_tree.clone();
 	let mut nr_i: usize = 0;
-	let pauli_i = PauliLetter::I;
 	let node_list: Vec<usize> = tableau_tree.nodes().collect();
 	for q in node_list {
-		let paulix = tableau.get_x_row(pair).get(q);
-		let pauliy = tableau.get_z_row(pair).get(q);
-		if paulix == pauli_i && pauliy == pauli_i {
+		let paulix = tableau.get_x_row_col(pair, q);
+		let pauliy = tableau.get_z_row_col(pair, q);
+		if paulix == 0 && pauliy == 0 {
 			gadget_tree.set_node_type(q, 'I');
 			nr_i += 1;
-		} else if paulix != pauli_i && pauliy == pauli_i {
+		} else if paulix != 0 && pauliy == 0 {
 			gadget_tree.set_node_type(q, '>');
-		} else if paulix == pauli_i && pauliy != pauli_i {
+		} else if paulix == 0 && pauliy != 0 {
 			gadget_tree.set_node_type(q, '<');
 		} else if paulix != pauliy {
 			gadget_tree.set_node_type(q, 'A');
@@ -286,7 +284,7 @@ fn create_gadget_tree_graph(
 fn reduce_row(
 	row: usize,
 	target_qubit: usize,
-	tableau: &mut CliffordTableau,
+	tableau: &mut CTFast,
 	qc_out: &mut Circuit<CNotHSV>,
 	tableau_tree: &mut Graph,
 	gate_map: &GateMap,
@@ -316,12 +314,12 @@ fn reduce_row(
 		for gate_step in abs_gates {
 			let current_paulis = [
 				[
-					to_int(tableau.get_x_row(row).get(gate_step.edge.0)),
-					to_int(tableau.get_x_row(row).get(gate_step.edge.1)),
+					tableau.get_x_row_col(row, gate_step.edge.0),
+					tableau.get_x_row_col(row, gate_step.edge.1),
 				],
 				[
-					to_int(tableau.get_z_row(row).get(gate_step.edge.0)),
-					to_int(tableau.get_z_row(row).get(gate_step.edge.1)),
+					tableau.get_z_row_col(row, gate_step.edge.0),
+					tableau.get_z_row_col(row, gate_step.edge.1),
 				],
 			];
 			// Find possible circuit gate sequances from abstarcted gate sequences
@@ -343,19 +341,17 @@ fn reduce_row(
 	// Change last qubit to Z/X
 	let mut last_qubit = usize::MAX;
 	for q in 0..num_qubits {
-		if tableau.get_x_row(row).get(q) != PauliLetter::I
-			|| tableau.get_z_row(row).get(q) != PauliLetter::I
-		{
+		if tableau.get_x_row_col(row, q) != 0 || tableau.get_z_row_col(row, q) != 0 {
 			last_qubit = q;
 			break;
 		}
 	}
-	if tableau.get_x_row(row).get(last_qubit) == PauliLetter::Y {
+	if tableau.get_x_row_col(row, last_qubit) == 3 {
 		add_gate_to_circuit_and_tableau('S', last_qubit, tableau, qc_out);
-	} else if tableau.get_x_row(row).get(last_qubit) == PauliLetter::Z {
+	} else if tableau.get_x_row_col(row, last_qubit) == 2 {
 		add_gate_to_circuit_and_tableau('H', last_qubit, tableau, qc_out);
 	}
-	if tableau.get_z_row(row).get(last_qubit) == PauliLetter::Y {
+	if tableau.get_z_row_col(row, last_qubit) == 3 {
 		add_gate_to_circuit_and_tableau('V', last_qubit, tableau, qc_out);
 	}
 	timer
@@ -370,19 +366,10 @@ fn to_char(letter: PauliLetter) -> char {
 	}
 }
 
-fn to_int(letter: PauliLetter) -> u8 {
-	match letter {
-		PauliLetter::I => 0,
-		PauliLetter::X => 1,
-		PauliLetter::Y => 3,
-		PauliLetter::Z => 2,
-	}
-}
-
 fn add_gate_to_circuit_and_tableau(
 	gate: char,
 	qubit: usize,
-	tableau: &mut CliffordTableau,
+	tableau: &mut CTFast,
 	qc_out: &mut Circuit<CNotHSV>,
 ) {
 	add_single_gate_to_circuit(gate, qubit, qc_out);
@@ -402,11 +389,11 @@ fn add_single_gate_to_circuit(gate: char, qubit: usize, qc_out: &mut Circuit<CNo
 	}
 }
 
-fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut CliffordTableau) {
+fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut CTFast) {
 	match gate {
-		'S' => tableau.merge_clifford(&CNotHSV::Sdagger(Sdagger { target: qubit })),
-		'V' => tableau.merge_clifford(&CNotHSV::Vdagger(Vdagger { target: qubit })),
-		'H' => tableau.merge_clifford(&CNotHSV::H(H { target: qubit })),
+		'S' => tableau.apply_sdag(qubit),
+		'V' => tableau.apply_vdag(qubit),
+		'H' => tableau.apply_h(qubit),
 		'I' => {} // Do nothing for identity
 		_ => panic!("ERROR: Unsupported gate in add_cnot_and_single_qubit_gates"),
 	}
@@ -415,7 +402,7 @@ fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut Cliffor
 fn add_cnot_and_single_qubit_gates(
 	edge: (usize, usize),
 	gates: (char, char),
-	tableau: &mut CliffordTableau,
+	tableau: &mut CTFast,
 	qc_out: &mut Circuit<CNotHSV>,
 ) {
 	add_gate_to_circuit_and_tableau(gates.0, edge.0, tableau, qc_out);
@@ -423,7 +410,7 @@ fn add_cnot_and_single_qubit_gates(
 
 	let cnot = CNot::new(edge.0, edge.1).expect("CNOT control and target must differ");
 	qc_out.push(CNotHSV::CNot(cnot));
-	tableau.merge_clifford(&CNotHSV::CNot(cnot));
+	tableau.apply_cnot(edge.0, edge.1);
 }
 
 fn construct_tableau_tree(removed_rows: &[bool], device_tree: &Graph) -> Graph {

@@ -3,8 +3,9 @@ use std::{
 	vec,
 };
 
+use super::ct_fast::CTFast;
 use graph::GraphExt;
-use pauli::{PauliLetter, PauliString};
+use pauli::PauliString;
 
 use crate::CliffordTableau;
 use crate::spcc::graph::Graph;
@@ -13,7 +14,7 @@ use core::connectivity::{Connectivity, TwoQubitEdge};
 use core::qubit_map::PartialQubitMap;
 
 /// Selects a logical-to-physical mapping using the pair-mapping heuristic.
-pub fn find_mapping(tableau: &CliffordTableau, root: usize, tree: &Graph) -> PartialQubitMap {
+pub fn find_mapping(tableau: &CTFast, root: usize, tree: &Graph) -> PartialQubitMap {
 	let num_qubits = tableau.size();
 	let mut mapped_logical_qubits = HashSet::new();
 	let mut mapped_physical_qubits = HashSet::new();
@@ -78,21 +79,18 @@ pub fn find_mapping(tableau: &CliffordTableau, root: usize, tree: &Graph) -> Par
 }
 
 /// Counts how many gadgets contain a non-identity Pauli at both qubits.
-pub fn edges_by_i_index(tableau: &CliffordTableau) -> Vec<Vec<usize>> {
+pub fn edges_by_i_index(tableau: &CTFast) -> Vec<Vec<usize>> {
 	let num_qubits = tableau.size();
 	let mut edges: Vec<Vec<usize>> = vec![vec![0; num_qubits]; num_qubits];
 
 	for (q1, edges_row) in edges.iter_mut().enumerate().take(num_qubits) {
 		for (q2, edge) in edges_row.iter_mut().enumerate().take(num_qubits) {
 			let mut count: usize = 0;
-			let pauli_i = PauliLetter::I;
 			for row in 0..num_qubits {
-				let paulistring = tableau.get_x_row(row);
-				if paulistring.get(q1) != pauli_i && paulistring.get(q2) != pauli_i {
+				if tableau.get_x_row_col(row, q1) != 0 && tableau.get_x_row_col(row, q2) != 0 {
 					count += 1;
 				}
-				let paulistring = tableau.get_z_row(row);
-				if paulistring.get(q1) != pauli_i && paulistring.get(q2) != pauli_i {
+				if tableau.get_z_row_col(row, q1) != 0 && tableau.get_z_row_col(row, q2) != 0 {
 					count += 1;
 				}
 			}
@@ -102,25 +100,25 @@ pub fn edges_by_i_index(tableau: &CliffordTableau) -> Vec<Vec<usize>> {
 	edges
 }
 
-pub fn find_heaviest_logical_qubit(tableau: &CliffordTableau) -> usize {
+pub fn find_heaviest_logical_qubit(tableau: &CTFast) -> usize {
 	let num_qubits = tableau.size();
 	let mut max_conn = 0;
 	let mut heaviest_logical_qubit = 0;
 	for row in 0..num_qubits {
-		if tableau.get_x_row(row).get(0) != PauliLetter::I {
+		if tableau.get_x_row_col(row, 0) != 0 {
 			max_conn += 1;
 		}
-		if tableau.get_z_row(row).get(0) != PauliLetter::I {
+		if tableau.get_z_row_col(row, 0) != 0 {
 			max_conn += 1;
 		}
 	}
 	for qubit_mapping in 1..num_qubits {
 		let mut conn = 0;
 		for row in 0..num_qubits {
-			if tableau.get_x_row(row).get(qubit_mapping) != PauliLetter::I {
+			if tableau.get_x_row_col(row, qubit_mapping) != 0 {
 				conn += 1;
 			}
-			if tableau.get_z_row(row).get(qubit_mapping) != PauliLetter::I {
+			if tableau.get_z_row_col(row, qubit_mapping) != 0 {
 				conn += 1;
 			}
 		}
