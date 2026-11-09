@@ -1,4 +1,5 @@
 use super::gateset::CNotHSV;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Eq)]
 pub struct CTFast {
@@ -162,8 +163,10 @@ impl CTFast {
 			CNotHSV::Vdagger(qubit) => self.apply_vdag(qubit.target),
 		}
 	}
+}
 
-	pub fn display(&self) -> String {
+impl Display for CTFast {
+	fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
 		let mut result = String::new();
 
 		for row in 0..self.size {
@@ -215,7 +218,7 @@ impl CTFast {
 			result.push('\n');
 		}
 
-		result
+		formatter.write_str(&result)
 	}
 }
 
@@ -231,6 +234,7 @@ impl PartialEq for CTFast {
 			&& self.row_blocks == other.row_blocks
 	}
 }
+
 impl Clone for CTFast {
 	fn clone(&self) -> Self {
 		Self {
@@ -255,8 +259,8 @@ mod tests {
 		let tableau = CTFast::new(4);
 		let res =
 			"X: X   +\n    X  +\n     X +\n      X+\nZ: Z   +\n    Z  +\n     Z +\n      Z+\n";
-		println!("Identity tableau:\n{}", tableau.display());
-		assert_eq!(tableau.display(), res);
+		println!("Identity tableau:\n{}", tableau);
+		assert_eq!(tableau.to_string(), res);
 	}
 
 	#[test]
@@ -322,8 +326,8 @@ mod tests {
 		}
 		let res =
 			"X:  XXY+\n   XZY +\n    ZYY+\n   Z ZZ-\nZ:   YY+\n     ZZ-\n    YXX+\n   X   -\n";
-		println!("tableau:\n{}", tableau.display());
-		assert_eq!(tableau.display(), res);
+		println!("tableau:\n{}", tableau);
+		assert_eq!(tableau.to_string(), res);
 		let gatesr: Vec<(char, (usize, usize))> = gates.iter().rev().cloned().collect();
 		for (gate, (q1, q2)) in gatesr {
 			match gate {
@@ -336,6 +340,6 @@ mod tests {
 		}
 		let res =
 			"X: X   +\n    X  +\n     X +\n      X+\nZ: Z   +\n    Z  +\n     Z +\n      Z+\n";
-		assert_eq!(tableau.display(), res);
+		assert_eq!(tableau.to_string(), res);
 	}
 }

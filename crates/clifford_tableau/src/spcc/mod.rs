@@ -47,6 +47,7 @@ mod tests {
 
 	use crate::CliffordTableau;
 
+	use super::synthesis::print_tableau;
 	use super::{SPCC, ct_fast::CTFast, gateset::CNotHSV};
 	use core::{Compiler, connectivity::TwoQubitEdge};
 	use std::time;
@@ -55,8 +56,8 @@ mod tests {
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
 		const ROUNDS: usize = 10;
-		const LOGICAL_QUBITS: usize = 64;
-		const PHYSICAL_QUBITS: usize = 64;
+		const LOGICAL_QUBITS: usize = 9;
+		const PHYSICAL_QUBITS: usize = 9;
 		const GATES: usize = LOGICAL_QUBITS * 1000;
 		let compiler = SPCC;
 		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
@@ -83,7 +84,8 @@ mod tests {
 				//				println!("{}\n", tableau_fast.display());
 				//				print_tableau(&tableau);
 			}
-			//			print_tableau(&tableau);
+			print_tableau(&tableau);
+			println!("{}", tableau_fast);
 			//			print!("Round {round} input tableau:\n{:?}\n", tableau.size());
 			let start = time::Instant::now();
 			let (circuit, _initial_mapping, output_mapping) =
