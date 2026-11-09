@@ -267,7 +267,6 @@ mod tests {
 		let tableau = CTFast::new(4);
 		let res =
 			"X: X   +\n    X  +\n     X +\n      X+\nZ: Z   +\n    Z  +\n     Z +\n      Z+\n";
-		println!("Identity tableau:\n{}", tableau);
 		assert_eq!(tableau.to_string(), res);
 	}
 
