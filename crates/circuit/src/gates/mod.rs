@@ -76,7 +76,9 @@ trivial_single_qubit_gate!(X, XOpaque, "x");
 trivial_single_qubit_gate!(Y, YOpaque, "y");
 trivial_single_qubit_gate!(H, HOpaque, "h");
 trivial_single_qubit_gate!(S, SOpaque, "s");
+trivial_single_qubit_gate!(Sdagger, SdaggerOpaque, "sdg");
 trivial_single_qubit_gate!(V, VOpaque, "v");
+trivial_single_qubit_gate!(Vdagger, VdaggerOpaque, "vdg");
 
 impl Clifford for X {
 	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
@@ -136,12 +138,40 @@ impl Clifford for S {
 	}
 }
 
+impl Clifford for Sdagger {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		let (sign, letter) = match pauli_string.get(self.target) {
+			PauliLetter::Z => (false, PauliLetter::Z),
+			PauliLetter::X => (true, PauliLetter::Y),
+			PauliLetter::Y => (false, PauliLetter::X),
+			PauliLetter::I => (false, PauliLetter::I),
+		};
+		let mut new = pauli_string.clone();
+		new.set(self.target, letter);
+		(sign, new)
+	}
+}
+
 impl Clifford for V {
 	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
 		let (sign, letter) = match pauli_string.get(self.target) {
 			PauliLetter::Z => (true, PauliLetter::Y),
 			PauliLetter::X => (false, PauliLetter::X),
 			PauliLetter::Y => (false, PauliLetter::Z),
+			PauliLetter::I => (false, PauliLetter::I),
+		};
+		let mut new = pauli_string.clone();
+		new.set(self.target, letter);
+		(sign, new)
+	}
+}
+
+impl Clifford for Vdagger {
+	fn conjugate(&self, pauli_string: &pauli::PauliString) -> (bool, pauli::PauliString) {
+		let (sign, letter) = match pauli_string.get(self.target) {
+			PauliLetter::Z => (false, PauliLetter::Y),
+			PauliLetter::X => (false, PauliLetter::X),
+			PauliLetter::Y => (true, PauliLetter::Z),
 			PauliLetter::I => (false, PauliLetter::I),
 		};
 		let mut new = pauli_string.clone();
