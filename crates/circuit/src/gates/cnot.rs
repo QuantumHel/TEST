@@ -102,8 +102,9 @@ impl Clifford for CNot {
 			(X, X) => (false, X, I),
 			(X, Z) => (true, Y, Y),
 			(Y, Y) => (true, X, Z),
-			(X, Y) => (true, Y, Z),
-			(Y, Z) => (true, X, Y),
+			(X, Y) => (false, Y, Z),
+			(Y, Z) => (false, X, Y),
+			// II ZI IX ZX
 			(c, t) => (false, c, t),
 		};
 
