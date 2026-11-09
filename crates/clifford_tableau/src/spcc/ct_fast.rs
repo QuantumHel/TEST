@@ -124,35 +124,31 @@ impl CTFast {
 			//  if (p1 == 0b01 and p2 == 0b10) or (p1 == 0b11 and p2 == 0b11) --> change
 			// ((z[control] ^ 1) & x[control]) & (x[target] ^ 1] & z[target] | ((z{control] & x[control])) & (x[target] & z[target])}))
 			// let phase_change = (((cz ^ 1) & cx) & (tz & (tx ^ 1))) | (cz & cx & tz & tx);
-			let cx = self.x_x_columns[row][control];
-			let cz = self.z_x_columns[row][control];
-			let tx = self.x_x_columns[row][target];
-			let tz = self.z_x_columns[row][target];
-			self.x_signs[row] ^= cz & cx & tz & tx;
+			self.x_signs[row] ^= self.x_x_columns[row][control]
+				& self.z_x_columns[row][control]
+				& self.x_x_columns[row][target]
+				& self.z_x_columns[row][target];
 
 			self.x_x_columns[row][target] ^= self.x_x_columns[row][control];
 			self.z_x_columns[row][control] ^= self.z_x_columns[row][target];
 
-			let cx = self.x_x_columns[row][control];
-			let cz = self.z_x_columns[row][control];
-			let tx = self.x_x_columns[row][target];
-			let tz = self.z_x_columns[row][target];
-			self.x_signs[row] ^= cz & cx & tz & tx;
+			self.x_signs[row] ^= self.x_x_columns[row][control]
+				& self.z_x_columns[row][control]
+				& self.x_x_columns[row][target]
+				& self.z_x_columns[row][target];
 
-			let cx = self.x_z_columns[row][control];
-			let cz = self.z_z_columns[row][control];
-			let tx = self.x_z_columns[row][target];
-			let tz = self.z_z_columns[row][target];
-			self.z_signs[row] ^= cz & cx & tx & tz;
+			self.z_signs[row] ^= self.x_z_columns[row][control]
+				& self.z_z_columns[row][control]
+				& self.x_z_columns[row][target]
+				& self.z_z_columns[row][target];
 
 			self.x_z_columns[row][target] ^= self.x_z_columns[row][control];
 			self.z_z_columns[row][control] ^= self.z_z_columns[row][target];
 
-			let cx = self.x_z_columns[row][control];
-			let cz = self.z_z_columns[row][control];
-			let tx = self.x_z_columns[row][target];
-			let tz = self.z_z_columns[row][target];
-			self.z_signs[row] ^= cz & cx & tx & tz;
+			self.z_signs[row] ^= self.x_z_columns[row][control]
+				& self.z_z_columns[row][control]
+				& self.x_z_columns[row][target]
+				& self.z_z_columns[row][target];
 		}
 	}
 
