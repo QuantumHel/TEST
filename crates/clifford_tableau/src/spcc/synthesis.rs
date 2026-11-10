@@ -58,10 +58,6 @@ pub fn tableau_to_circuit_pairs(
 			*removed_row = true;
 			removed_qubits[target_qubit] = true;
 			perm_out[target_qubit] = row;
-			println!(
-				"Removing qubit {} and row {} because both rows are identity",
-				target_qubit, row
-			);
 		}
 	}
 	let gate_map = construct_gate_map();

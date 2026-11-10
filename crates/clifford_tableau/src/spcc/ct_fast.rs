@@ -1,8 +1,9 @@
 use super::gateset::CNotHSV;
+use core::qubit_map::PartialQubitMap;
 use core::qubit_map::QubitMap;
 use std::fmt::{self, Display, Formatter};
 
-#[derive(Debug, Eq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct CTFast {
 	x_x_columns: Vec<Vec<u64>>,
 	x_z_columns: Vec<Vec<u64>>,
@@ -226,6 +227,39 @@ impl CTFast {
 			self.set_z_phase(qubit_map.map(row), old.get_z_phase(row));
 		}
 	}
+
+	pub fn merge_partial_qubit_map(&mut self, qubit_map: &PartialQubitMap, new_size: usize) {
+		let old = self.clone();
+		self.size = new_size;
+		self.row_blocks = self.size / 64 + 1;
+		self.x_x_columns = vec![vec![0; new_size]; self.row_blocks];
+		self.z_x_columns = vec![vec![0; new_size]; self.row_blocks];
+		self.x_z_columns = vec![vec![0; new_size]; self.row_blocks];
+		self.z_z_columns = vec![vec![0; new_size]; self.row_blocks];
+		self.x_signs = vec![0; self.row_blocks];
+		self.z_signs = vec![0; self.row_blocks];
+
+		for col in 0..self.size {
+			let row = col / 64;
+			self.x_x_columns[row][col] = 1 << (col % 64);
+			self.z_z_columns[row][col] = 1 << (col % 64);
+		}
+
+		for row in 0..old.size {
+			let map = qubit_map.map(row);
+			if let Ok(map_row) = map {
+				for col in 0..old.size {
+					let map = qubit_map.map(col);
+					if let Ok(map_col) = map {
+						self.set_x_row_col(map_row, map_col, old.get_x_row_col(row, col));
+						self.set_z_row_col(map_row, map_col, old.get_z_row_col(row, col));
+					}
+				}
+				self.set_x_phase(map_row, old.get_x_phase(row));
+				self.set_z_phase(map_row, old.get_z_phase(row));
+			}
+		}
+	}
 }
 
 impl Display for CTFast {
@@ -282,34 +316,6 @@ impl Display for CTFast {
 		}
 
 		formatter.write_str(&result)
-	}
-}
-
-impl PartialEq for CTFast {
-	fn eq(&self, other: &Self) -> bool {
-		self.x_x_columns == other.x_x_columns
-			&& self.x_z_columns == other.x_z_columns
-			&& self.z_x_columns == other.z_x_columns
-			&& self.z_z_columns == other.z_z_columns
-			&& self.x_signs == other.x_signs
-			&& self.z_signs == other.z_signs
-			&& self.size == other.size
-			&& self.row_blocks == other.row_blocks
-	}
-}
-
-impl Clone for CTFast {
-	fn clone(&self) -> Self {
-		Self {
-			x_x_columns: self.x_x_columns.clone(),
-			x_z_columns: self.x_z_columns.clone(),
-			z_x_columns: self.z_x_columns.clone(),
-			z_z_columns: self.z_z_columns.clone(),
-			x_signs: self.x_signs.clone(),
-			z_signs: self.z_signs.clone(),
-			size: self.size,
-			row_blocks: self.row_blocks,
-		}
 	}
 }
 

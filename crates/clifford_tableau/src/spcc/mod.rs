@@ -12,7 +12,7 @@ use core::{
 	qubit_map::{PartialQubitMap, QubitMap},
 };
 
-use self::mapping::{construct_tree, find_mapping};
+use self::mapping::{construct_tree, find_mapping, print_grid};
 use self::synthesis::tableau_to_circuit_pairs;
 use self::{ct_fast::CTFast, gateset::CNotHSV};
 use circuit::Circuit;
@@ -27,13 +27,14 @@ impl Compiler<CTFast, (Circuit<CNotHSV>, PartialQubitMap, QubitMap), Connectivit
 		tableau: CTFast,
 		device: &Connectivity<TwoQubitEdge>,
 	) -> (Circuit<CNotHSV>, PartialQubitMap, QubitMap) {
+		let mut tableau = tableau.clone();
 		let num_logical_qubits = tableau.size();
-		//		let num_physical_qubits = device.nodes().len();
+		let num_physical_qubits = device.nodes().len();
 		let (root_node, device_tree) =
 			construct_tree(device, num_logical_qubits).expect("failed to construct SPCC tree");
-		//		print_grid((8, 8), &device_tree);
+		print_grid((12, 12), &device_tree);
 		let initial_mapping = find_mapping(&tableau, root_node, &device_tree);
-		println!("Initial mapping: {:?}", initial_mapping);
+		tableau.merge_partial_qubit_map(&initial_mapping, num_physical_qubits);
 		//		let mut mapped_tableau = tableau.clone();
 		//		mapped_tableau.merge_qubit_map(&initial_mapping);
 		let (circ, output_mapping) = tableau_to_circuit_pairs(&tableau, &device_tree, true);
@@ -47,8 +48,6 @@ mod tests {
 	use rand::SeedableRng;
 	use rand_chacha::ChaCha8Rng;
 
-	use crate::CliffordTableau;
-
 	use super::{SPCC, ct_fast::CTFast, gateset::CNotHSV};
 	use core::{Compiler, connectivity::TwoQubitEdge};
 	use std::time;
@@ -57,9 +56,9 @@ mod tests {
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
 		const ROUNDS: usize = 30;
-		const LOGICAL_QUBITS: usize = 121;
-		const PHYSICAL_QUBITS: usize = 121;
-		const GATES: usize = LOGICAL_QUBITS * 100;
+		const LOGICAL_QUBITS: usize = 120;
+		const PHYSICAL_QUBITS: usize = 144;
+		const GATES: usize = LOGICAL_QUBITS * 1000;
 		let compiler = SPCC;
 		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
 
@@ -69,16 +68,17 @@ mod tests {
 		for round in 0..ROUNDS {
 			println!("\nRound {round} of {ROUNDS}");
 			let input: Circuit<CNotHSV> = Circuit::random(GATES, LOGICAL_QUBITS, &mut rng);
-			let mut tableau_fast = CTFast::new(LOGICAL_QUBITS);
+			let mut tableau = CTFast::new(LOGICAL_QUBITS);
 			for gate in input.iter() {
-				tableau_fast.merge_clifford(gate);
+				tableau.merge_clifford(gate);
 			}
-			let input_tableau = tableau_fast.clone();
+
 			let start = time::Instant::now();
-			let (circuit, _initial_mapping, output_mapping) =
-				compiler.compile(tableau_fast, &connectivity);
+			let (circuit, initial_mapping, output_mapping) =
+				compiler.compile(tableau.clone(), &connectivity);
 			let elapsed = start.elapsed();
 			time_sum += elapsed.as_millis() as f64;
+
 			let mut result_tableau = CTFast::new(PHYSICAL_QUBITS); // Identity tableau
 			for gate in circuit.iter() {
 				// Circuit
@@ -95,8 +95,12 @@ mod tests {
 				}
 				result_tableau.merge_clifford(gate);
 			}
-			result_tableau.merge_qubit_map(&output_mapping); // Output mapping
-			assert_eq!(result_tableau, input_tableau);
+			result_tableau.merge_qubit_map(&output_mapping);
+
+			let mut input_tableau_mapped = tableau.clone();
+			input_tableau_mapped.merge_partial_qubit_map(&initial_mapping, PHYSICAL_QUBITS);
+
+			assert_eq!(result_tableau, input_tableau_mapped);
 			cnot_count_sum += circuit.fileter_len(|g| matches!(g, CNotHSV::CNot(_)));
 			println!(
 				"Round {round} went from {} to {} CNOT gates. Average CNOT count so far: {}",
