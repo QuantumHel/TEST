@@ -71,61 +71,42 @@ impl Bits {
 			Bound::Excluded(before) => *before + 1,
 			Bound::Unbounded => 0,
 		};
-		let end = match range.end_bound() {
-			Bound::Included(end) => *end,
-			Bound::Excluded(limit) => *limit - 1,
-			Bound::Unbounded => self.last_one().unwrap_or(0),
+		let exclusive_end = match range.end_bound() {
+			Bound::Included(end) => *end + 1,
+			Bound::Excluded(limit) => *limit,
+			Bound::Unbounded => self.last_one().map_or(0, |last| last + 1),
 		};
 
-		if end < start {
+		if exclusive_end <= start {
 			return Bits::default();
 		}
 
-		let start_holder = start / BITS_PER;
-		let end_holder = end / BITS_PER;
+		let len = exclusive_end - start;
+		let word_shift = start / BITS_PER;
+		let bit_shift = start % BITS_PER;
+		let get_holder = |i: usize| self.bits.get(i).copied().unwrap_or(0);
 
-		// Collect all relevan holders
-		let mut bits = Bits::default();
-		for i in start_holder..=end_holder {
-			if let Some(holder) = self.bits.get(i) {
-				bits.bits.push(*holder);
-			}
+		let mut bits: Vec<BitHolder> = (0..len.div_ceil(BITS_PER))
+			.map(|i| {
+				let low = get_holder(word_shift + i) >> bit_shift;
+				// there is nothing to carry over when there is no shifting
+				let high = if bit_shift == 0 {
+					0
+				} else {
+					get_holder(word_shift + i + 1) << (BITS_PER - bit_shift)
+				};
+				low | high
+			})
+			.collect();
+
+		// Clear the bits past the end of the range.
+		let used_in_last = len % BITS_PER;
+		if used_in_last != 0 {
+			*bits.last_mut().unwrap() &= (1 << used_in_last) - 1;
 		}
 
-		if bits.bits.is_empty() {
-			return bits;
-		}
-
-		// Shift bits (including between holders)
-		let shift = start % BITS_PER;
-		*bits.bits.first_mut().unwrap() >>= shift;
-		for i in 1..bits.bits.len() {
-			let mut moved_back = *bits.bits.get(i).unwrap();
-			moved_back <<= BITS_PER - shift;
-
-			let prevous = bits.bits.get_mut(i - 1).unwrap();
-			*prevous += moved_back;
-
-			*bits.bits.get_mut(i).unwrap() >>= shift;
-		}
-
-		// remove last holder when pushing last bits out of it
-		if shift > end % BITS_PER && bits.bits.len() > end_holder - start_holder {
-			bits.bits.pop();
-		}
-
-		// remove last bits
-		// We need to use end-1 to change from index to bit count
-		let empty_at_end = BITS_PER - (end + 1 - shift) % BITS_PER;
-		if empty_at_end != 0 {
-			let last = bits.bits.last_mut().unwrap();
-			*last <<= empty_at_end;
-			*last >>= empty_at_end;
-		}
-
-		bits
+		Bits { bits }
 	}
-
 	/// Returns the index of the last '1' bit.
 	pub fn last_one(&self) -> Option<usize> {
 		for (index, bits) in self.bits.iter().enumerate().rev() {
@@ -467,6 +448,44 @@ mod test {
 		]);
 		let range = bits.get_range(63..66);
 		assert_eq!(range, Bits::with_one(0));
+	}
+
+	fn ones(idx: &[usize]) -> Bits {
+		let mut b = Bits::new();
+		for &i in idx {
+			b.set(i, true);
+		}
+		b
+	}
+
+	#[test]
+	fn start_on_word_boundary_spanning_words() {
+		let b = ones(&[0, 100]);
+		assert_eq!(b.get_range(0..101), ones(&[0, 100]));
+	}
+
+	#[test]
+	fn full_range_multiword() {
+		let b = ones(&[0, 100]);
+		assert_eq!(b.get_range(..), b.clone());
+	}
+
+	#[test]
+	fn length_multiple_of_64() {
+		let b = ones(&[0, 63]);
+		assert_eq!(b.get_range(0..64), ones(&[0, 63]));
+	}
+
+	#[test]
+	fn unaligned_length_64() {
+		let b = ones(&[1, 64]);
+		assert_eq!(b.get_range(1..65), ones(&[0, 63]));
+	}
+
+	#[test]
+	fn empty_range_to_zero() {
+		let b = ones(&[3]);
+		assert_eq!(b.get_range(..0), Bits::new());
 	}
 
 	#[test]
