@@ -69,18 +69,17 @@ mod tests {
 		for round in 0..ROUNDS {
 			println!("\nRound {round} of {ROUNDS}");
 			let input: Circuit<CNotHSV> = Circuit::random(GATES, LOGICAL_QUBITS, &mut rng);
-			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(LOGICAL_QUBITS);
 			for gate in input.iter() {
-				tableau.merge_clifford(gate);
 				tableau_fast.merge_clifford(gate);
 			}
+			let input_tableau = tableau_fast.clone();
 			let start = time::Instant::now();
 			let (circuit, _initial_mapping, output_mapping) =
 				compiler.compile(tableau_fast, &connectivity);
 			let elapsed = start.elapsed();
 			time_sum += elapsed.as_millis() as f64;
-			let mut result_tableau = CliffordTableau::id(); // Identity tableau
+			let mut result_tableau = CTFast::new(PHYSICAL_QUBITS); // Identity tableau
 			for gate in circuit.iter() {
 				// Circuit
 				if let CNotHSV::CNot(cnot) = gate
@@ -97,7 +96,7 @@ mod tests {
 				result_tableau.merge_clifford(gate);
 			}
 			result_tableau.merge_qubit_map(&output_mapping); // Output mapping
-			assert_eq!(result_tableau, tableau);
+			assert_eq!(result_tableau, input_tableau);
 			cnot_count_sum += circuit.fileter_len(|g| matches!(g, CNotHSV::CNot(_)));
 			println!(
 				"Round {round} went from {} to {} CNOT gates. Average CNOT count so far: {}",

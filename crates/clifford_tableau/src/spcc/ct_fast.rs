@@ -1,4 +1,5 @@
 use super::gateset::CNotHSV;
+use core::qubit_map::QubitMap;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Eq)]
@@ -46,18 +47,68 @@ impl CTFast {
 		(x as u8) | ((z as u8) << 1)
 	}
 
+	fn set_x_row_col(&mut self, row: usize, col: usize, pauli: u8) {
+		let row_block = row / 64;
+		let bit_index = row % 64;
+		if pauli & 1 != 0 {
+			self.x_x_columns[row_block][col] |= 1 << bit_index;
+		} else {
+			self.x_x_columns[row_block][col] &= !(1 << bit_index);
+		}
+		if pauli & 2 != 0 {
+			self.z_x_columns[row_block][col] |= 1 << bit_index;
+		} else {
+			self.z_x_columns[row_block][col] &= !(1 << bit_index);
+		}
+	}
+
 	pub fn get_z_row_col(&self, row: usize, col: usize) -> u8 {
 		let x = (self.x_z_columns[row / 64][col] & (1 << (row % 64))) != 0;
 		let z = (self.z_z_columns[row / 64][col] & (1 << (row % 64))) != 0;
 		(x as u8) | ((z as u8) << 1)
 	}
 
+	fn set_z_row_col(&mut self, row: usize, col: usize, pauli: u8) {
+		let row_block = row / 64;
+		let bit_index = row % 64;
+		if pauli & 1 != 0 {
+			self.x_z_columns[row_block][col] |= 1 << bit_index;
+		} else {
+			self.x_z_columns[row_block][col] &= !(1 << bit_index);
+		}
+		if pauli & 2 != 0 {
+			self.z_z_columns[row_block][col] |= 1 << bit_index;
+		} else {
+			self.z_z_columns[row_block][col] &= !(1 << bit_index);
+		}
+	}
+
 	pub fn get_z_phase(&self, row: usize) -> bool {
 		(self.z_signs[row / 64] & (1 << (row % 64))) != 0
 	}
 
+	fn set_z_phase(&mut self, row: usize, phase: bool) {
+		let row_block = row / 64;
+		let bit_index = row % 64;
+		if phase {
+			self.z_signs[row_block] |= 1 << bit_index;
+		} else {
+			self.z_signs[row_block] &= !(1 << bit_index);
+		}
+	}
+
 	pub fn get_x_phase(&self, row: usize) -> bool {
 		(self.x_signs[row / 64] & (1 << (row % 64))) != 0
+	}
+
+	fn set_x_phase(&mut self, row: usize, phase: bool) {
+		let row_block = row / 64;
+		let bit_index = row % 64;
+		if phase {
+			self.x_signs[row_block] |= 1 << bit_index;
+		} else {
+			self.x_signs[row_block] &= !(1 << bit_index);
+		}
 	}
 
 	pub fn size(&self) -> usize {
@@ -161,6 +212,18 @@ impl CTFast {
 			CNotHSV::V(qubit) => self.apply_v(qubit.target),
 			CNotHSV::Sdagger(qubit) => self.apply_sdg(qubit.target),
 			CNotHSV::Vdagger(qubit) => self.apply_vdg(qubit.target),
+		}
+	}
+
+	pub fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
+		let old = self.clone();
+		for row in 0..self.size {
+			for col in 0..self.size {
+				self.set_x_row_col(qubit_map.map(row), col, old.get_x_row_col(row, col));
+				self.set_z_row_col(qubit_map.map(row), col, old.get_z_row_col(row, col));
+			}
+			self.set_x_phase(qubit_map.map(row), old.get_x_phase(row));
+			self.set_z_phase(qubit_map.map(row), old.get_z_phase(row));
 		}
 	}
 }
