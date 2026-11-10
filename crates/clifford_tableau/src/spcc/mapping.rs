@@ -153,8 +153,8 @@ pub fn construct_tree(
 	if num_logical_qubits == 0 || num_logical_qubits > device.node_count() {
 		return Err("invalid logical-qubit count".to_string());
 	}
-
-	let mut tree = Graph::new();
+	let num_physical_qubits = device.node_count();
+	let mut tree = Graph::new(num_physical_qubits);
 	let mut mapped_physical_qubits = HashSet::new();
 
 	let root = center_physical_qubit(device)?;

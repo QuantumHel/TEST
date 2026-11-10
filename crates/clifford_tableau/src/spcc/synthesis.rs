@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::time;
 
 use super::ct_fast::CTFast;
 use super::gateset::CNotHSV;
@@ -23,7 +22,6 @@ pub fn tableau_to_circuit_pairs(
 	allow_permutation: bool,
 ) -> (Circuit<CNotHSV>, QubitMap) {
 	//	println!("Start tableau:\n{}", tableau.display());
-	let mut timer = 0;
 	let num_qubits = tableau.size();
 	let mut qc_out: Circuit<CNotHSV> = Circuit::new();
 	let mut tableau = tableau.clone();
@@ -129,7 +127,7 @@ pub fn tableau_to_circuit_pairs(
 			panic!("ERROR: No row pair found to remove");
 		}
 		// Resolve gadget pair
-		timer += reduce_row(
+		reduce_row(
 			min_pair,
 			min_column,
 			&mut tableau,
@@ -199,10 +197,6 @@ pub fn tableau_to_circuit_pairs(
 	}
 	let mapping: QubitMap = partial_mapping.try_into().unwrap();
 
-	println!(
-		"Circuit and tablau update took {} ms",
-		(timer as f64 / 1000.0)
-	);
 	//	println!("Final tableau:\n{}", tableau.display());
 	(qc_out, mapping)
 }
@@ -229,7 +223,7 @@ fn all_pairs_shortest_paths(tableau_tree: &Graph, num_qubits: usize) -> Vec<Vec<
 
 fn gadget_pair_score(tableau: &CTFast, tableau_tree: &Graph, pair: usize) -> usize {
 	let (gadget_tree, nr_i) = create_gadget_tree_graph(tableau, tableau_tree, pair, pair);
-	gadget_tree.nodes().count() + nr_i
+	gadget_tree.node_count() + nr_i
 }
 
 fn create_gadget_tree_graph(
@@ -240,8 +234,7 @@ fn create_gadget_tree_graph(
 ) -> (Graph, usize) {
 	let mut gadget_tree = tableau_tree.clone();
 	let mut nr_i: usize = 0;
-	let node_list: Vec<usize> = tableau_tree.nodes().collect();
-	for q in node_list {
+	for q in tableau_tree.nodes() {
 		let paulix = tableau.get_x_row_col(pair, q);
 		let pauliy = tableau.get_z_row_col(pair, q);
 		if paulix == 0 && pauliy == 0 {
@@ -262,18 +255,17 @@ fn create_gadget_tree_graph(
 	while !quit {
 		let leafs: Vec<usize> = gadget_tree
 			.nodes()
-			.filter(|&q| gadget_tree.degree(q) == Some(1))
+			.filter(|&q| {
+				gadget_tree.degree(q) == Some(1)
+					&& q != target_qubit
+					&& gadget_tree.get_node_type(q) == 'I'
+			})
 			.collect();
-		if leafs.is_empty() {
-			break;
-		}
 		quit = true;
 		for q in leafs {
-			if q != target_qubit && gadget_tree.get_node_type(q) == Some('I') {
-				nr_i -= 1;
-				quit = false;
-				gadget_tree.remove_node(q);
-			}
+			nr_i -= 1;
+			quit = false;
+			gadget_tree.remove_node(q);
 		}
 	}
 	(gadget_tree, nr_i)
@@ -286,9 +278,8 @@ fn reduce_row(
 	qc_out: &mut Circuit<CNotHSV>,
 	tableau_tree: &mut Graph,
 	gate_map: &GateMap,
-) -> i32 {
+) {
 	let num_qubits = tableau.size();
-	let mut timer = 0;
 	loop {
 		let (gadget_tree, _nr_i) =
 			create_gadget_tree_graph(tableau, tableau_tree, row, target_qubit);
@@ -330,9 +321,7 @@ fn reduce_row(
 			// Check what circuit gate sequence is best in terms of remaining rows
 			let circ_gates = gate_options[0]; // Just take the first option for now
 			// Execute best circuit gate sequnce
-			let start = time::Instant::now();
 			add_cnot_and_single_qubit_gates(gate_step.edge, circ_gates, tableau, qc_out);
-			timer += start.elapsed().as_micros() as i32;
 		}
 	}
 
@@ -352,7 +341,6 @@ fn reduce_row(
 	if tableau.get_z_row_col(row, last_qubit) == 3 {
 		add_gate_to_circuit_and_tableau('V', last_qubit, tableau, qc_out);
 	}
-	timer
 }
 
 fn add_gate_to_circuit_and_tableau(

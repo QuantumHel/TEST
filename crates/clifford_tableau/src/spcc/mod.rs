@@ -57,9 +57,9 @@ mod tests {
 	#[ignore = "not yet implemented"]
 	fn random_spcc_test() {
 		const ROUNDS: usize = 30;
-		const LOGICAL_QUBITS: usize = 64;
-		const PHYSICAL_QUBITS: usize = 64;
-		const GATES: usize = LOGICAL_QUBITS * 1000;
+		const LOGICAL_QUBITS: usize = 121;
+		const PHYSICAL_QUBITS: usize = 121;
+		const GATES: usize = LOGICAL_QUBITS * 100;
 		let compiler = SPCC;
 		let connectivity = TwoQubitEdge::square_lattice(PHYSICAL_QUBITS);
 

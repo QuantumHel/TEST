@@ -133,13 +133,9 @@ fn state_for_operations(operations: [[Pauli; 2]; 2]) -> String {
 	state
 }
 
-pub fn leaf(tree: &Graph) -> Option<usize> {
-	tree.nodes().find(|&node| tree.degree(node) == Some(1))
-}
-
 pub fn get_edge_type(tree: &Graph, edge: Edge) -> String {
-	let first = tree.get_node_type(edge.0).expect("node has no type");
-	let second = tree.get_node_type(edge.1).expect("node has no type");
+	let first = tree.get_node_type(edge.0);
+	let second = tree.get_node_type(edge.1);
 	format!("{first}{second}")
 }
 

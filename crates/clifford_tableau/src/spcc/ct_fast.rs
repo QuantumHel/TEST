@@ -403,7 +403,7 @@ mod tests {
 		let mut tableau_fast = CTFast::new(QUBITS);
 		let gate = &CNotHSV::H(H { target: 9 });
 		tableau.merge_clifford(gate);
-		tableau_fast.merge_clifford(&gate);
+		tableau_fast.merge_clifford(gate);
 		assert_eq!(to_str(&tableau), tableau_fast.to_string());
 	}
 
@@ -414,7 +414,7 @@ mod tests {
 		let mut tableau_fast = CTFast::new(QUBITS);
 		let gate = &CNotHSV::H(H { target: 99 });
 		tableau.merge_clifford(gate);
-		tableau_fast.merge_clifford(&gate);
+		tableau_fast.merge_clifford(gate);
 		assert_eq!(to_str(&tableau), tableau_fast.to_string());
 	}
 
