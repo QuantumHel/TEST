@@ -330,6 +330,8 @@ mod tests {
 
 	use super::CNotHSV;
 	use crate::CliffordTableau;
+	use core::qubit_map::PartialQubitMap;
+	use core::qubit_map::QubitMap;
 
 	#[test]
 	fn prints_identity_tableau() {
@@ -512,10 +514,10 @@ mod tests {
 		const QUBITS: usize = 10;
 		const ROUNDS: usize = 10;
 		const GATES: usize = 1000;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		for _i in 0..ROUNDS {
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(QUBITS);
-			let mut rng = ChaCha8Rng::seed_from_u64(67);
 
 			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
 			for gate in input.iter() {
@@ -527,14 +529,44 @@ mod tests {
 	}
 
 	#[test]
+	fn test_merge_qubit_map() {
+		const QUBITS: usize = 10;
+		const ROUNDS: usize = 10;
+		const GATES: usize = 1000;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _i in 0..ROUNDS {
+			let mut tableau = CliffordTableau::id();
+			let mut tableau_fast = CTFast::new(QUBITS);
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+				tableau_fast.merge_clifford(gate);
+			}
+
+			let m1 = rand::seq::index::sample(&mut rng, QUBITS, QUBITS);
+			let m2 = rand::seq::index::sample(&mut rng, QUBITS, QUBITS);
+			let perm_out = m1.iter().zip(m2.iter()).collect::<Vec<_>>();
+			let mut partial_mapping = PartialQubitMap::default();
+			for (from, to) in perm_out.into_iter() {
+				partial_mapping.map_qubit(from, to).unwrap();
+			}
+			let mapping: QubitMap = partial_mapping.try_into().unwrap();
+			tableau.merge_qubit_map(&mapping);
+			tableau_fast.merge_qubit_map(&mapping);
+			assert_eq!(to_str(&tableau), tableau_fast.to_string());
+		}
+	}
+
+	#[test]
 	fn test_to_clifford_tableau_big() {
 		const QUBITS: usize = 100;
 		const ROUNDS: usize = 10;
 		const GATES: usize = 10000;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
 		for _i in 0..ROUNDS {
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(QUBITS);
-			let mut rng = ChaCha8Rng::seed_from_u64(67);
 
 			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
 			for gate in input.iter() {
