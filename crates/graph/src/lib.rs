@@ -42,7 +42,7 @@ pub trait Graph<N: Node, E: Edge> {
 	where
 		E: 'a,
 	{
-		(0..self.node_storage_size()).filter_map(|index| self.get_edge(index))
+		(0..self.edge_storage_size()).filter_map(|index| self.get_edge(index))
 	}
 
 	fn enumerate_edges<'a>(&'a self) -> impl Iterator<Item = (usize, &'a E)>
