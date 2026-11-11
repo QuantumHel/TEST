@@ -80,7 +80,7 @@ impl ParityMatrix {
 	pub fn hadamard_from_rows(rows: Vec<Bits>) -> Self {
 		Self {
 			rows,
-			basis: Basis::Standard,
+			basis: Basis::Hadamard,
 		}
 	}
 
