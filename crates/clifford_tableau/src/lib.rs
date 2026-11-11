@@ -102,11 +102,11 @@ impl CliffordTableau {
 		}
 	}
 
-	/// # Merge Clifford
+	/// # Relabel Qubits
 	///
 	/// Merges a [QubitMap] into the tableau (On a circuit the [QubitMap] would
-	/// be originally on the right side of the tableau).
-	pub fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
+	/// be originally on the left side of the tableau).
+	pub fn relabel_qubits(&mut self, qubit_map: &QubitMap) {
 		let old = self.clone();
 		for (from, to) in qubit_map.non_trivial_mappings() {
 			for _ in 0..(to + 1).saturating_sub(self.x.len()) {
@@ -128,6 +128,21 @@ impl CliffordTableau {
 			self.z[to] = z;
 			self.x_signs.set(to, old.x_signs.get(from));
 			self.z_signs.set(to, old.z_signs.get(from));
+		}
+	}
+
+	/// # Merge QubitMap
+	///
+	/// Merges a [QubitMap] into the tableau (On a circuit the [QubitMap] would
+	/// be originally on the right side of the tableau).
+	pub fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
+		for (x, z) in self.x.iter_mut().zip(self.z.iter_mut()) {
+			let old_x = x.clone();
+			let old_z = z.clone();
+			for (from, to) in qubit_map.non_trivial_mappings() {
+				x.set(to, old_x.get(from));
+				z.set(to, old_z.get(from));
+			}
 		}
 	}
 
@@ -221,5 +236,59 @@ impl PartialEq for CliffordTableau {
 		}
 
 		true
+	}
+}
+
+#[cfg(test)]
+mod merge_qubit_map_tests {
+	use super::*;
+	use circuit::gates::{CNot, H, S};
+	use core::qubit_map::{PartialQubitMap, QubitMap};
+
+	fn qubit_map(pairs: &[(usize, usize)]) -> QubitMap {
+		let mut map = PartialQubitMap::default();
+		for &(from, to) in pairs {
+			map.map_qubit(from, to).unwrap();
+		}
+		map.try_into().unwrap()
+	}
+
+	fn merge_swap(tableau: &mut CliffordTableau, a: usize, b: usize) {
+		for (control, target) in [(a, b), (b, a), (a, b)] {
+			tableau.merge_clifford(&CNot::new(control, target).unwrap());
+		}
+	}
+
+	/// A tableau that is not symmetric under any qubit permutation, so rows
+	/// and columns being mixed up shows in the result.
+	fn asymmetric_tableau() -> CliffordTableau {
+		let mut tableau = CliffordTableau::id();
+		tableau.merge_clifford(&H { target: 0 });
+		tableau.merge_clifford(&S { target: 0 });
+		tableau.merge_clifford(&CNot::new(0, 2).unwrap());
+		tableau
+	}
+
+	#[test]
+	fn merge_qubit_map_swap_matches_swap_gates() {
+		let mut expected = asymmetric_tableau();
+		merge_swap(&mut expected, 0, 1);
+
+		let mut merged = asymmetric_tableau();
+		merged.merge_qubit_map(&qubit_map(&[(0, 1), (1, 0)]));
+
+		assert_eq!(merged, expected);
+	}
+
+	#[test]
+	fn merge_qubit_map_cycle_matches_swap_gates() {
+		let mut expected = asymmetric_tableau();
+		merge_swap(&mut expected, 0, 1);
+		merge_swap(&mut expected, 0, 2);
+
+		let mut merged = asymmetric_tableau();
+		merged.merge_qubit_map(&qubit_map(&[(0, 1), (1, 2), (2, 0)]));
+
+		assert_eq!(merged, expected);
 	}
 }
