@@ -154,7 +154,7 @@ impl<T: Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Copy + fmt::Displa
 		for (idx, value) in self.values.iter().enumerate() {
 			f.write_str(&format!(
 				"\n{:0width$b}: {}",
-				idx + 1,
+				idx,
 				value,
 				width = self.n_qubits
 			))?;
