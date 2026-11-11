@@ -46,18 +46,18 @@ impl PartialQubitMap {
 
 	/// Swaps two mapped qubits.
 	///
-	/// Returs the updated physical qubit locations `(a, b)`, which are
-	/// identical when the inputs are identical.
-	pub fn swap_mapped(&mut self, a: usize, b: usize) -> (usize, usize) {
-		let a_source = self.inverse.get(&a).copied().unwrap_or(a);
-		let b_source = self.inverse.get(&b).copied().unwrap_or(b);
+	/// When both qubits are mapped this returs the updated physical qubit
+	/// locations `(a, b)`, and an [QubitIsNotMapped] error otherwise.
+	pub fn swap_mapped(&mut self, a: usize, b: usize) -> Result<(usize, usize), QubitIsNotMapped> {
+		let a_source = self.source(a)?;
+		let b_source = self.source(b)?;
 		self.map.insert(a_source, b);
 		self.map.insert(b_source, a);
 
 		self.inverse.insert(b, a_source);
 		self.inverse.insert(a, b_source);
 
-		(b_source, a_source)
+		Ok((b_source, a_source))
 	}
 
 	/// Maps a qubit according to the mapping
