@@ -136,6 +136,16 @@ impl CliffordTableau {
 	/// Merges a [QubitMap] into the tableau (On a circuit the [QubitMap] would
 	/// be originally on the right side of the tableau).
 	pub fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
+		let max_affected = qubit_map
+			.non_trivial_mappings()
+			.map(|(from, to)| from.max(to))
+			.max();
+		if let Some(highest) = max_affected {
+			for i in self.x.len()..=highest {
+				self.x.push(PauliString::x(i));
+				self.z.push(PauliString::z(i));
+			}
+		}
 		for (x, z) in self.x.iter_mut().zip(self.z.iter_mut()) {
 			let old_x = x.clone();
 			let old_z = z.clone();
@@ -287,6 +297,18 @@ mod merge_qubit_map_tests {
 		merge_swap(&mut expected, 0, 2);
 
 		let mut merged = asymmetric_tableau();
+		merged.merge_qubit_map(&qubit_map(&[(0, 1), (1, 2), (2, 0)]));
+
+		assert_eq!(merged, expected);
+	}
+
+	#[test]
+	fn merge_qubit_map_on_identity() {
+		let mut expected = CliffordTableau::id();
+		merge_swap(&mut expected, 0, 1);
+		merge_swap(&mut expected, 0, 2);
+
+		let mut merged = CliffordTableau::id();
 		merged.merge_qubit_map(&qubit_map(&[(0, 1), (1, 2), (2, 0)]));
 
 		assert_eq!(merged, expected);
