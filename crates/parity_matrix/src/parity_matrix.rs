@@ -377,7 +377,8 @@ impl std::fmt::Display for ParityMatrix {
 			return writeln!(f, "Empty ParityMatrix");
 		}
 
-		for row in self.rows.iter().take(n) {
+		for i in 0..n {
+			let row = self.get_row(i);
 			let string = (0..n)
 				.map(|i| if row.get(i) { "1 " } else { "0 " })
 				.collect::<String>();
