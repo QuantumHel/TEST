@@ -189,7 +189,7 @@ impl PauliString {
 #[macro_export]
 macro_rules! pauli_string {
 	($x:literal) => {{
-		let mut string = $crate::PauliString::id_with_capacity($x.len());
+		let mut string = $crate::PauliString::default();
 		for (i, c) in $x.chars().enumerate() {
 			match c {
 				'I' | 'i' => string.set(i, $crate::PauliLetter::I),

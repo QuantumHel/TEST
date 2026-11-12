@@ -80,7 +80,7 @@ impl ParityMatrix {
 	pub fn hadamard_from_rows(rows: Vec<Bits>) -> Self {
 		Self {
 			rows,
-			basis: Basis::Standard,
+			basis: Basis::Hadamard,
 		}
 	}
 
@@ -268,7 +268,7 @@ impl ParityMatrix {
 		connectivity: &G,
 	) -> Vec<CNot> {
 		let mut result = Vec::new();
-		let s: Vec<_> = (0..self.rows.len().max(column))
+		let s: Vec<_> = (0..self.rows.len().max(column + 1))
 			.filter(|j| self.get(*j, column))
 			.chain([row])
 			.collect();
@@ -304,7 +304,7 @@ impl ParityMatrix {
 			}
 		}
 
-		for i in 0..self.rows.len().max(column) {
+		for i in 0..self.rows.len().max(column + 1) {
 			assert_eq!(self.get(i, column), i == row);
 		}
 
@@ -377,7 +377,8 @@ impl std::fmt::Display for ParityMatrix {
 			return writeln!(f, "Empty ParityMatrix");
 		}
 
-		for row in self.rows.iter().take(n) {
+		for i in 0..n {
+			let row = self.get_row(i);
 			let string = (0..n)
 				.map(|i| if row.get(i) { "1 " } else { "0 " })
 				.collect::<String>();
@@ -390,7 +391,7 @@ impl std::fmt::Display for ParityMatrix {
 
 #[cfg(test)]
 mod test {
-	use core::qubit_map::QubitMap;
+	use core::{connectivity::TwoQubitEdge, qubit_map::QubitMap};
 
 	use bits::Bits;
 	use circuit::gates::CNot;
@@ -447,5 +448,14 @@ mod test {
 		assert_eq!(matrix.get_row(0), row_0);
 		assert_eq!(matrix.get_row(1), row_1);
 		assert_eq!(matrix.get_row(2), row_2);
+	}
+
+	#[test]
+	fn eliminate_column_reaches_identity_row_at_column() {
+		let mut row = Bits::with_one(0);
+		row.set(2, true);
+		let mut parity_matrix = ParityMatrix::standard_from_rows(vec![row]);
+		parity_matrix.eliminate_column(0, 2, &TwoQubitEdge::fully_connected(4));
+		assert_eq!(parity_matrix.transpose().get_row(2), Bits::with_one(0));
 	}
 }
