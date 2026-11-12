@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use super::CNotHSV;
 use super::ct_fast::CTFast;
-use super::gateset::CNotHSV;
 use super::resolve_in_pairs::GateMapKey;
 use crate::spcc::graph::Graph;
 use crate::spcc::resolve_in_pairs::GateMap;
@@ -183,8 +183,6 @@ pub fn tableau_to_circuit_pairs(
 			add_gate_to_circuit_and_tableau('V', qubit, &mut tableau, &mut qc_out);
 		}
 	}
-	//	println!("Final tableau:");
-	//	print_tableau(&tableau);
 	qc_out.reverse();
 
 	let mut partial_mapping = PartialQubitMap::default();
@@ -395,4 +393,99 @@ fn construct_tableau_tree(removed_rows: &[bool], device_tree: &Graph) -> Graph {
 		}
 	}
 	tableau_tree
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::spcc::ct_fast::CTFast;
+	use crate::spcc::mapping;
+	use circuit::Circuit;
+	use rand::SeedableRng;
+	use rand_chacha::ChaCha8Rng;
+
+	use super::CNotHSV;
+	use super::tableau_to_circuit_pairs;
+	use core::connectivity::TwoQubitEdge;
+	use mapping::construct_tree;
+	use std::time;
+
+	#[test]
+	fn benchmark_test() {
+		const ROUNDS: usize = 100;
+		const SIZES: [(usize, usize); 21] = [
+			(2, 2),
+			(2, 3),
+			(3, 3),
+			(3, 4),
+			(4, 4),
+			(4, 5),
+			(5, 5),
+			(5, 6),
+			(6, 6),
+			(6, 7),
+			(7, 7),
+			(7, 8),
+			(8, 8),
+			(8, 9),
+			(9, 9),
+			(9, 10),
+			(10, 10),
+			(10, 11),
+			(11, 11),
+			(11, 12),
+			(12, 12),
+		];
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for (rows, cols) in SIZES {
+			let connectivity = TwoQubitEdge::rectangle_lattice(rows, cols);
+			let mut time_sum = 0.0;
+			let mut cnot_sum = 0;
+			let mut depth_sum = 0;
+			for _round in 0..ROUNDS {
+				let qubits = rows * cols;
+				let gates = qubits * 1000;
+				let input: Circuit<CNotHSV> = Circuit::random(gates, qubits, &mut rng);
+				let mut tableau = CTFast::new(qubits);
+				for gate in input.iter() {
+					tableau.merge_clifford(gate);
+				}
+				let num_logical_qubits = tableau.size();
+				let (_root_node, device_tree) = construct_tree(&connectivity, num_logical_qubits)
+					.expect("failed to construct SPCC tree");
+				let start = time::Instant::now();
+				let (circ, initial_mapping) =
+					tableau_to_circuit_pairs(&tableau, &device_tree, true);
+				let elapsed = start.elapsed();
+				time_sum += elapsed.as_millis() as f64;
+
+				let mut result_tableau = CTFast::new(qubits);
+				for gate in circ.iter() {
+					if let CNotHSV::CNot(cnot) = gate
+						&& !connectivity
+							.neighbors(*cnot.target())
+							.contains(cnot.control())
+					{
+						panic!(
+							"Got CNot({}, {}) that is not supported by connectivity",
+							cnot.control(),
+							cnot.target()
+						);
+					}
+					result_tableau.merge_clifford(gate);
+				}
+				result_tableau.merge_qubit_map(&initial_mapping);
+
+				assert_eq!(result_tableau, tableau);
+				cnot_sum += circ.fileter_len(|g| matches!(g, CNotHSV::CNot(_)));
+				depth_sum += circ.filtered_depth(|x| matches!(x, CNotHSV::CNot(_)));
+			}
+			println!(
+				"{},{},{},{}",
+				rows * cols,
+				(cnot_sum as f64 / ROUNDS as f64).round(),
+				(depth_sum as f64 / ROUNDS as f64).round(),
+				(time_sum / ROUNDS as f64).round()
+			);
+		}
+	}
 }
