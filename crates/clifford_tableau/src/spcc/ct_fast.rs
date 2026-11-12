@@ -1,6 +1,8 @@
 use super::gateset::CNotHSV;
+use crate::CliffordTableau;
 use core::qubit_map::PartialQubitMap;
 use core::qubit_map::QubitMap;
+use pauli::PauliLetter;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -40,6 +42,32 @@ impl CTFast {
 			size,
 			row_blocks,
 		}
+	}
+
+	fn translate(ps: PauliLetter) -> u8 {
+		match ps {
+			PauliLetter::I => 0,
+			PauliLetter::X => 1,
+			PauliLetter::Z => 2,
+			PauliLetter::Y => 3,
+		}
+	}
+
+	pub fn from_clifford_tableau(tableau: &CliffordTableau) -> Self {
+		let mut ct_fast = CTFast::new(tableau.size());
+		for row in 0..tableau.size() {
+			for col in 0..tableau.size() {
+				ct_fast.set_x_row_col(row, col, Self::translate(tableau.get_x_row(row).get(col)));
+				ct_fast.set_z_row_col(row, col, Self::translate(tableau.get_z_row(row).get(col)));
+			}
+			if tableau.get_x_signs().get(row) {
+				ct_fast.set_x_phase(row, true);
+			}
+			if tableau.get_z_signs().get(row) {
+				ct_fast.set_z_phase(row, true);
+			}
+		}
+		ct_fast
 	}
 
 	pub fn get_x_row_col(&self, row: usize, col: usize) -> u8 {
@@ -203,6 +231,126 @@ impl CTFast {
 				& self.x_z_columns[row][target]
 				& self.z_z_columns[row][target];
 		}
+	}
+
+	pub fn inverse(&self) -> Self {
+		// First transpose
+		let mut x2x = vec![vec![0; self.size]; self.size];
+		let mut x2z = vec![vec![0; self.size]; self.size];
+		let mut z2x = vec![vec![0; self.size]; self.size];
+		let mut z2z = vec![vec![0; self.size]; self.size];
+		for row in 0..self.size {
+			for col in 0..self.size {
+				x2x[row][col] = self.get_x_row_col(col, row) & 1;
+				x2z[row][col] = (self.get_x_row_col(col, row) & 2) >> 1;
+				z2x[row][col] = self.get_z_row_col(col, row) & 1;
+				z2z[row][col] = (self.get_z_row_col(col, row) & 2) >> 1;
+			}
+		}
+		let mut inverse = CTFast::new(self.size);
+		for row in 0..self.size {
+			for col in 0..self.size {
+				let xs = z2z[row][col] + 2 * x2z[row][col];
+				inverse.set_x_row_col(row, col, xs);
+				let zs = z2x[row][col] + 2 * x2x[row][col];
+				inverse.set_z_row_col(row, col, zs);
+			}
+		}
+
+		// correct signs
+		let sign_tableau = self.then(&inverse);
+		inverse.then(&sign_tableau)
+	}
+
+	pub fn then(&self, other: &Self) -> Self {
+		assert_eq!(
+			self.size, other.size,
+			"cannot compose tableaus with different numbers of qubits"
+		);
+
+		let mut result = CTFast::new(self.size);
+		for row in 0..self.size {
+			for output_is_x in [true, false] {
+				// A tableau row is represented as (-1)^sign * product(X_i^x_i Z_i^z_i).
+				// Apply `other` to the row by multiplying the images of its X and Z
+				// factors in that order. q is the exponent of i in the intermediate
+				// (possibly non-Hermitian) Pauli product.
+				let mut x = vec![false; self.size];
+				let mut z = vec![false; self.size];
+				let mut q = if if output_is_x {
+					self.get_x_phase(row)
+				} else {
+					self.get_z_phase(row)
+				} {
+					2
+				} else {
+					0
+				};
+				for col in 0..self.size {
+					if (if output_is_x {
+						self.get_x_row_col(row, col)
+					} else {
+						self.get_z_row_col(row, col)
+					}) & 3 == 3
+					{
+						q = (q + 1) % 4;
+					}
+				}
+
+				for source in 0..self.size {
+					let source_pauli = if output_is_x {
+						self.get_x_row_col(row, source)
+					} else {
+						self.get_z_row_col(row, source)
+					};
+					let x_factor = source_pauli & 1 != 0;
+					let z_factor = source_pauli & 2 != 0;
+					for (use_factor, factor_is_x) in [(x_factor, true), (z_factor, false)] {
+						if !use_factor {
+							continue;
+						}
+
+						let factor_phase = if factor_is_x {
+							other.get_x_phase(source)
+						} else {
+							other.get_z_phase(source)
+						};
+						let mut factor_xz = 0;
+						for col in 0..self.size {
+							let pauli = if factor_is_x {
+								other.get_x_row_col(source, col)
+							} else {
+								other.get_z_row_col(source, col)
+							};
+							let factor_x = pauli & 1 != 0;
+							let factor_z = pauli & 2 != 0;
+							q = (q + 2 * (z[col] && factor_x) as u8) % 4;
+							x[col] ^= factor_x;
+							z[col] ^= factor_z;
+							factor_xz += (factor_x && factor_z) as u8;
+						}
+						q = (q + 2 * factor_phase as u8 + factor_xz % 4) % 4;
+					}
+				}
+
+				let final_xz = x.iter().zip(&z).map(|(x, z)| (*x && *z) as u8).sum::<u8>() % 4;
+				for col in 0..self.size {
+					let pauli = x[col] as u8 | ((z[col] as u8) << 1);
+					if output_is_x {
+						result.set_x_row_col(row, col, pauli);
+					} else {
+						result.set_z_row_col(row, col, pauli);
+					}
+				}
+				let phase = ((q + 4 - final_xz) % 4) == 2;
+				if output_is_x {
+					result.set_x_phase(row, phase);
+				} else {
+					result.set_z_phase(row, phase);
+				}
+			}
+		}
+		result
 	}
 
 	pub fn merge_clifford(&mut self, clifford: &CNotHSV) {
@@ -404,7 +552,6 @@ mod tests {
 		}
 		let res =
 			"X:  XXY+\n   XZY +\n    ZYY+\n   Z ZZ-\nZ:   YY+\n     ZZ-\n    YXX+\n   X   -\n";
-		println!("tableau:\n{}", tableau);
 		assert_eq!(tableau.to_string(), res);
 		let gatesr: Vec<(char, (usize, usize))> = gates.iter().rev().cloned().collect();
 		for (gate, (q1, q2)) in gatesr {
@@ -455,6 +602,47 @@ mod tests {
 		let tableau = CTFast::new(100);
 		let tableau2 = tableau.clone();
 		assert_eq!(tableau, tableau2);
+	}
+
+	#[test]
+	fn test_then_composes_tableaus() {
+		let mut first = CTFast::new(2);
+		first.apply_h(0);
+		first.apply_s(0);
+		first.apply_cnot(0, 1);
+
+		let mut second = CTFast::new(2);
+		second.apply_v(1);
+		second.apply_h(0);
+		second.apply_sdg(1);
+
+		let mut expected = CTFast::new(2);
+		expected.apply_h(0);
+		expected.apply_s(0);
+		expected.apply_cnot(0, 1);
+		expected.apply_v(1);
+		expected.apply_h(0);
+		expected.apply_sdg(1);
+
+		assert!(second.get_z_phase(1));
+		assert_eq!(first.then(&second), expected);
+	}
+
+	#[test]
+	fn test_inverse() {
+		let mut tableau = CTFast::new(2);
+		tableau.apply_h(0);
+		tableau.apply_s(0);
+		tableau.apply_cnot(0, 1);
+		tableau.apply_v(1);
+		tableau.apply_h(0);
+		tableau.apply_sdg(1);
+
+		let inverse = tableau.inverse();
+		assert_eq!(
+			tableau.then(&inverse).to_string(),
+			CTFast::new(2).to_string()
+		);
 	}
 
 	#[test]
@@ -555,6 +743,94 @@ mod tests {
 			tableau.merge_qubit_map(&mapping);
 			tableau_fast.merge_qubit_map(&mapping);
 			assert_eq!(to_str(&tableau), tableau_fast.to_string());
+		}
+	}
+
+	#[test]
+	fn test_then_random_gates() {
+		const QUBITS: usize = 10;
+		const ROUNDS: usize = 30;
+		const GATES: usize = 100;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _i in 0..ROUNDS {
+			let mut tableau_a = CTFast::new(QUBITS);
+			let mut tableau_b = CTFast::new(QUBITS);
+			let mut tableau_ab = CTFast::new(QUBITS);
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau_a.merge_clifford(gate);
+				tableau_ab.merge_clifford(gate);
+			}
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau_b.merge_clifford(gate);
+				tableau_ab.merge_clifford(gate);
+			}
+			assert_eq!(tableau_a.then(&tableau_b), tableau_ab);
+		}
+	}
+
+	#[test]
+	fn test_then_random_gates_big() {
+		const QUBITS: usize = 100;
+		const ROUNDS: usize = 30;
+		const GATES: usize = 10000;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _i in 0..ROUNDS {
+			let mut tableau_a = CTFast::new(QUBITS);
+			let mut tableau_b = CTFast::new(QUBITS);
+			let mut tableau_ab = CTFast::new(QUBITS);
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau_a.merge_clifford(gate);
+				tableau_ab.merge_clifford(gate);
+			}
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau_b.merge_clifford(gate);
+				tableau_ab.merge_clifford(gate);
+			}
+			assert_eq!(tableau_a.then(&tableau_b), tableau_ab);
+		}
+	}
+
+	#[test]
+	fn test_inverse_random_gates() {
+		const QUBITS: usize = 10;
+		const ROUNDS: usize = 30;
+		const GATES: usize = 100;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _i in 0..ROUNDS {
+			let mut tableau_a = CTFast::new(QUBITS);
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau_a.merge_clifford(gate);
+			}
+			assert_eq!(tableau_a.then(&tableau_a.inverse()), CTFast::new(QUBITS));
+		}
+	}
+
+	#[test]
+	fn test_translate_random_gates() {
+		const QUBITS: usize = 10;
+		const ROUNDS: usize = 30;
+		const GATES: usize = 100;
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _i in 0..ROUNDS {
+			let mut tableau = CliffordTableau::id();
+			let mut tableau_a = CTFast::new(QUBITS);
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau_a.merge_clifford(gate);
+				tableau.merge_clifford(gate);
+			}
+			let tableau_b = CTFast::from_clifford_tableau(&tableau);
+			assert_eq!(tableau_a, tableau_b);
 		}
 	}
 
