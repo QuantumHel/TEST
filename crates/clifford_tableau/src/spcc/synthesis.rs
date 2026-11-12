@@ -20,12 +20,16 @@ pub fn tableau_to_circuit_pairs(
 	tableau: &CTFast,
 	device_tree: &Graph,
 	allow_permutation: bool,
+	output_mapping: bool,
 ) -> (Circuit<CNotHSV>, QubitMap) {
 	//	println!("Start tableau:\n{}", tableau.display());
 	let num_qubits = tableau.size();
 	let mut qc_out: Circuit<CNotHSV> = Circuit::new();
-	let mut tableau = tableau.clone();
-	//	print!("Initial tableau:\n{:?}\n", num_qubits);
+	let mut tableau = if output_mapping {
+		tableau.inverse()
+	} else {
+		tableau.clone()
+	};
 
 	// Array representing removed gadgets. 1 if gadget is removed, 0 otherwise.
 	let mut removed_qubits: Vec<bool> = vec![false; num_qubits];
@@ -130,6 +134,7 @@ pub fn tableau_to_circuit_pairs(
 			&mut qc_out,
 			&mut tableau_tree,
 			&gate_map,
+			output_mapping,
 		);
 
 		// remove leaf from qubit_tree and remove gadget-pair from remaining_gadgets
@@ -149,12 +154,12 @@ pub fn tableau_to_circuit_pairs(
 		.unwrap_or(usize::MAX);
 	let last_qubit = tableau_tree.nodes().next().unwrap();
 	if tableau.get_x_row_col(row, last_qubit) == 3 {
-		add_gate_to_circuit_and_tableau('S', last_qubit, &mut tableau, &mut qc_out);
+		add_gate_to_circuit_and_tableau('S', last_qubit, &mut tableau, &mut qc_out, output_mapping);
 	} else if tableau.get_x_row_col(row, last_qubit) == 2 {
-		add_gate_to_circuit_and_tableau('H', last_qubit, &mut tableau, &mut qc_out);
+		add_gate_to_circuit_and_tableau('H', last_qubit, &mut tableau, &mut qc_out, output_mapping);
 	}
 	if tableau.get_z_row_col(row, last_qubit) == 3 {
-		add_gate_to_circuit_and_tableau('V', last_qubit, &mut tableau, &mut qc_out);
+		add_gate_to_circuit_and_tableau('V', last_qubit, &mut tableau, &mut qc_out, output_mapping);
 	}
 	perm_out[last_qubit] = row;
 
@@ -168,8 +173,8 @@ pub fn tableau_to_circuit_pairs(
 					break;
 				}
 			}
-			add_gate_to_circuit_and_tableau('S', qubit, &mut tableau, &mut qc_out);
-			add_gate_to_circuit_and_tableau('S', qubit, &mut tableau, &mut qc_out);
+			add_gate_to_circuit_and_tableau('S', qubit, &mut tableau, &mut qc_out, output_mapping);
+			add_gate_to_circuit_and_tableau('S', qubit, &mut tableau, &mut qc_out, output_mapping);
 		}
 		if tableau.get_z_phase(row) {
 			let mut qubit: usize = usize::MAX;
@@ -179,15 +184,21 @@ pub fn tableau_to_circuit_pairs(
 					break;
 				}
 			}
-			add_gate_to_circuit_and_tableau('V', qubit, &mut tableau, &mut qc_out);
-			add_gate_to_circuit_and_tableau('V', qubit, &mut tableau, &mut qc_out);
+			add_gate_to_circuit_and_tableau('V', qubit, &mut tableau, &mut qc_out, output_mapping);
+			add_gate_to_circuit_and_tableau('V', qubit, &mut tableau, &mut qc_out, output_mapping);
 		}
 	}
-	qc_out.reverse();
+	if !output_mapping {
+		qc_out.reverse();
+	}
 
 	let mut partial_mapping = PartialQubitMap::default();
 	for (from, to) in perm_out.into_iter().enumerate() {
-		partial_mapping.map_qubit(from, to).unwrap();
+		if output_mapping {
+			partial_mapping.map_qubit(from, to).unwrap();
+		} else {
+			partial_mapping.map_qubit(to, from).unwrap();
+		}
 	}
 	let mapping: QubitMap = partial_mapping.try_into().unwrap();
 
@@ -272,6 +283,7 @@ fn reduce_row(
 	qc_out: &mut Circuit<CNotHSV>,
 	tableau_tree: &mut Graph,
 	gate_map: &GateMap,
+	output_mapping: bool,
 ) {
 	let num_qubits = tableau.size();
 	loop {
@@ -315,7 +327,13 @@ fn reduce_row(
 			// Check what circuit gate sequence is best in terms of remaining rows
 			let circ_gates = gate_options[0]; // Just take the first option for now
 			// Execute best circuit gate sequnce
-			add_cnot_and_single_qubit_gates(gate_step.edge, circ_gates, tableau, qc_out);
+			add_cnot_and_single_qubit_gates(
+				gate_step.edge,
+				circ_gates,
+				tableau,
+				qc_out,
+				output_mapping,
+			);
 		}
 	}
 
@@ -328,12 +346,12 @@ fn reduce_row(
 		}
 	}
 	if tableau.get_x_row_col(row, last_qubit) == 3 {
-		add_gate_to_circuit_and_tableau('S', last_qubit, tableau, qc_out);
+		add_gate_to_circuit_and_tableau('S', last_qubit, tableau, qc_out, output_mapping);
 	} else if tableau.get_x_row_col(row, last_qubit) == 2 {
-		add_gate_to_circuit_and_tableau('H', last_qubit, tableau, qc_out);
+		add_gate_to_circuit_and_tableau('H', last_qubit, tableau, qc_out, output_mapping);
 	}
 	if tableau.get_z_row_col(row, last_qubit) == 3 {
-		add_gate_to_circuit_and_tableau('V', last_qubit, tableau, qc_out);
+		add_gate_to_circuit_and_tableau('V', last_qubit, tableau, qc_out, output_mapping);
 	}
 }
 
@@ -342,9 +360,14 @@ fn add_gate_to_circuit_and_tableau(
 	qubit: usize,
 	tableau: &mut CTFast,
 	qc_out: &mut Circuit<CNotHSV>,
+	output_mapping: bool,
 ) {
 	add_single_gate_to_circuit(gate, qubit, qc_out);
-	append_single_gate_to_tableau(gate, qubit, tableau);
+	if output_mapping {
+		append_single_gate_to_tableau(gate, qubit, tableau);
+	} else {
+		append_single_gate_to_tableau_rev(gate, qubit, tableau);
+	}
 }
 
 fn add_single_gate_to_circuit(gate: char, qubit: usize, qc_out: &mut Circuit<CNotHSV>) {
@@ -360,10 +383,20 @@ fn add_single_gate_to_circuit(gate: char, qubit: usize, qc_out: &mut Circuit<CNo
 	}
 }
 
-fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut CTFast) {
+fn append_single_gate_to_tableau_rev(gate: char, qubit: usize, tableau: &mut CTFast) {
 	match gate {
 		'S' => tableau.apply_sdg(qubit),
 		'V' => tableau.apply_vdg(qubit),
+		'H' => tableau.apply_h(qubit),
+		'I' => {} // Do nothing for identity
+		_ => panic!("ERROR: Unsupported gate in add_cnot_and_single_qubit_gates"),
+	}
+}
+
+fn append_single_gate_to_tableau(gate: char, qubit: usize, tableau: &mut CTFast) {
+	match gate {
+		'S' => tableau.apply_s(qubit),
+		'V' => tableau.apply_v(qubit),
 		'H' => tableau.apply_h(qubit),
 		'I' => {} // Do nothing for identity
 		_ => panic!("ERROR: Unsupported gate in add_cnot_and_single_qubit_gates"),
@@ -375,9 +408,10 @@ fn add_cnot_and_single_qubit_gates(
 	gates: (char, char),
 	tableau: &mut CTFast,
 	qc_out: &mut Circuit<CNotHSV>,
+	output_mapping: bool,
 ) {
-	add_gate_to_circuit_and_tableau(gates.0, edge.0, tableau, qc_out);
-	add_gate_to_circuit_and_tableau(gates.1, edge.1, tableau, qc_out);
+	add_gate_to_circuit_and_tableau(gates.0, edge.0, tableau, qc_out, output_mapping);
+	add_gate_to_circuit_and_tableau(gates.1, edge.1, tableau, qc_out, output_mapping);
 
 	let cnot = CNot::new(edge.0, edge.1).expect("CNOT control and target must differ");
 	qc_out.push(CNotHSV::CNot(cnot));
@@ -408,6 +442,88 @@ mod tests {
 	use core::connectivity::TwoQubitEdge;
 	use mapping::construct_tree;
 	use std::time;
+
+	#[test]
+	fn outputmap_test() {
+		const ROUNDS: usize = 10;
+		const GATES: usize = 10000;
+		const QUBITS: usize = 9;
+		let connectivity = TwoQubitEdge::square_lattice(QUBITS);
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _round in 0..ROUNDS {
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			let mut tableau = CTFast::new(QUBITS);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+			}
+
+			let num_logical_qubits = tableau.size();
+			let (_root_node, device_tree) = construct_tree(&connectivity, num_logical_qubits)
+				.expect("failed to construct SPCC tree");
+			let (circ, output_mapping) =
+				tableau_to_circuit_pairs(&tableau, &device_tree, true, true);
+			let mut result_tableau = CTFast::new(QUBITS); // Identity
+			for gate in circ.iter() {
+				if let CNotHSV::CNot(cnot) = gate
+					&& !connectivity
+						.neighbors(*cnot.target())
+						.contains(cnot.control())
+				{
+					panic!(
+						"Got CNot({}, {}) that is not supported by connectivity",
+						cnot.control(),
+						cnot.target()
+					);
+				}
+				result_tableau.merge_clifford(gate);
+			}
+			//			result_tableau.merge_qubit_map(&input_mapping);
+			let permutation_tableau = CTFast::permutation_tableau(QUBITS, &output_mapping);
+			result_tableau = result_tableau.then(&permutation_tableau);
+			assert_eq!(result_tableau, tableau);
+		}
+	}
+
+	#[test]
+	fn inputmap_test() {
+		const ROUNDS: usize = 10;
+		const GATES: usize = 10000;
+		const QUBITS: usize = 9;
+		let connectivity = TwoQubitEdge::square_lattice(QUBITS);
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _round in 0..ROUNDS {
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			let mut tableau = CTFast::new(QUBITS);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+			}
+
+			let num_logical_qubits = tableau.size();
+			let (_root_node, device_tree) = construct_tree(&connectivity, num_logical_qubits)
+				.expect("failed to construct SPCC tree");
+			let (circ, input_mapping) =
+				tableau_to_circuit_pairs(&tableau, &device_tree, true, false);
+			let mut result_tableau = CTFast::new(QUBITS); // Identity
+			let permutation_tableau = CTFast::permutation_tableau(QUBITS, &input_mapping);
+			result_tableau = result_tableau.then(&permutation_tableau);
+			for gate in circ.iter() {
+				if let CNotHSV::CNot(cnot) = gate
+					&& !connectivity
+						.neighbors(*cnot.target())
+						.contains(cnot.control())
+				{
+					panic!(
+						"Got CNot({}, {}) that is not supported by connectivity",
+						cnot.control(),
+						cnot.target()
+					);
+				}
+				result_tableau.merge_clifford(gate);
+			}
+			//			result_tableau.merge_qubit_map(&input_mapping);
+			assert_eq!(result_tableau, tableau);
+		}
+	}
 
 	#[test]
 	fn benchmark_test() {
@@ -454,11 +570,13 @@ mod tests {
 					.expect("failed to construct SPCC tree");
 				let start = time::Instant::now();
 				let (circ, initial_mapping) =
-					tableau_to_circuit_pairs(&tableau, &device_tree, true);
+					tableau_to_circuit_pairs(&tableau, &device_tree, true, false);
 				let elapsed = start.elapsed();
 				time_sum += elapsed.as_millis() as f64;
 
 				let mut result_tableau = CTFast::new(qubits);
+				let permutation = CTFast::permutation_tableau(qubits, &initial_mapping);
+				result_tableau = result_tableau.then(&permutation);
 				for gate in circ.iter() {
 					if let CNotHSV::CNot(cnot) = gate
 						&& !connectivity
@@ -473,7 +591,6 @@ mod tests {
 					}
 					result_tableau.merge_clifford(gate);
 				}
-				result_tableau.merge_qubit_map(&initial_mapping);
 
 				assert_eq!(result_tableau, tableau);
 				cnot_sum += circ.fileter_len(|g| matches!(g, CNotHSV::CNot(_)));

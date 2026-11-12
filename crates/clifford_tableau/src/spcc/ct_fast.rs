@@ -70,6 +70,12 @@ impl CTFast {
 		ct_fast
 	}
 
+	pub fn permutation_tableau(size: usize, perm: &QubitMap) -> Self {
+		let mut ct_permutation = CTFast::new(size);
+		ct_permutation.merge_qubit_map(&perm.clone().as_reversed());
+		ct_permutation
+	}
+
 	pub fn get_x_row_col(&self, row: usize, col: usize) -> u8 {
 		let x = (self.x_x_columns[row / 64][col] & (1 << (row % 64))) != 0;
 		let z = (self.z_x_columns[row / 64][col] & (1 << (row % 64))) != 0;
@@ -364,7 +370,7 @@ impl CTFast {
 		}
 	}
 
-	pub fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
+	fn merge_qubit_map(&mut self, qubit_map: &QubitMap) {
 		let old = self.clone();
 		for row in 0..self.size {
 			for col in 0..self.size {
@@ -717,6 +723,49 @@ mod tests {
 	}
 
 	#[test]
+	fn test_permutation_map() {
+		let mut tableau = CTFast::new(4);
+		// Implement mapping 0->2, 2->1, 1->0, 3->3
+		tableau.apply_cnot(0, 1);
+		tableau.apply_cnot(1, 0);
+		tableau.apply_cnot(0, 1);
+		tableau.apply_cnot(2, 1);
+		tableau.apply_cnot(1, 2);
+		tableau.apply_cnot(2, 1);
+		// Then we do opposite permutation to get back to identity
+		let mut partial_mapping = PartialQubitMap::default();
+		let perm_out = vec![1, 2, 0, 3];
+		for (from, to) in perm_out.into_iter().enumerate() {
+			partial_mapping.map_qubit(from, to).unwrap();
+		}
+		let mapping: QubitMap = partial_mapping.try_into().unwrap();
+		let perm_tableau = CTFast::permutation_tableau(4, &mapping);
+		tableau = tableau.then(&perm_tableau);
+		assert_eq!(tableau, CTFast::new(4));
+	}
+
+	#[test]
+	fn test_permutation_map_cliffordtableau() {
+		let mut tableau = CliffordTableau::id();
+		// Implement mapping 0->2, 2->1, 1->0, 3->3
+		tableau.merge_clifford(&CNot::new(0, 1).unwrap());
+		tableau.merge_clifford(&CNot::new(1, 0).unwrap());
+		tableau.merge_clifford(&CNot::new(0, 1).unwrap());
+		tableau.merge_clifford(&CNot::new(2, 1).unwrap());
+		tableau.merge_clifford(&CNot::new(1, 2).unwrap());
+		tableau.merge_clifford(&CNot::new(2, 1).unwrap());
+		// Then we do opposite permutation to get back to identity
+		let mut partial_mapping = PartialQubitMap::default();
+		let perm_out = vec![1, 2, 0, 3];
+		for (from, to) in perm_out.into_iter().enumerate() {
+			partial_mapping.map_qubit(from, to).unwrap();
+		}
+		let mapping: QubitMap = partial_mapping.try_into().unwrap();
+		tableau.merge_qubit_map(&mapping);
+		assert_eq!(tableau, CliffordTableau::id());
+	}
+
+	#[test]
 	fn test_merge_qubit_map() {
 		const QUBITS: usize = 10;
 		const ROUNDS: usize = 10;
@@ -725,13 +774,6 @@ mod tests {
 		for _i in 0..ROUNDS {
 			let mut tableau = CliffordTableau::id();
 			let mut tableau_fast = CTFast::new(QUBITS);
-
-			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
-			for gate in input.iter() {
-				tableau.merge_clifford(gate);
-				tableau_fast.merge_clifford(gate);
-			}
-
 			let m1 = rand::seq::index::sample(&mut rng, QUBITS, QUBITS);
 			let m2 = rand::seq::index::sample(&mut rng, QUBITS, QUBITS);
 			let perm_out = m1.iter().zip(m2.iter()).collect::<Vec<_>>();
@@ -740,8 +782,16 @@ mod tests {
 				partial_mapping.map_qubit(from, to).unwrap();
 			}
 			let mapping: QubitMap = partial_mapping.try_into().unwrap();
+
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+				tableau_fast.merge_clifford(gate);
+			}
+
 			tableau.merge_qubit_map(&mapping);
-			tableau_fast.merge_qubit_map(&mapping);
+			let permutation = CTFast::permutation_tableau(QUBITS, &mapping);
+			tableau_fast = tableau_fast.then(&permutation);
 			assert_eq!(to_str(&tableau), tableau_fast.to_string());
 		}
 	}

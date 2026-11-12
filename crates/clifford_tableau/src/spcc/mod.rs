@@ -26,12 +26,15 @@ impl Compiler<CliffordTableau, (Circuit<CNotHSV>, QubitMap), Connectivity<TwoQub
 		tableau: CliffordTableau,
 		device: &Connectivity<TwoQubitEdge>,
 	) -> (Circuit<CNotHSV>, QubitMap) {
+		const ALLOW_PERMUTATION: bool = true;
+		const OUTPUT_MAPPING: bool = true;
 		let tableau = ct_fast::CTFast::from_clifford_tableau(&tableau);
 		let num_logical_qubits = tableau.size();
 		let (_root_node, device_tree) =
 			construct_tree(device, num_logical_qubits).expect("failed to construct SPCC tree");
-		let (circ, input_mapping) = tableau_to_circuit_pairs(&tableau, &device_tree, true);
-		(circ, input_mapping)
+		let (circ, output_mapping) =
+			tableau_to_circuit_pairs(&tableau, &device_tree, ALLOW_PERMUTATION, OUTPUT_MAPPING);
+		(circ, output_mapping)
 	}
 }
 
