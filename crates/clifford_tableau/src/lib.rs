@@ -103,9 +103,6 @@ impl CliffordTableau {
 	}
 
 	/// # Relabel Qubits
-	///
-	/// Merges a [QubitMap] into the tableau (On a circuit the [QubitMap] would
-	/// be originally on the left side of the tableau).
 	pub fn relabel_qubits(&mut self, qubit_map: &QubitMap) {
 		let old = self.clone();
 		for (from, to) in qubit_map.non_trivial_mappings() {
