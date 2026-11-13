@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 /// An undirected graph over caller-chosen `usize` node identifiers.
 ///
 /// Identifiers are sparse and arbitrary — `7`, `1000`, and `3` may coexist
@@ -158,8 +160,61 @@ impl Graph {
 		}
 	}
 
-	pub fn leafs(&self) -> impl Iterator<Item = usize> + '_ {
-		self.nodes().filter(|&id| self.degree(id) == Some(1))
+	pub fn non_cutting_nodes(&self) -> impl Iterator<Item = usize> + '_ {
+		self.nodes().filter(move |&id| {
+			let deg = self.degree(id).unwrap();
+			if deg == 0 {
+				return true;
+			}
+			let mut seen = vec![false; self.size];
+			let mut stack = Vec::new();
+			let mut count = 0;
+			for neighbor in self.neighbors(id) {
+				if !seen[neighbor] {
+					count += 1;
+					stack.push(neighbor);
+					while let Some(node) = stack.pop() {
+						for next in self.neighbors(node) {
+							if next != id && !seen[next] {
+								seen[next] = true;
+								stack.push(next);
+							}
+						}
+					}
+				}
+			}
+			count <= 1
+		})
+	}
+
+	pub fn min_degree(&self) -> Option<usize> {
+		self.nodes().map(|id| self.degree(id).unwrap_or(0)).min()
+	}
+
+	pub fn min_degree_except(&self, except: usize) -> Option<usize> {
+		self.nodes()
+			.filter(|&id| id != except)
+			.map(|id| self.degree(id).unwrap_or(0))
+			.min()
+	}
+
+	pub fn non_cutting_nodes_having_min_degree(&self) -> impl Iterator<Item = usize> + '_ {
+		self.non_cutting_nodes()
+			.filter(move |&id| self.degree(id).unwrap_or(0) == self.min_degree().unwrap_or(0))
+	}
+}
+
+impl Display for Graph {
+	fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+		let mut result = String::new();
+		for id in self.nodes() {
+			result.push_str(&format!("{}({}): (", id, self.get_node_type(id)));
+			for neighbor in self.neighbors(id) {
+				result.push_str(&format!("{} ", neighbor));
+			}
+			result.push_str("), ");
+		}
+		formatter.write_str(&result)
 	}
 }
 
@@ -230,5 +285,75 @@ mod tests {
 		assert!(!g.remove_edge(10, 20));
 		assert!(g.has_node(10));
 		assert_eq!(g.degree(10), Some(0));
+	}
+
+	#[test]
+	fn test_non_cutting_nodes() {
+		let mut g = path_graph();
+		g.add_node(11);
+		g.add_node(12);
+		g.add_edge(11, 12);
+		g.add_node(13);
+		g.add_edge(12, 13);
+		g.add_node(14);
+		g.add_edge(13, 14);
+		g.add_edge(14, 11);
+
+		let mut non_cutting: Vec<_> = g.non_cutting_nodes().collect();
+		non_cutting.sort_unstable();
+		assert_eq!(non_cutting, vec![10, 11, 12, 13, 14, 30, 70, 90, 99]);
+
+		let mut non_cutting: Vec<_> = g.non_cutting_nodes_having_min_degree().collect();
+		non_cutting.sort_unstable();
+		assert_eq!(non_cutting, vec![99]);
+		g.remove_node(99);
+		let mut non_cutting: Vec<_> = g.non_cutting_nodes_having_min_degree().collect();
+		non_cutting.sort_unstable();
+		assert_eq!(non_cutting, vec![10, 30, 70, 90]);
+
+		g.remove_node(11);
+
+		let mut non_cutting: Vec<_> = g.non_cutting_nodes().collect();
+		non_cutting.sort_unstable();
+		assert_eq!(non_cutting, vec![10, 12, 14, 30, 70, 90]);
+	}
+
+	#[test]
+	fn test_degrees() {
+		let mult = 70;
+		let mut g = Graph::new(10 + mult);
+		g.add_node(1 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(0));
+		g.add_node(2 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(0));
+		g.add_edge(1 + mult, 2 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(1));
+		g.add_node(3 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(0));
+		g.add_edge(2 + mult, 3 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(1 + mult) == Some(1));
+		g.add_node(4 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(0));
+		g.add_edge(3 + mult, 4 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(1 + mult) == Some(1));
+		g.add_edge(2 + mult, 4 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(1 + mult) == Some(2));
+		assert!(g.min_degree_except(2 + mult) == Some(1));
+		g.add_edge(1 + mult, 4 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(2));
+		assert!(g.min_degree_except(4 + mult) == Some(2));
+		assert!(g.min_degree_except(2 + mult) == Some(2));
+		g.add_edge(1 + mult, 3 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(3));
+		assert!(g.min_degree_except(4 + mult) == Some(3));
+		assert!(g.min_degree_except(2 + mult) == Some(3));
+		g.remove_node(1 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(2));
+		g.remove_edge(2 + mult, 3 + mult);
+		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(2 + mult) == Some(1));
 	}
 }
