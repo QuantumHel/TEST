@@ -145,16 +145,33 @@ pub fn check_second_hop(
 	count
 }
 
+pub fn construct_tree_all_edges(
+	device: &Connectivity<TwoQubitEdge>,
+	print_size: Option<(usize, usize)>,
+) -> Graph {
+	let mut tree = Graph::new(device.node_count(), print_size);
+	for node in 0..device.node_count() {
+		tree.add_node(node);
+	}
+	for node in 0..device.node_count() {
+		for nb in device.neighbors(node) {
+			tree.add_edge(node, nb);
+		}
+	}
+	tree
+}
+
 /// Constructs the physical-qubit tree and its initial logical-to-physical map.
 pub fn construct_tree(
 	device: &Connectivity<TwoQubitEdge>,
 	num_logical_qubits: usize,
+	print_size: Option<(usize, usize)>,
 ) -> Result<(usize, Graph), String> {
 	if num_logical_qubits == 0 || num_logical_qubits > device.node_count() {
 		return Err("invalid logical-qubit count".to_string());
 	}
 	let num_physical_qubits = device.node_count();
-	let mut tree = Graph::new(num_physical_qubits);
+	let mut tree = Graph::new(num_physical_qubits, print_size);
 	let mut mapped_physical_qubits = HashSet::new();
 
 	let root = center_physical_qubit(device)?;
@@ -331,39 +348,6 @@ fn all_pairs_shortest_paths(device: &Connectivity<TwoQubitEdge>) -> Vec<Vec<usiz
 		}
 	}
 	distances
-}
-
-pub fn print_grid(size: (usize, usize), tree: &Graph) {
-	for i in 0..size.0 {
-		for j in 0..size.1 {
-			let node = i * size.1 + j;
-			if tree.has_node(node) {
-				print!("x")
-			} else {
-				print!("\u{00B7}") // middle dot
-			}
-			if j < size.1 - 1 {
-				if tree.has_edge(node, node + 1) {
-					print!("-")
-				} else {
-					print!(" ")
-				}
-			}
-		}
-		println!();
-		if i < size.0 - 1 {
-			for j in 0..size.1 {
-				let node = i * size.1 + j;
-				if tree.has_edge(node, node + size.1) {
-					print!("| ")
-				} else {
-					print!("  ")
-				}
-			}
-			println!()
-		}
-	}
-	println!()
 }
 
 pub fn implement_mapping(tableau: &CliffordTableau, mapping: &[usize]) -> CliffordTableau {

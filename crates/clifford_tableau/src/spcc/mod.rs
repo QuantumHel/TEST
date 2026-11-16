@@ -4,7 +4,8 @@ pub mod graph;
 pub mod mapping;
 pub mod print_tableau;
 pub mod resolve_in_pairs;
-pub mod synthesis;
+pub mod synthesis_full;
+pub mod synthesis_tree;
 
 use core::{
 	Compiler,
@@ -14,7 +15,8 @@ use core::{
 
 use self::gateset::CNotHSV;
 use self::mapping::construct_tree;
-use self::synthesis::tableau_to_circuit_pairs;
+use self::synthesis_full::tableau_to_circuit_full;
+//use self::synthesis_tree::tableau_to_circuit_pairs;
 use crate::CliffordTableau;
 use circuit::Circuit;
 
@@ -30,10 +32,10 @@ impl Compiler<CliffordTableau, (Circuit<CNotHSV>, QubitMap), Connectivity<TwoQub
 		const OUTPUT_MAPPING: bool = true;
 		let tableau = ct_fast::CTFast::from_clifford_tableau(&tableau);
 		let num_logical_qubits = tableau.size();
-		let (_root_node, device_tree) =
-			construct_tree(device, num_logical_qubits).expect("failed to construct SPCC tree");
+		let (_root_node, device_tree) = construct_tree(device, num_logical_qubits, None)
+			.expect("failed to construct SPCC tree");
 		let (circ, output_mapping) =
-			tableau_to_circuit_pairs(&tableau, &device_tree, ALLOW_PERMUTATION, OUTPUT_MAPPING);
+			tableau_to_circuit_full(&tableau, &device_tree, ALLOW_PERMUTATION, OUTPUT_MAPPING);
 		(circ, output_mapping)
 	}
 }

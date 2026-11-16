@@ -378,6 +378,47 @@ pub fn min_edge_options(tree: &Graph, target_qubit: usize) -> Vec<GateSequence> 
 	options
 }
 
+pub fn min_edge_options_full(tree: &Graph, target_qubit: usize) -> GateSequence {
+	let leaf_qubits = tree.non_cutting_nodes().filter(|&id| id != target_qubit);
+
+	let mut minimum_priority = -1;
+	let mut min_gates: Option<GateSequence> = None;
+
+	for q1 in leaf_qubits {
+		let q2s = tree.neighbors(q1);
+		for q2 in q2s {
+			let (gates, priority, _) = resolve_2qubits((q1, q2), tree);
+			if priority != -1 {
+				if minimum_priority == -1 || priority < minimum_priority {
+					min_gates = Some(gates);
+					minimum_priority = priority;
+				}
+			} else {
+				let q3s = tree.neighbors(q2).filter(|&q3| q3 != q1);
+				for q3 in q3s {
+					let (gates, priority, _) = resolve_3qubits((q1, q2, q3), tree);
+					if minimum_priority == -1 || priority < minimum_priority {
+						min_gates = Some(gates);
+						minimum_priority = priority;
+					}
+				}
+			}
+		}
+	}
+	if let Some(gates) = min_gates {
+		gates
+	} else {
+		println!(
+			"Leaf qubits: {:?}",
+			tree.non_cutting_nodes_having_min_degree()
+				.collect::<Vec<_>>()
+		);
+		println!("Target qubit: {target_qubit}");
+		println!("Tree nodes and degrees: {:?}", tree.to_string());
+		panic!("no edge options found for target qubit {target_qubit}");
+	}
+}
+
 fn add_if_minimum(
 	options: &mut Vec<GateSequence>,
 	minimum_priority: &mut i32,

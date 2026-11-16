@@ -1,14 +1,12 @@
 use std::collections::HashMap;
-use std::collections::VecDeque;
 
 use super::CNotHSV;
 use super::ct_fast::CTFast;
 use super::resolve_in_pairs::GateMapKey;
 use crate::spcc::graph::Graph;
 use crate::spcc::resolve_in_pairs::GateMap;
-use crate::spcc::resolve_in_pairs::GateStep;
 use crate::spcc::resolve_in_pairs::construct_gate_map;
-use crate::spcc::resolve_in_pairs::min_edge_options;
+use crate::spcc::resolve_in_pairs::min_edge_options_full;
 use circuit::{
 	Circuit,
 	gates::{CNot, H, S, V},
@@ -16,7 +14,7 @@ use circuit::{
 use core::qubit_map::PartialQubitMap;
 use core::qubit_map::QubitMap;
 
-pub fn tableau_to_circuit_pairs(
+pub fn tableau_to_circuit_full(
 	tableau: &CTFast,
 	device_tree: &Graph,
 	allow_permutation: bool,
@@ -65,14 +63,14 @@ pub fn tableau_to_circuit_pairs(
 		}
 	}
 	let gate_map = construct_gate_map();
-	//	for (key, value) in &gate_map {
-	//		println!("Key: {:?}, Value: {:?}", key, value);
-	//	}
 	let mut tableau_tree = construct_tableau_tree(&removed_rows, device_tree);
 	let apsp = all_pairs_shortest_paths(&tableau_tree, num_qubits);
+
 	// Main loop of the algorithm. We will keep removing gadget pairs until all gadget pairs
 	// are removed and all qubits are mapped.
 	while tableau_tree.node_count() > 1 {
+		// println!("{}", tableau_tree);
+
 		// select which pair to remove and which is target qubit for that row
 		let mut gadget_pair_scores: HashMap<usize, usize> = HashMap::new();
 		for (x, removed_row) in removed_rows.iter().enumerate() {
@@ -82,39 +80,54 @@ pub fn tableau_to_circuit_pairs(
 			}
 		}
 		let mut min_node_score: i64 = i64::MAX;
+		//let mut min_degree: usize = usize::MAX;
 		let mut min_pair = usize::MAX;
 		let mut min_column = usize::MAX;
 		let mut min_gadget_score = usize::MAX;
-		for column in 0..num_qubits {
-			if !removed_qubits[column] && tableau_tree.degree(column) == Some(1) {
-				let mut node_score: i64 = 0;
-				for j in 0..num_qubits {
-					if !removed_qubits[j] {
-						node_score -= apsp[column][j] as i64;
-					}
+		for column in tableau_tree.non_cutting_nodes() {
+			let mut node_score: i64 = 0;
+			//let degree = tableau_tree.degree(column).unwrap();
+			//if degree > min_degree {
+			// Tällä ei vaikutusta cnot tai time jos node_score -= apsp....
+			//	continue;
+			//}
+			for j in 0..num_qubits {
+				if !removed_qubits[j] {
+					node_score -= apsp[column][j] as i64; // - 3085 + 3515
 				}
-				if !allow_permutation {
+			}
+			//			node_score = (column as i64); // - 3114 + 3136
+			//node_score = 0; // 3136
+			// node_score = rand::random::<i64>() % 1000; // 3564, 3100 jos degree päällä
+			// node_score = (apsp[column][num_qubits / 2] as i64); // + 3228 -3107
+			//node_score = (tableau_tree.degree(column).unwrap() as i64); // tämä - 3666 + 3110
+			if !allow_permutation {
+				if min_column == usize::MAX
+					|| node_score < min_node_score
+					|| node_score == min_node_score
+				{
 					min_column = column;
 					min_node_score = node_score;
 					min_gadget_score = 0;
 					min_pair = column;
-					continue;
 				}
-				for pair in 0..num_qubits {
-					if !removed_rows[pair]
-						&& (tableau.get_x_row_col(pair, column) != 0
-							|| tableau.get_z_row_col(pair, column) != 0)
+				continue;
+			}
+			for pair in 0..num_qubits {
+				if !removed_rows[pair]
+					&& (tableau.get_x_row_col(pair, column) != 0 // 3296 jos tätä ei ole
+						|| tableau.get_z_row_col(pair, column) != 0)
+				{
+					let gadget_score = gadget_pair_scores[&pair];
+					if min_column == usize::MAX
+						|| gadget_score < min_gadget_score
+						|| (gadget_score == min_gadget_score && node_score < min_node_score)
 					{
-						let gadget_score = gadget_pair_scores[&pair];
-						if min_column == usize::MAX
-							|| gadget_score < min_gadget_score
-							|| (gadget_score == min_gadget_score && node_score < min_node_score)
-						{
-							min_column = column;
-							min_node_score = node_score;
-							min_gadget_score = gadget_score;
-							min_pair = pair;
-						}
+						min_column = column;
+						min_node_score = node_score;
+						min_gadget_score = gadget_score;
+						min_pair = pair;
+						//min_degree = degree;
 					}
 				}
 			}
@@ -206,19 +219,26 @@ pub fn tableau_to_circuit_pairs(
 	(qc_out, mapping)
 }
 
+// Floy warshall algorithm for all pairs shortest paths
 fn all_pairs_shortest_paths(tableau_tree: &Graph, num_qubits: usize) -> Vec<Vec<usize>> {
-	let mut distances = vec![vec![usize::MAX; num_qubits]; num_qubits];
+	let mut distances: Vec<Vec<usize>> = vec![vec![usize::MAX; num_qubits]; num_qubits];
 
-	for (start, distance_row) in distances.iter_mut().enumerate() {
-		let mut queue = VecDeque::new();
-		distance_row[start] = 0;
-		queue.push_back(start);
+	for i in 0..num_qubits {
+		for n in tableau_tree.neighbors(i) {
+			if i != n {
+				distances[i][n] = 1;
+				distances[n][i] = 1;
+			} else {
+				distances[i][n] = 0;
+			}
+		}
+	}
 
-		while let Some(node) = queue.pop_front() {
-			for neighbor in tableau_tree.neighbors(node) {
-				if distance_row[neighbor] == usize::MAX {
-					distance_row[neighbor] = distance_row[node] + 1;
-					queue.push_back(neighbor);
+	for k in 0..num_qubits {
+		for i in 0..num_qubits {
+			for j in 0..num_qubits {
+				if distances[i][k] != usize::MAX && distances[k][j] != usize::MAX {
+					distances[i][j] = distances[i][j].min(distances[i][k] + distances[k][j]);
 				}
 			}
 		}
@@ -258,19 +278,14 @@ fn create_gadget_tree_graph(
 
 	let mut quit = false;
 	while !quit {
-		let leafs: Vec<usize> = gadget_tree
-			.nodes()
-			.filter(|&q| {
-				gadget_tree.degree(q) == Some(1)
-					&& q != target_qubit
-					&& gadget_tree.get_node_type(q) == 'I'
-			})
-			.collect();
-		quit = true;
-		for q in leafs {
+		let nodes = gadget_tree
+			.non_cutting_nodes()
+			.find(|&id| id != target_qubit && gadget_tree.get_node_type(id) == 'I');
+		if let Some(node) = nodes {
+			gadget_tree.remove_node(node);
 			nr_i -= 1;
-			quit = false;
-			gadget_tree.remove_node(q);
+		} else {
+			quit = true;
 		}
 	}
 	(gadget_tree, nr_i)
@@ -293,18 +308,9 @@ fn reduce_row(
 			// Only target_qubit left, we are done
 			break;
 		}
-		//		for node in gadget_tree.nodes() {
-		//			if node != target_qubit
-		//				&& gadget_tree.degree(node) == Some(1)
-		//				&& gadget_tree.get_node_type(node) == Some('I')
-		//			{
-		//				panic!("ERROR: leaf node is I");
-		//			}
-		//		}
 
 		// Find a leaf and abstract gate sequences to reduce leaf
-		let abs_gates_options: Vec<Vec<GateStep>> = min_edge_options(&gadget_tree, target_qubit);
-		let abs_gates = &abs_gates_options[0]; // There are several leafs where to proceed, we choose trivially the first one.
+		let abs_gates = min_edge_options_full(&gadget_tree, target_qubit);
 
 		for gate_step in abs_gates {
 			let current_paulis = [
@@ -438,9 +444,9 @@ mod tests {
 	use rand_chacha::ChaCha8Rng;
 
 	use super::CNotHSV;
-	use super::tableau_to_circuit_pairs;
+	use super::tableau_to_circuit_full;
 	use core::connectivity::TwoQubitEdge;
-	use mapping::construct_tree;
+	use mapping::construct_tree_all_edges;
 	use std::time;
 
 	#[test]
@@ -457,11 +463,9 @@ mod tests {
 				tableau.merge_clifford(gate);
 			}
 
-			let num_logical_qubits = tableau.size();
-			let (_root_node, device_tree) = construct_tree(&connectivity, num_logical_qubits)
-				.expect("failed to construct SPCC tree");
+			let device_tree = construct_tree_all_edges(&connectivity, None);
 			let (circ, output_mapping) =
-				tableau_to_circuit_pairs(&tableau, &device_tree, true, true);
+				tableau_to_circuit_full(&tableau, &device_tree, true, true);
 			let mut result_tableau = CTFast::new(QUBITS); // Identity
 			for gate in circ.iter() {
 				if let CNotHSV::CNot(cnot) = gate
@@ -498,11 +502,53 @@ mod tests {
 				tableau.merge_clifford(gate);
 			}
 
-			let num_logical_qubits = tableau.size();
-			let (_root_node, device_tree) = construct_tree(&connectivity, num_logical_qubits)
-				.expect("failed to construct SPCC tree");
+			let device_tree = construct_tree_all_edges(&connectivity, None);
 			let (circ, input_mapping) =
-				tableau_to_circuit_pairs(&tableau, &device_tree, true, false);
+				tableau_to_circuit_full(&tableau, &device_tree, true, false);
+			let mut result_tableau = CTFast::new(QUBITS); // Identity
+			let permutation_tableau = CTFast::permutation_tableau(QUBITS, &input_mapping);
+			result_tableau = result_tableau.then(&permutation_tableau);
+			for gate in circ.iter() {
+				if let CNotHSV::CNot(cnot) = gate
+					&& !connectivity
+						.neighbors(*cnot.target())
+						.contains(cnot.control())
+				{
+					panic!(
+						"Got CNot({}, {}) that is not supported by connectivity",
+						cnot.control(),
+						cnot.target()
+					);
+				}
+				result_tableau.merge_clifford(gate);
+			}
+			//			result_tableau.merge_qubit_map(&input_mapping);
+			assert_eq!(result_tableau, tableau);
+		}
+	}
+
+	#[test]
+	fn no_permutation_test() {
+		const ROUNDS: usize = 10;
+		const GATES: usize = 10000;
+		const QUBITS: usize = 16;
+		let connectivity = TwoQubitEdge::square_lattice(QUBITS);
+		let mut rng = ChaCha8Rng::seed_from_u64(67);
+		for _round in 0..ROUNDS {
+			let input: Circuit<CNotHSV> = Circuit::random(GATES, QUBITS, &mut rng);
+			let mut tableau = CTFast::new(QUBITS);
+			for gate in input.iter() {
+				tableau.merge_clifford(gate);
+			}
+
+			let device_tree = construct_tree_all_edges(&connectivity, None);
+			let (circ, input_mapping) =
+				tableau_to_circuit_full(&tableau, &device_tree, false, false);
+
+			for i in 0..QUBITS {
+				assert_eq!(input_mapping.map(i), i);
+			}
+
 			let mut result_tableau = CTFast::new(QUBITS); // Identity
 			let permutation_tableau = CTFast::permutation_tableau(QUBITS, &input_mapping);
 			result_tableau = result_tableau.then(&permutation_tableau);
@@ -527,9 +573,9 @@ mod tests {
 
 	#[test]
 	fn benchmark_test() {
-		const ROUNDS: usize = 100;
+		const ROUNDS: usize = 500;
 		const SIZES: [(usize, usize); 21] = [
-			(2, 2),
+			(8, 8),
 			(2, 3),
 			(3, 3),
 			(3, 4),
@@ -565,12 +611,10 @@ mod tests {
 				for gate in input.iter() {
 					tableau.merge_clifford(gate);
 				}
-				let num_logical_qubits = tableau.size();
-				let (_root_node, device_tree) = construct_tree(&connectivity, num_logical_qubits)
-					.expect("failed to construct SPCC tree");
+				let device_tree = construct_tree_all_edges(&connectivity, Some((rows, cols)));
 				let start = time::Instant::now();
 				let (circ, initial_mapping) =
-					tableau_to_circuit_pairs(&tableau, &device_tree, true, false);
+					tableau_to_circuit_full(&tableau, &device_tree, true, false);
 				let elapsed = start.elapsed();
 				time_sum += elapsed.as_millis() as f64;
 

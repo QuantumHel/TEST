@@ -12,10 +12,11 @@ pub struct Graph {
 	node_count: usize,
 	blocks: usize,
 	size: usize,
+	print_size: Option<(usize, usize)>,
 }
 
 impl Graph {
-	pub fn new(size: usize) -> Self {
+	pub fn new(size: usize, print_size: Option<(usize, usize)>) -> Self {
 		let blocks = size / 64 + 1;
 		Graph {
 			adjacency: vec![vec![0; blocks]; size],
@@ -24,6 +25,7 @@ impl Graph {
 			node_count: 0,
 			blocks,
 			size,
+			print_size,
 		}
 	}
 
@@ -125,7 +127,7 @@ impl Graph {
 	}
 
 	/// Neighbors of `id`, or an empty iterator if the node is absent.
-	pub fn neighbors(&self, id: usize) -> impl Iterator<Item = usize> + '_ {
+	pub fn neighbors2(&self, id: usize) -> impl Iterator<Item = usize> + '_ {
 		self.adjacency[id]
 			.iter()
 			.enumerate()
@@ -143,6 +145,18 @@ impl Graph {
 			})
 	}
 
+	pub fn neighbors(&self, id: usize) -> impl Iterator<Item = usize> + '_ {
+		let mut result = Vec::new();
+		for block in 0..self.blocks {
+			let mut bits = self.adjacency[id][block];
+			while bits != 0 {
+				let offset = bits.trailing_zeros() as usize;
+				bits &= bits - 1;
+				result.push(block * 64 + offset);
+			}
+		}
+		result.into_iter()
+	}
 	// ---- degrees --------------------------------------------------------
 
 	/// Degree of `id`, or `None` if the node does not exist.
@@ -160,7 +174,126 @@ impl Graph {
 		}
 	}
 
+	pub fn non_cutting_nodes2(&self) -> impl Iterator<Item = usize> + '_ {
+		let mut result = Vec::new();
+		let mut stack = Vec::with_capacity(self.size);
+
+		for block in 0..self.blocks {
+			let mut bits1 = self.active[block];
+			while bits1 != 0 {
+				let offset = bits1.trailing_zeros() as usize;
+				bits1 &= bits1 - 1;
+				let id = block * 64 + offset;
+
+				let mut seen = vec![false; self.size];
+				stack.clear();
+				let mut count = 0;
+
+				for block in 0..self.blocks {
+					let mut bits2 = self.adjacency[id][block];
+					while bits2 != 0 {
+						let offset = bits2.trailing_zeros() as usize;
+						bits2 &= bits2 - 1;
+						let neighbor = block * 64 + offset;
+
+						if !seen[neighbor] {
+							count += 1;
+							if count > 1 {
+								break;
+							}
+							stack.push(neighbor);
+							while let Some(node) = stack.pop() {
+								for next in self.neighbors(node) {
+									if next != id && !seen[next] {
+										seen[next] = true;
+										stack.push(next);
+									}
+								}
+							}
+						}
+					}
+					if count > 1 {
+						break;
+					}
+				}
+				if count <= 1 {
+					result.push(id);
+				}
+			}
+		}
+		result.into_iter()
+	}
+
+	/// Returns all nodes that are not articulation points using Tarjan's
+	/// algorithm.
 	pub fn non_cutting_nodes(&self) -> impl Iterator<Item = usize> + '_ {
+		fn visit(
+			graph: &Graph,
+			node: usize,
+			parent: Option<usize>,
+			time: &mut usize,
+			discovery: &mut [usize],
+			low: &mut [usize],
+			articulation: &mut [bool],
+		) {
+			*time += 1;
+			discovery[node] = *time;
+			low[node] = *time;
+			let mut child_count = 0;
+
+			for neighbor in graph.neighbors2(node) {
+				if discovery[neighbor] == 0 {
+					child_count += 1;
+					visit(
+						graph,
+						neighbor,
+						Some(node),
+						time,
+						discovery,
+						low,
+						articulation,
+					);
+					low[node] = low[node].min(low[neighbor]);
+
+					if parent.is_some() && low[neighbor] >= discovery[node] {
+						articulation[node] = true;
+					}
+				} else if Some(neighbor) != parent {
+					low[node] = low[node].min(discovery[neighbor]);
+				}
+			}
+
+			if parent.is_none() && child_count > 1 {
+				articulation[node] = true;
+			}
+		}
+
+		let mut discovery = vec![0; self.size];
+		let mut low = vec![0; self.size];
+		let mut articulation = vec![false; self.size];
+		let mut time = 0;
+
+		for node in self.nodes() {
+			if discovery[node] == 0 {
+				visit(
+					self,
+					node,
+					None,
+					&mut time,
+					&mut discovery,
+					&mut low,
+					&mut articulation,
+				);
+			}
+		}
+
+		self.nodes()
+			.filter(move |&node| !articulation[node])
+			.collect::<Vec<_>>()
+			.into_iter()
+	}
+
+	pub fn non_cutting_nodes1(&self) -> impl Iterator<Item = usize> + '_ {
 		self.nodes().filter(move |&id| {
 			let deg = self.degree(id).unwrap();
 			if deg == 0 {
@@ -206,15 +339,50 @@ impl Graph {
 
 impl Display for Graph {
 	fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-		let mut result = String::new();
-		for id in self.nodes() {
-			result.push_str(&format!("{}({}): (", id, self.get_node_type(id)));
-			for neighbor in self.neighbors(id) {
-				result.push_str(&format!("{} ", neighbor));
+		if let Some(size) = self.print_size {
+			let mut result = String::new();
+			for i in 0..size.0 {
+				for j in 0..size.1 {
+					let node = i * size.1 + j;
+					if self.has_node(node) {
+						result.push('x')
+					} else {
+						result.push('\u{00B7}'); // middle dot
+					}
+					if j < size.1 - 1 {
+						if self.has_edge(node, node + 1) {
+							result.push('-')
+						} else {
+							result.push(' ')
+						}
+					}
+				}
+				result.push('\n');
+				if i < size.0 - 1 {
+					for j in 0..size.1 {
+						let node = i * size.1 + j;
+						if self.has_edge(node, node + size.1) {
+							result.push('|')
+						} else {
+							result.push(' ')
+						}
+						result.push(' ');
+					}
+					result.push('\n');
+				}
 			}
-			result.push_str("), ");
+			formatter.write_str(&result)
+		} else {
+			let mut result = String::new();
+			for id in self.nodes() {
+				result.push_str(&format!("{}({}): (", id, self.get_node_type(id)));
+				for neighbor in self.neighbors(id) {
+					result.push_str(&format!("{} ", neighbor));
+				}
+				result.push_str("), ");
+			}
+			formatter.write_str(&result)
 		}
-		formatter.write_str(&result)
 	}
 }
 
@@ -224,7 +392,7 @@ mod tests {
 
 	/// 10 — 20 — 30, plus isolated 99.
 	fn path_graph() -> Graph {
-		let mut g = Graph::new(100);
+		let mut g = Graph::new(100, None);
 		for id in [10, 20, 30, 70, 80, 90, 99] {
 			g.add_node(id);
 		}
@@ -237,7 +405,7 @@ mod tests {
 
 	#[test]
 	fn add_node_is_idempotent() {
-		let mut g = Graph::new(8);
+		let mut g = Graph::new(8, None);
 		assert!(g.add_node(7));
 		assert!(!g.add_node(7));
 		assert_eq!(g.node_count(), 1);
@@ -245,7 +413,7 @@ mod tests {
 
 	#[test]
 	fn add_edge_rejects_missing_nodes_and_self_loops() {
-		let mut g = Graph::new(3);
+		let mut g = Graph::new(3, None);
 		g.add_node(1);
 		assert!(!g.add_edge(1, 2), "node 2 does not exist");
 		assert!(!g.add_edge(1, 1), "self-loops are rejected");
@@ -257,7 +425,6 @@ mod tests {
 	#[test]
 	fn removing_a_node_drops_its_edges() {
 		let mut g = path_graph();
-
 		assert!(g.remove_node(20));
 		assert!(!g.has_node(20));
 		assert_eq!(g.degree(10), Some(0));
@@ -316,44 +483,48 @@ mod tests {
 		let mut non_cutting: Vec<_> = g.non_cutting_nodes().collect();
 		non_cutting.sort_unstable();
 		assert_eq!(non_cutting, vec![10, 12, 14, 30, 70, 90]);
+
+		let mut non_cutting_tarjan: Vec<_> = g.non_cutting_nodes().collect();
+		non_cutting_tarjan.sort_unstable();
+		assert_eq!(non_cutting_tarjan, non_cutting);
 	}
 
 	#[test]
 	fn test_degrees() {
 		let mult = 70;
-		let mut g = Graph::new(10 + mult);
+		let mut g = Graph::new(20 + mult, None);
 		g.add_node(1 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(0));
+		assert!(g.min_degree_except(10 + mult) == Some(0));
 		g.add_node(2 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(0));
+		assert!(g.min_degree_except(10 + mult) == Some(0));
 		g.add_edge(1 + mult, 2 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(10 + mult) == Some(1));
 		g.add_node(3 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(0));
+		assert!(g.min_degree_except(10 + mult) == Some(0));
 		g.add_edge(2 + mult, 3 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(10 + mult) == Some(1));
 		assert!(g.min_degree_except(1 + mult) == Some(1));
 		g.add_node(4 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(0));
+		assert!(g.min_degree_except(10 + mult) == Some(0));
 		g.add_edge(3 + mult, 4 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(10 + mult) == Some(1));
 		assert!(g.min_degree_except(1 + mult) == Some(1));
 		g.add_edge(2 + mult, 4 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(10 + mult) == Some(1));
 		assert!(g.min_degree_except(1 + mult) == Some(2));
 		assert!(g.min_degree_except(2 + mult) == Some(1));
 		g.add_edge(1 + mult, 4 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(2));
+		assert!(g.min_degree_except(10 + mult) == Some(2));
 		assert!(g.min_degree_except(4 + mult) == Some(2));
 		assert!(g.min_degree_except(2 + mult) == Some(2));
 		g.add_edge(1 + mult, 3 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(3));
+		assert!(g.min_degree_except(10 + mult) == Some(3));
 		assert!(g.min_degree_except(4 + mult) == Some(3));
 		assert!(g.min_degree_except(2 + mult) == Some(3));
 		g.remove_node(1 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(2));
+		assert!(g.min_degree_except(10 + mult) == Some(2));
 		g.remove_edge(2 + mult, 3 + mult);
-		assert!(g.min_degree_except(0 + mult) == Some(1));
+		assert!(g.min_degree_except(10 + mult) == Some(1));
 		assert!(g.min_degree_except(2 + mult) == Some(1));
 	}
 }
