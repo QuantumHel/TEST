@@ -170,6 +170,23 @@ impl Bits {
 		}
 	}
 
+	pub fn flip(&mut self, index: usize) {
+		let group_index = index / BITS_PER;
+		let bit_index = index % BITS_PER;
+
+		let group = match self.bits.get_mut(group_index) {
+			Some(group) => group,
+			_ => {
+				let n_new = (group_index + 1) - self.bits.len();
+				self.bits.append(&mut vec![0; n_new]);
+
+				self.bits.get_mut(group_index).unwrap()
+			}
+		};
+
+		*group ^= TWO.pow(bit_index as u32);
+	}
+
 	pub fn get(&self, index: usize) -> bool {
 		let group_index = index / BITS_PER;
 		let bit_index = index % BITS_PER;
