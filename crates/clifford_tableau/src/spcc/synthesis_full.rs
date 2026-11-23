@@ -104,7 +104,8 @@ pub fn tableau_to_circuit_full(
 			if !allow_permutation {
 				if min_column == usize::MAX
 					|| node_score < min_node_score
-					|| node_score == min_node_score
+					|| (node_score == min_node_score
+						&& min_gadget_score > gadget_pair_scores[&column])
 				{
 					min_column = column;
 					min_node_score = node_score;
@@ -575,7 +576,7 @@ mod tests {
 	fn benchmark_test() {
 		const ROUNDS: usize = 500;
 		const SIZES: [(usize, usize); 21] = [
-			(8, 8),
+			(2, 2),
 			(2, 3),
 			(3, 3),
 			(3, 4),
@@ -614,7 +615,7 @@ mod tests {
 				let device_tree = construct_tree_all_edges(&connectivity, Some((rows, cols)));
 				let start = time::Instant::now();
 				let (circ, initial_mapping) =
-					tableau_to_circuit_full(&tableau, &device_tree, true, false);
+					tableau_to_circuit_full(&tableau, &device_tree, false, false);
 				let elapsed = start.elapsed();
 				time_sum += elapsed.as_millis() as f64;
 
