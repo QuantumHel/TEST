@@ -438,7 +438,7 @@ mod tests {
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
 	use simulator::{Simulatable, Statevector};
-	use std::num::NonZeroU32;
+	use std::num::NonZero;
 
 	use crate::{
 		choose::{First, OriginalPermRowColChoice},
@@ -536,7 +536,7 @@ mod tests {
 				max_queue_size: None,
 				path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
 			},
-			PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()),
+			PatelMarkovHayes::new(NonZero::new(2).unwrap()),
 		);
 		let res = tpar.compile(circuit, &());
 		dbg!(res);
@@ -550,7 +550,7 @@ mod tests {
 					max_queue_size: None,
 					path_termination_criteria: GrayStarTerminationCriteria::QubitRemoved(1),
 				},
-				PatelMarkovHayes::new(NonZeroU32::new(2).unwrap()),
+				PatelMarkovHayes::new(NonZero::new(2).unwrap()),
 			);
 
 			let circuit: Circuit<CNotRzXYH> = Circuit::random(gates, qubits, &mut rng);

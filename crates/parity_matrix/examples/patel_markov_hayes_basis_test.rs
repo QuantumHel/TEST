@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+use std::num::NonZero;
 
 use circuit::{RandomGate, gates::CNot};
 use core::Compiler;
@@ -10,14 +10,14 @@ const TEST_COUNT: usize = 100;
 const QUBIT_COUNT: usize = 100;
 
 fn main() {
-	let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
+	let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as usize;
 
 	for cnot_count in 1..=40 {
 		let cnot_count = cnot_count * 10;
 		let mut bonus = 0;
 		let mut bonus_percentage = 0.;
 
-		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(m.max(1)).unwrap());
+		let cnot_synth = PatelMarkovHayes::new(NonZero::new(m.max(1)).unwrap());
 		let mut rng = ChaCha8Rng::seed_from_u64(2);
 
 		for _ in 0..TEST_COUNT {

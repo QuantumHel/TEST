@@ -4,13 +4,26 @@ use core::Compiler;
 use crate::ParityMatrix;
 use std::{num::NonZero, ops::Range};
 
+enum MSource {
+	Constant(NonZero<usize>),
+	Equation(Box<dyn Fn(usize) -> NonZero<usize>>),
+}
+
 /// # Patel Markov Hayes
 ///
 /// This is an implementation of the algorithm in https://arxiv.org/abs/quant-ph/0302002
 pub struct PatelMarkovHayes {
 	/// During the algorithm the matrix will be split into parts with no more
 	/// than m columns.
-	pub m: u32,
+	m: MSource,
+}
+
+impl Default for PatelMarkovHayes {
+	fn default() -> Self {
+		Self::new_with_equation(|n| {
+			NonZero::new(((n as f64).log2() / 2.).round().max(1.) as usize).unwrap()
+		})
+	}
 }
 
 impl Compiler<ParityMatrix, Circuit<CNot>> for PatelMarkovHayes {
@@ -32,23 +45,40 @@ impl Compiler<ParityMatrix, Circuit<CNot>> for PatelMarkovHayes {
 }
 
 impl PatelMarkovHayes {
-	pub fn new(m: NonZero<u32>) -> Self {
-		Self { m: m.into() }
+	/// During the algorithm the matrix will be split into parts with no more
+	/// than m columns.
+	pub fn new(m: NonZero<usize>) -> Self {
+		Self {
+			m: MSource::Constant(m),
+		}
+	}
+
+	/// During the algorithm the matrix will be split into parts with no more
+	/// than m columns.
+	pub fn new_with_equation<F: Fn(usize) -> NonZero<usize> + 'static>(m_equation: F) -> Self {
+		Self {
+			m: MSource::Equation(Box::new(m_equation)),
+		}
 	}
 
 	fn lwr_cnot_synth(&self, matrix: &mut ParityMatrix) -> Vec<CNot> {
 		let n = matrix.size();
+		let m = match &self.m {
+			MSource::Constant(m) => *m,
+			MSource::Equation(f) => f(n),
+		}
+		.get();
 		let mut circuit = Vec::new();
 
 		// Iterate over column sections
-		for sec in 1..=n.div_ceil(self.m as usize) {
+		for sec in 1..=n.div_ceil(m) {
 			// remove duplicate sub-rows in sec
-			let mut patt = vec![-1; 2_usize.pow(self.m)];
-			for row_ind in ((sec - 1) * self.m as usize)..n {
-				let sub_row_patt = matrix.get_section::<Range<usize>>(
-					row_ind,
-					((sec - 1) * self.m as usize)..(sec * self.m as usize),
-				);
+			// We will likely not have so large values that we fail the m as u32
+			// conversion
+			let mut patt = vec![-1; 2_usize.pow(m as u32)];
+			for row_ind in ((sec - 1) * m)..n {
+				let sub_row_patt =
+					matrix.get_section::<Range<usize>>(row_ind, ((sec - 1) * m)..(sec * m));
 				let sub_row_patt: usize = sub_row_patt.try_into().unwrap();
 
 				// The pseudocode in the paper forgot this, but it is needed.
@@ -66,7 +96,7 @@ impl PatelMarkovHayes {
 
 			// Use gaussian elimination for remaining entries in column section
 			// The commented out "-1" is in the paper, but I think that it is a mistake.
-			for col_ind in ((sec - 1) * self.m as usize)..(sec * self.m as usize/* -1 */) {
+			for col_ind in ((sec - 1) * m)..(sec * m/* -1 */) {
 				// check for 1 on diagonal
 				let mut diag_one = matrix.get(col_ind, col_ind);
 
@@ -93,7 +123,7 @@ mod test {
 	use core::Compiler;
 	use rand::prelude::*;
 	use rand_chacha::ChaCha8Rng;
-	use std::num::NonZeroU32;
+	use std::num::NonZero;
 
 	use super::PatelMarkovHayes;
 	use crate::ParityMatrix;
@@ -128,7 +158,7 @@ mod test {
 			partiy_matrix.insert_cnot(*cnot);
 		}
 
-		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(2).unwrap());
+		let cnot_synth = PatelMarkovHayes::new(NonZero::new(2).unwrap());
 		let output = cnot_synth.compile(partiy_matrix.clone(), &());
 		assert_eq!(answer, output);
 	}
@@ -139,8 +169,8 @@ mod test {
 		const QUBIT_COUNT: usize = 100;
 		const CNOT_COUNT: usize = QUBIT_COUNT * 100;
 
-		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
-		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(m.max(1)).unwrap());
+		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as usize;
+		let cnot_synth = PatelMarkovHayes::new(NonZero::new(m.max(1)).unwrap());
 		let mut rng = ChaCha8Rng::seed_from_u64(2);
 
 		for _ in 0..TEST_COUNT {
@@ -169,8 +199,8 @@ mod test {
 		const QUBIT_COUNT: usize = 100;
 		const CNOT_COUNT: usize = QUBIT_COUNT * 100;
 
-		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as u32;
-		let cnot_synth = PatelMarkovHayes::new(NonZeroU32::new(m.max(1)).unwrap());
+		let m = ((QUBIT_COUNT as f64).log2() / 2.).round() as usize;
+		let cnot_synth = PatelMarkovHayes::new(NonZero::new(m.max(1)).unwrap());
 		let mut rng = ChaCha8Rng::seed_from_u64(2);
 
 		for _ in 0..TEST_COUNT {
