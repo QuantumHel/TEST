@@ -14,7 +14,7 @@ pub use parity_matrix::ParityMatrix;
 // These need to be moved to own crate
 pub use gray_star_synth::{GrayStarSynth, GrayStarTerminationCriteria};
 pub use gray_synth::GraySynth;
-pub use t_par::{CNotRzXYH, TPar};
+pub use t_par::{CNotRzXYH, ParityVisitor, TPar};
 
 pub use self::parity_matrix::Basis;
 

@@ -12,3 +12,4 @@ parity_matrix.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
 openqasm2.workspace = true
+bits.workspace = true
