@@ -9,7 +9,7 @@ members = ["crates/*"]
 [lib]
 
 [workspace.dependencies]
-rand = "0.10.1"
+rand = "0.10.4"
 rand_chacha = "0.10.0"
 bits = { path = "crates/bits", package = "test_bits" }
 circuit = { path = "crates/circuit", package = "test_circuit" }
@@ -19,6 +19,7 @@ simulator = { path = "crates/simulator", package = "test_simulator" }
 pauli = { path = "crates/pauli", package = "test_pauli" }
 openqasm2 = { path = "crates/openqasm2", package = "test_openqasm2" }
 misc = { path = "crates/misc", package = "test_misc" }
+parity_matrix = { path = "crates/parity_matrix", package = "test_parity_matrix" }
 
 [dependencies]
 test_bits = { path = "crates/bits" }

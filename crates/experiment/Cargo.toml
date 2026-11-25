@@ -1,0 +1,14 @@
+[package]
+name = "test_experiment"
+version = "0.0.1"
+edition = "2024"
+
+
+[dependencies]
+ureq = "=3.5.2"
+core.workspace = true
+circuit.workspace = true
+parity_matrix.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+openqasm2.workspace = true
